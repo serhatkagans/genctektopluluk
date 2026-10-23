@@ -1,8 +1,22 @@
 import {
   type KayitGirdisi,
   kayitGirdisiniCoz,
+  OKUL_LISTEDE_YOK,
+  okulTuruUyarMi,
   tcKimlikNoGecerliMi,
 } from "@/lib/kayit/kurallar";
+
+describe("okul türü uyumu", () => {
+  test("aynı tür uyar, farklı tür uymaz", () => {
+    expect(okulTuruUyarMi("Fen Lisesi", "Fen Lisesi")).toBe(true);
+    expect(okulTuruUyarMi("Fen Lisesi", "Anadolu Lisesi")).toBe(false);
+  });
+
+  test("Diğer yalnızca standart listede olmayan türleri karşılar", () => {
+    expect(okulTuruUyarMi("Diğer", "Askerî Lise")).toBe(true);
+    expect(okulTuruUyarMi("Diğer", "Anadolu Lisesi")).toBe(false);
+  });
+});
 
 /**
  * Kayıtla giriş kuralları (17 Eylül 2026).
@@ -24,6 +38,10 @@ function girdi(degisiklik: Partial<KayitGirdisi> = {}): KayitGirdisi {
     cinsiyet: "K",
     ilKodu: "34",
     kurumKodu: "750001",
+    beyanOkulAdi: "",
+    okulTuru: "Anadolu Lisesi",
+    eposta: "Elif.Yilmaz@ornek.com",
+    telefon: "0532 123 45 67",
     sinifSeviyesi: "11",
     sube: "a",
     brans: "",
@@ -84,8 +102,53 @@ describe("kayıt girdisi", () => {
     expect(karar.kayit.brans).toBe("Bilişim Teknolojileri");
   });
 
+  test("okul türü ve iletişim bilgisi kayda geçer", () => {
+    const karar = kayitGirdisiniCoz(girdi(), SIMDI);
+    expect(karar.olurMu).toBe(true);
+    if (!karar.olurMu) return;
+    expect(karar.kayit.okulTuru).toBe("Anadolu Lisesi");
+    expect(karar.kayit.eposta).toBe("elif.yilmaz@ornek.com");
+    expect(karar.kayit.telefon).toBe("0532 123 45 67");
+    expect(karar.kayit.beyanOkulAdi).toBeNull();
+  });
+
+  test("okulu listede olmayan öğrenci adını yazarak kaydolur", () => {
+    const karar = kayitGirdisiniCoz(
+      girdi({
+        kurumKodu: OKUL_LISTEDE_YOK,
+        beyanOkulAdi: "  Kadıköy   Deneme Lisesi ",
+        okulTuru: "Diğer",
+      }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (!karar.olurMu) return;
+    expect(karar.kayit.kurumKodu).toBeNull();
+    expect(karar.kayit.beyanOkulAdi).toBe("Kadıköy Deneme Lisesi");
+    expect(karar.kayit.okulTuru).toBe("Diğer");
+  });
+
+  test("öğretmenden okul türü istenmez", () => {
+    const karar = kayitGirdisiniCoz(
+      girdi({ tip: "OGRETMEN", brans: "Fizik", okulTuru: "" }),
+      SIMDI,
+    );
+    expect(karar.olurMu && karar.kayit.okulTuru).toBeNull();
+  });
+
   test.each<[string, Partial<KayitGirdisi>]>([
     ["tip seçilmemiş", { tip: "PERSONEL" }],
+    ["öğrencide okul türü yok", { okulTuru: "" }],
+    ["öğrencide okul türü listede değil", { okulTuru: "Ortaokul" }],
+    [
+      "listede olmayan okulun adı yazılmamış",
+      { kurumKodu: OKUL_LISTEDE_YOK, beyanOkulAdi: "  " },
+    ],
+    ["e-posta yok", { eposta: "" }],
+    ["e-posta biçimsiz", { eposta: "elif@ornek" }],
+    ["telefon yok", { telefon: "" }],
+    ["telefon çok kısa", { telefon: "12345" }],
+    ["telefon harf içeriyor", { telefon: "0532 abc 45 67" }],
     ["kimlik numarası geçersiz", { tcKimlikNo: "12345678901" }],
     ["ad boş", { ad: "  " }],
     ["cinsiyet seçilmemiş", { cinsiyet: "" }],

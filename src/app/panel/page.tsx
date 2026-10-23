@@ -62,12 +62,28 @@ import { danismanSecimVerisiGetir } from "@/lib/danisman/atama";
 import { calismaGruplariniGetir } from "@/lib/ogrenci/calisma-grubu";
 import { REFERANS_AZAMI_SAYI } from "@/lib/referans/kurallar";
 import {
+  danismanBilgisiEylemi,
   danismanlikEylemi,
   destekGruplariEylemi,
+  genelBilgilerEylemi,
+  ilOkulVerisiGetir,
   profilFotoSilEylemi,
   profilFotoYukleEylemi,
   profilGuncelleEylemi,
 } from "./profil/eylemler";
+import { ILLER } from "../../../prisma/veri/iller";
+import { DanismanBilgisiDuzenleme } from "@/components/DanismanBilgisiDuzenleme";
+import { GenelBilgilerDuzenleme } from "@/components/GenelBilgilerDuzenleme";
+import { OKUL_LISTEDE_YOK } from "@/lib/kayit/kurallar";
+import {
+  genelBilgilerDuzenlenebilirMi,
+  genelBilgilerTipi,
+} from "@/lib/ogrenci/genel-bilgiler";
+import { formOkulTuru } from "@/lib/okul/turler";
+import {
+  EKIPLER_KAPALI_ACIKLAMASI,
+  ekiplerKapaliMi,
+} from "@/lib/ekip/kurallar";
 import {
   referansEkleEylemi,
   referansGuncelleEylemi,
@@ -157,6 +173,8 @@ const DURUM_MESAJLARI: Record<string, string> = {
     "Danışmanlık sonlandırıldı ve öğretmene bilgi verildi. Yeni danışmanınızı istediğiniz zaman seçebilirsiniz.",
   kaydedildi: "Çalışma grubu seçiminiz kaydedildi.",
   "iletisim-kaydedildi": "İletişim bilgileriniz kaydedildi.",
+  "genel-bilgiler-kaydedildi": "Genel bilgileriniz kaydedildi.",
+  "danisman-bilgisi-kaydedildi": "Danışman öğretmen bilgileriniz kaydedildi.",
   "kazanim-eklendi": "Kayıt profiline eklendi.",
   "kazanim-silindi": "Kayıt silindi.",
   "cv-yuklendi": "CV'niz yüklendi.",
@@ -271,7 +289,13 @@ export default async function PanelSayfasi({
         cinsiyet: true,
         sinif: true,
         brans: true,
-        kurum: { select: { ad: true, okulTuru: true } },
+        kurum: { select: { ad: true, okulTuru: true, ilceKodu: true } },
+        // Kayıtta okulunu listede bulamayan kişinin yazdığı ad ve tür.
+        beyanOkulAdi: true,
+        beyanOkulTuru: true,
+        // Öğrencinin "Genel bilgiler" formunun başlangıç değerleri.
+        ilKodu: true,
+        ilceKodu: true,
         il: { select: { ad: true } },
         ilce: { select: { ad: true } },
         /*
@@ -540,6 +564,20 @@ export default async function PanelSayfasi({
   const okulBilgisiVar = profilKaydi.kurumKodu !== null;
 
   /*
+   * ÖĞRENCİNİN "GENEL BİLGİLER" FORMU (23 Ekim 2026). Kişinin ilindeki ilçe ve
+   * okul listeleri ilk açılışta sunucuda hazırlanıyor; il değişirse form
+   * yenisini kendisi istiyor (bkz. GenelBilgilerDuzenleme).
+   */
+  // Öğrenci, öğretmen ve il koordinatörü (23 Ekim 2026); diğerlerinde null.
+  const genelTip = genelBilgilerTipi(kullanici);
+  const genelBilgilerDuzenlenebilir =
+    genelTip !== null && genelBilgilerDuzenlenebilirMi();
+  const genelIlVerisi =
+    genelBilgilerDuzenlenebilir && profilKaydi.ilKodu
+      ? await ilOkulVerisiGetir(profilKaydi.ilKodu)
+      : { ilceler: [], okullar: [] };
+
+  /*
    * Kimlik kartı kapalı dururken başlığın altında görünen üç değer: kişinin
    * sistemdeki görevi, içinde bulunduğu yıl ve bağlı olduğu yer. Adı soyadı
    * ÖZETE GİRMİYOR — sayfanın en üstündeki karşılamada zaten yazıyor ve iki
@@ -547,8 +585,12 @@ export default async function PanelSayfasi({
    */
   const kimlikOzeti = [
     kullaniciRolEtiketi(kullanici),
-    kullanici.egitimOgretimYili,
-    profilKaydi.kurum?.ad ?? profilKaydi.il?.ad ?? null,
+    // Öğrencinin "Genel bilgiler"inde eğitim-öğretim yılı yok (23 Ekim 2026).
+    genelTip ? null : kullanici.egitimOgretimYili,
+    profilKaydi.kurum?.ad ??
+      profilKaydi.beyanOkulAdi ??
+      profilKaydi.il?.ad ??
+      null,
   ].filter(Boolean) as string[];
 
   /*
@@ -844,6 +886,9 @@ export default async function PanelSayfasi({
           Eğitim-öğretim yılı KAYBOLMADI: aşağıdaki "Kimlik bilgileri"
           kartında kendi satırında duruyor — orası zaten kaydın ne dediğini
           okuyan yer. Vitrinde tuttuğu yer ise kişinin adının üstüydü.
+          ÖĞRENCİDE ARTIK GÖSTERİLMİYOR (23 Ekim 2026 · istek: "eğitim öğretim
+          yılı ve kurum kodu kalkacak"): öğrencinin kartı "Genel bilgiler"e
+          döndü ve yıl o listede yok. Değer kayıtta duruyor.
 
           Başlık artık ad ve soyad: "Hoş geldiniz" her açılışta aynı şeyi
           söyleyen bir dolgu cümlesiydi ve kişinin soyadını dışarıda
@@ -1071,10 +1116,10 @@ export default async function PanelSayfasi({
               Okul satırı yalnızca okul kaydı olanda: dış kullanıcının (mezun,
               paydaş) okulu yoktur ve boş satır eksik veri gibi görünürdü.
             */}
-            {okulBilgisiVar && (
+            {(okulBilgisiVar || profilKaydi.beyanOkulAdi) && (
               <p className="mt-1 text-sm text-vitrin-metin-yumusak">
                 {[
-                  profilKaydi.kurum?.ad,
+                  profilKaydi.kurum?.ad ?? profilKaydi.beyanOkulAdi,
                   profilKaydi.ilce?.ad,
                   profilKaydi.il?.ad,
                 ]
@@ -1469,12 +1514,16 @@ export default async function PanelSayfasi({
           kullanıcıya boş bir kart göstermek, ondan yapması beklenen bir şey
           varmış izlenimi verirdi — ekibe kendi kendine katılamıyor.
         */}
-        {ekipSayim > 0 && (
+        {(ekipSayim > 0 || ekiplerKapaliMi(kullanici)) && (
           <OlcumKarti
             baslik="Ekiplerim"
             Ikon={UsersRound}
             deger={String(ekipSayim)}
             yol="/panel/ekipler"
+            // Koordinatörde kart pasif (23 Ekim 2026 · "Ekipler pasif olsun").
+            pasifNedeni={
+              ekiplerKapaliMi(kullanici) ? EKIPLER_KAPALI_ACIKLAMASI : undefined
+            }
           />
         )}
 
@@ -1918,10 +1967,120 @@ export default async function PanelSayfasi({
       <div id="profilim" className="scroll-mt-6" />
 
       {/*
-        KİMLİK BİLGİLERİ — SALT OKUNUR. Alanlar e-Okul/MEBBİS kaydından gelir;
-        sistemde değiştirilemez ve açıklaması tek yerde duruyor
-        (lib/kullanici/salt-okunur.ts).
+        ÖĞRENCİDE "GENEL BİLGİLER" (23 Ekim 2026 · istek: "Kimlik bilgileri
+        başlığı yerine genel bilgiler yazılacak. Ad soyad cinsiyet okul okul
+        türü ilçe il girecek sınıf kalacak, eğitim öğretim yılı ve kurum kodu
+        kalkacak, mevcut yapı düzenlenebilir olsun").
+
+        Diğer kullanıcı tiplerinde aşağıdaki salt okunur "Kimlik bilgileri"
+        olduğu gibi duruyor. EBA kipinde öğrencide de alanlar salt okunur
+        basılıyor: orada kaynak e-Okul (bkz. genelBilgilerDuzenlenebilirMi).
       */}
+      {genelTip ? (
+        <>
+          <KatlanabilirKart
+            baslik="Genel bilgiler"
+            Ikon={IdCard}
+            capa="genel-bilgiler"
+            duzenlenebilir
+            ozet={<p>{kimlikOzeti.join(" · ")}</p>}
+            baslangictaAcik={acilacakBolum === "genel-bilgiler"}
+          >
+            {genelBilgilerDuzenlenebilir ? (
+              <GenelBilgilerDuzenleme
+                tip={genelTip}
+                baslangic={{
+                  ad: profilKaydi.ad,
+                  soyad: profilKaydi.soyad,
+                  cinsiyet: profilKaydi.cinsiyet,
+                  ilKodu: profilKaydi.ilKodu ?? "",
+                  ilceKodu:
+                    profilKaydi.ilceKodu ?? profilKaydi.kurum?.ilceKodu ?? "",
+                  okulTuru: formOkulTuru(
+                    profilKaydi.kurum?.okulTuru ?? profilKaydi.beyanOkulTuru,
+                  ),
+                  okul:
+                    profilKaydi.kurumKodu !== null
+                      ? String(profilKaydi.kurumKodu)
+                      : profilKaydi.beyanOkulAdi
+                        ? OKUL_LISTEDE_YOK
+                        : "",
+                  beyanOkulAdi: profilKaydi.beyanOkulAdi ?? "",
+                  sinif: profilKaydi.sinif ?? "",
+                  brans: profilKaydi.brans ?? "",
+                }}
+                iller={ILLER}
+                ilkIlceler={genelIlVerisi.ilceler}
+                ilkOkullar={genelIlVerisi.okullar}
+                kaydetEylemi={genelBilgilerEylemi}
+                veriGetir={ilOkulVerisiGetir}
+              />
+            ) : (
+              <dl className="grid gap-5 sm:grid-cols-2">
+                <SaltOkunurAlan etiket="Ad" deger={profilKaydi.ad} />
+                <SaltOkunurAlan etiket="Soyad" deger={profilKaydi.soyad} />
+                <SaltOkunurAlan
+                  etiket="Cinsiyet"
+                  deger={profilKaydi.cinsiyet === "K" ? "Kadın" : "Erkek"}
+                />
+                <SaltOkunurAlan
+                  etiket="Okul"
+                  deger={profilKaydi.kurum?.ad ?? profilKaydi.beyanOkulAdi}
+                />
+                <SaltOkunurAlan
+                  etiket="Okul türü"
+                  deger={
+                    profilKaydi.kurum?.okulTuru ?? profilKaydi.beyanOkulTuru
+                  }
+                />
+                <SaltOkunurAlan
+                  etiket="İlçe"
+                  deger={profilKaydi.ilce?.ad ?? null}
+                />
+                <SaltOkunurAlan etiket="İl" deger={profilKaydi.il?.ad ?? null} />
+                {genelTip === "OGRENCI" ? (
+                  <SaltOkunurAlan etiket="Sınıf" deger={profilKaydi.sinif} />
+                ) : (
+                  <SaltOkunurAlan etiket="Branş" deger={profilKaydi.brans} />
+                )}
+              </dl>
+            )}
+          </KatlanabilirKart>
+
+          {/*
+            DANIŞMAN ÖĞRETMEN BİLGİLERİ (23 Ekim 2026 · istek: "Öğrencinin
+            Danışman öğretmen bilgilerini girebileceği bir alan olsun").
+            Öğrencinin beyanı; sistemdeki danışman ataması değil. YALNIZCA
+            ÖĞRENCİDE: öğretmen ve koordinatör de "Genel bilgiler"i görüyor.
+          */}
+          {ogrenci && (
+          <KatlanabilirKart
+            baslik="Danışman öğretmen bilgileri"
+            Ikon={UserCheck}
+            capa="danisman-ogretmen-bilgileri"
+            duzenlenebilir
+            ozet={
+              profilKaydi.ogrenciProfil?.beyanDanismanAd ? (
+                <p>
+                  {[
+                    `${profilKaydi.ogrenciProfil.beyanDanismanAd} ${profilKaydi.ogrenciProfil.beyanDanismanSoyad ?? ""}`.trim(),
+                    profilKaydi.ogrenciProfil.beyanDanismanBrans,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : undefined
+            }
+            baslangictaAcik={acilacakBolum === "danisman-ogretmen-bilgileri"}
+          >
+            <DanismanBilgisiDuzenleme
+              bilgi={profilKaydi.ogrenciProfil}
+              kaydetEylemi={danismanBilgisiEylemi}
+            />
+          </KatlanabilirKart>
+          )}
+        </>
+      ) : (
       <KatlanabilirKart
         baslik="Kimlik bilgileri"
         Ikon={IdCard}
@@ -1988,6 +2147,20 @@ export default async function PanelSayfasi({
               />
             </>
           )}
+          {!okulBilgisiVar && profilKaydi.beyanOkulAdi && (
+            <>
+              <SaltOkunurAlan
+                etiket="Okul (listede yok)"
+                deger={profilKaydi.beyanOkulAdi}
+              />
+              {profilKaydi.beyanOkulTuru && (
+                <SaltOkunurAlan
+                  etiket="Okul türü"
+                  deger={profilKaydi.beyanOkulTuru}
+                />
+              )}
+            </>
+          )}
           {profilKaydi.il && (
             <SaltOkunurAlan etiket="İl" deger={profilKaydi.il.ad} />
           )}
@@ -2032,6 +2205,7 @@ export default async function PanelSayfasi({
           )}
         </dl>
       </KatlanabilirKart>
+      )}
 
       {/*
         "FOTOĞRAFIM" BÖLÜMÜ KALKTI (20 Ağustos 2026 · istek: "paneldeki altta

@@ -8,6 +8,11 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  BAGLANTILARIM_KAPALI_ACIKLAMASI,
+  baglantilarimKapaliMi,
+} from "@/lib/yazisma/politika";
 import {
   BilgiKutusu,
   Kart,
@@ -133,6 +138,10 @@ export default async function BaglantilarimSayfasi({
   }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
+  // Bağlantılarım öğrenciye kapalı (23 Ekim 2026 · bkz. lib/yazisma/politika.ts).
+  if (baglantilarimKapaliMi(kullanici)) {
+    redirect(`/panel?hata=${encodeURIComponent(BAGLANTILARIM_KAPALI_ACIKLAMASI)}`);
+  }
   const { durum, hata, suzgec, kisi } = await searchParams;
   const kisiAramasi = (kisi ?? "").trim();
 

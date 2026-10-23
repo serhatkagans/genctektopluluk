@@ -28,8 +28,9 @@ import {
  */
 
 describe("ekip yönetme yetkisi", () => {
-  it("il koordinatörü ve proje yöneticisi ekip kurar", () => {
-    expect(ekipYonetebilirMi(koordinatorYap())).toBe(true);
+  // 23 Ekim 2026 · istek: koordinatörde "Ekipler pasif olsun".
+  it("yalnızca proje yöneticisi ekip kurar", () => {
+    expect(ekipYonetebilirMi(koordinatorYap())).toBe(false);
     expect(ekipYonetebilirMi(projeYoneticisiYap())).toBe(true);
   });
 
@@ -39,9 +40,9 @@ describe("ekip yönetme yetkisi", () => {
     expect(ekipYonetebilirMi(mezunYap())).toBe(false);
   });
 
-  it("koordinatör YALNIZCA kendi ilinin ekibini yönetir", () => {
+  it("koordinatör kendi ilinin ekibini de yönetemez", () => {
     const koordinator = koordinatorYap({ ilKodu: "34" });
-    expect(buEkibiYonetebilirMi(koordinator, "34")).toBe(true);
+    expect(buEkibiYonetebilirMi(koordinator, "34")).toBe(false);
     expect(buEkibiYonetebilirMi(koordinator, "06")).toBe(false);
   });
 
@@ -64,9 +65,9 @@ describe("ekip sohbeti", () => {
     expect(ekipSohbetiOkuyabilirMi(ogrenciYap(), ekip)).toBe(false);
   });
 
-  it("ilin koordinatörü üye olmasa da okur (gizli kanal yok)", () => {
+  it("ilin koordinatörü okuyamaz; ekipler ona kapalı (23 Ekim 2026)", () => {
     expect(ekipSohbetiOkuyabilirMi(koordinatorYap({ ilKodu: "34" }), ekip)).toBe(
-      true,
+      false,
     );
   });
 

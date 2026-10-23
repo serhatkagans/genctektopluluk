@@ -44,9 +44,14 @@ import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import {
   danismanligiSonlandirabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
+  projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
+import { ildekiDanismanlar } from "@/lib/danisman/atama";
+import { okulAdiBenzerMi } from "@/lib/okul/benzerlik";
+import { ATAMAYI_YALNIZCA_YONETICI_YAPAR } from "@/lib/danisman/politika";
 import {
+  yoneticiDanismanAtaEylemi,
   danismanligiBirakEylemi,
   ogrenciyeGrupEkleEylemi,
   ogrenciyiGruptanCikarEylemi,
@@ -71,6 +76,8 @@ export const dynamic = "force-dynamic";
 const DURUM_MESAJLARI: Record<string, string> = {
   "grup-eklendi": "Öğrenci çalışma grubuna eklendi.",
   "grup-cikarildi": "Öğrenci çalışma grubundan çıkarıldı.",
+  "danisman-atandi": "Danışman öğretmen atandı; öğrenciye bildirim gönderildi.",
+  "danisman-ayni": "Seçilen öğretmen zaten bu öğrencinin danışmanı.",
 };
 
 function tekil(deger: string | string[] | undefined): string | null {
@@ -129,6 +136,35 @@ export default async function OgrenciProfilSayfasi({
   const baskasininDanismanligimiSonlandirir =
     !kendiDanismanligi && danismanligiSonlandirabilirMi(kullanici);
 
+  /*
+   * DANIŞMAN ATAMASINI PROJE YÖNETİCİSİ YAPAR (23 Ekim 2026). Seçenekler
+   * öğrencinin İLİNDEKİ danışman öğretmenler; aynı ya da benzer adlı okuldaki
+   * öğretmenler üstte ve işaretli (okul adları elle yazıldığı için birebir
+   * eşleşme aranmıyor — bkz. lib/okul/benzerlik.ts).
+   */
+  const yoneticiAtamasi = projeYoneticisiMi(kullanici) && !kendiProfili;
+  const ogrenciOkulAdi = ogrenci.kurum?.ad ?? ogrenci.beyanOkulAdi;
+  const ayniOkulMu = (aday: { kurumKodu: number | null; okulAdi: string | null }) =>
+    (ogrenci.kurumKodu !== null && aday.kurumKodu === ogrenci.kurumKodu) ||
+    okulAdiBenzerMi(aday.okulAdi, ogrenciOkulAdi);
+  const atanabilirler =
+    yoneticiAtamasi && ogrenci.ilKodu
+      ? (await ildekiDanismanlar(ogrenci.ilKodu))
+          .map((aday) => ({ ...aday, ayniOkul: ayniOkulMu(aday) }))
+          .sort((a, b) => Number(b.ayniOkul) - Number(a.ayniOkul))
+      : [];
+  const beyan = ogrenci.ogrenciProfil;
+  const danismanBeyani = beyan?.beyanDanismanAd
+    ? [
+        `${beyan.beyanDanismanAd} ${beyan.beyanDanismanSoyad ?? ""}`.trim(),
+        beyan.beyanDanismanBrans,
+        beyan.beyanDanismanTelefon,
+        beyan.beyanDanismanEposta,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+
   const cv = ogrenci.ogrenciProfil;
   const cvVar = Boolean(cv?.cvDepolamaYolu);
   /*
@@ -157,7 +193,7 @@ export default async function OgrenciProfilSayfasi({
         baslik={`${ogrenci.ad} ${ogrenci.soyad}`}
         aciklama={[
           ogrenci.sinif ? `${ogrenci.sinif}. sınıf` : null,
-          ogrenci.kurum?.ad,
+          ogrenci.kurum?.ad ?? ogrenci.beyanOkulAdi,
           ogrenci.il?.ad,
         ]
           .filter(Boolean)
@@ -193,10 +229,13 @@ export default async function OgrenciProfilSayfasi({
             deger={ogrenci.egitimOgretimYili}
           />
           <SaltOkunurAlan etiket="Sınıf" deger={ogrenci.sinif} />
-          <SaltOkunurAlan etiket="Okul" deger={ogrenci.kurum?.ad ?? null} />
+          <SaltOkunurAlan
+            etiket={ogrenci.kurum ? "Okul" : "Okul (listede yok)"}
+            deger={ogrenci.kurum?.ad ?? ogrenci.beyanOkulAdi ?? null}
+          />
           <SaltOkunurAlan
             etiket="Okul türü"
-            deger={ogrenci.kurum?.okulTuru ?? null}
+            deger={ogrenci.kurum?.okulTuru ?? ogrenci.beyanOkulTuru ?? null}
           />
           <SaltOkunurAlan
             etiket="İl / İlçe"
@@ -279,6 +318,69 @@ export default async function OgrenciProfilSayfasi({
         )}
 
         {/*
+          ÖĞRENCİNİN BEYANI (23 Ekim 2026). Öğrencinin panelden yazdığı danışman
+          öğretmen bilgisi; atamayı yapan proje yöneticisi buna bakarak karar
+          verir. Bir atama değildir.
+        */}
+        {danismanBeyani && (
+          <div className="mt-4 rounded-kart border border-cizgi bg-zemin p-4">
+            <p className="text-sm font-medium text-metin">
+              Öğrencinin yazdığı danışman öğretmen
+            </p>
+            <p className="mt-1 text-sm text-metin-yumusak">{danismanBeyani}</p>
+          </div>
+        )}
+
+        {/*
+          YÖNETİCİ ATAMASI (23 Ekim 2026 · istek: "atamayı yönetici yapsın").
+          Yalnızca proje yöneticisine basılır; seçenekler öğrencinin OKULUNDAKİ
+          danışman öğretmenlerdir.
+        */}
+        {yoneticiAtamasi && (
+          <div className="mt-5 border-t border-cizgi pt-4">
+            {atanabilirler.length === 0 ? (
+              <BilgiKutusu cesit="uyari">
+                Öğrencinin ilinde sisteme kayıtlı danışman öğretmen yok.
+                Öğretmen kaydolduğunda burada seçilebilir.
+              </BilgiKutusu>
+            ) : (
+              <form action={yoneticiDanismanAtaEylemi} className="space-y-3">
+                <input type="hidden" name="ogrenciId" value={ogrenci.id} />
+                <label className="block">
+                  <span className="text-sm font-medium text-metin">
+                    {atama ? "Danışmanı değiştir" : "Danışman ata"}
+                  </span>
+                  <select
+                    name="danismanId"
+                    required
+                    defaultValue={atama ? String(atama.danismanKullaniciId) : ""}
+                    className={SINIF_GIRDI}
+                  >
+                    <option value="">Seçiniz</option>
+                    {atanabilirler.map((aday) => (
+                      <option key={aday.kullaniciId} value={aday.kullaniciId}>
+                        {aday.ayniOkul ? "★ " : ""}
+                        {aday.ad} {aday.soyad}
+                        {aday.brans ? ` · ${aday.brans}` : ""}
+                        {aday.okulAdi ? ` · ${aday.okulAdi}` : ""}
+                        {` · ${aday.ogrenciSayisi} öğrenci`}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-metin-yumusak">
+                    ★ öğrencinin okuluyla aynı ya da benzer adlı okuldaki öğretmen.
+                  </span>
+                </label>
+                <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                  <UserCheck size={16} aria-hidden />
+                  {atama ? "Danışmanı değiştir" : "Danışman ata"}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/*
           TEKİL DANIŞMANLIK BIRAKMA (J1 · 6 Ağustos 2026).
 
           10 AĞUSTOS 2026 · istek: "Görevi bırak kalkacak · öğretmen öğrenciyi
@@ -311,9 +413,9 @@ export default async function OgrenciProfilSayfasi({
                   ? "il koordinatörünüze bildirim olarak iletilir ve erişim kaydına yazılır"
                   : `${atama.danisman.ad} ${atama.danisman.soyad} öğretmenin danışmanlığı sonlanır; karar erişim kaydına yazılır`}
                 . Öğrenci başka bir öğretmene DEVREDİLMEZ, danışmansız kalır:
-                okulundaki danışman öğretmenlerden birini kendisi seçebilir ya
-                da bir öğretmen onu danışmanlığına alabilir. Öğrenciye
-                &quot;yeni danışmanını seç&quot; bildirimi gider.
+                {ATAMAYI_YALNIZCA_YONETICI_YAPAR
+                  ? " yeni danışmanını proje yöneticisi atar."
+                  : " okulundaki danışman öğretmenlerden birini kendisi seçebilir ya da bir öğretmen onu danışmanlığına alabilir. Öğrenciye \"yeni danışmanını seç\" bildirimi gider."}
               </BilgiKutusu>
               <label className="block">
                 <span className="text-sm font-medium text-metin">Gerekçe</span>

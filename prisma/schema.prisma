@@ -92,6 +92,10 @@ enum AtamaTipi {
   OTOMATIK
   IL_KOORDINATOR_FALLBACK
   DEVIR
+  /// Proje yöneticisi elle atadı (23 Ekim 2026 · istek: "atamayı yönetici
+  /// yapsın"). Bu tarihten sonra açılan atamaların tek kaynağı budur; diğer
+  /// tipler geçmiş kayıtlarda kalır (bkz. lib/danisman/politika.ts).
+  YONETICI_ATADI
 }
 
 /// Öğrencinin danışman DEĞİŞİKLİĞİ talebinin durumu (20 Ağustos 2026).
@@ -518,6 +522,18 @@ model Kullanici {
   sinif             String?  @db.VarChar(10)
   brans             String?  @db.VarChar(100)
   egitimOgretimYili String   @map("egitim_ogretim_yili") @db.VarChar(9)
+  /// LİSTEDE OLMAYAN OKUL (23 Ekim 2026 · istek: "okul adı listeden seçiliyor
+  /// ancak listede yoksa giriş yapamıyor onu da input ile okul isimlerini
+  /// alalım").
+  ///
+  /// Kayıt formunda okulunu listede bulamayan kişinin YAZDIĞI ad ve (öğrenciyse)
+  /// seçtiği tür. Bu kişide `kurumKodu` boştur: yazılan ad bir kurum satırı
+  /// AÇMAZ, çünkü kurum kodu MEB'in verdiği numaradır ve doğrulanmamış bir ad
+  /// listeye girerse herkesin kayıt ekranında seçenek olarak görünürdü.
+  /// Proje yöneticisi okulu referans tabloya ekleyip kişiyi bağladığında bu
+  /// alanların işi biter.
+  beyanOkulAdi      String?  @map("beyan_okul_adi") @db.VarChar(250)
+  beyanOkulTuru     String?  @map("beyan_okul_turu") @db.VarChar(120)
   sonSenkronTarihi  DateTime @default(now()) @map("son_senkron_tarihi") @db.Timestamptz(6)
   aktif             Boolean  @default(true)
 
@@ -1367,6 +1383,21 @@ model OgrenciProfil {
   kullaniciId      Int       @id @map("kullanici_id")
   eposta           String?   @db.VarChar(150)
   telefon          String?   @db.VarChar(20)
+
+  /// DANIŞMAN ÖĞRETMEN BİLGİSİ — ÖĞRENCİNİN BEYANI (23 Ekim 2026 · istek:
+  /// "Öğrencinin Danışman öğretmen bilgilerini girebileceği bir alan olsun,
+  /// danışmanın adı soyadı branşı telefon eposta").
+  ///
+  /// Sistemdeki danışman ATAMASI (danisman_atama) DEĞİLDİR: o tablo bir
+  /// öğretmen hesabına bağlanır ve yetki doğurur. Bu alanlar yalnızca
+  /// öğrencinin yazdığı metindir — öğretmenin sistemde hesabı olmasa da
+  /// girilebilir ve hiçbir erişim vermez. Hepsi isteğe bağlı; doluysa ad ve
+  /// soyad birlikte istenir (bkz. lib/ogrenci/genel-bilgiler-kurallar.ts).
+  beyanDanismanAd      String? @map("beyan_danisman_ad") @db.VarChar(100)
+  beyanDanismanSoyad   String? @map("beyan_danisman_soyad") @db.VarChar(100)
+  beyanDanismanBrans   String? @map("beyan_danisman_brans") @db.VarChar(100)
+  beyanDanismanTelefon String? @map("beyan_danisman_telefon") @db.VarChar(20)
+  beyanDanismanEposta  String? @map("beyan_danisman_eposta") @db.VarChar(150)
   /// Öğrencinin yüklediği CV. Orijinal dosya adı yalnızca indirirken gösterilir;
   /// diskteki ad depolama katmanının ürettiği anahtardır (bkz. FaaliyetEk).
   cvDosyaAdi       String?   @map("cv_dosya_adi") @db.VarChar(255)

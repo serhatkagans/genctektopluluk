@@ -73,13 +73,10 @@ describe("kapsam seçenekleri", () => {
    * SIRA DAR KAPSAMDAN GENİŞE: formda ilk seçenek varsayılan oluyor ve
    * öğretmenin olağan işi kendi okulunda.
    */
-  it("danışman öğretmen dört kapsamda da faaliyet açabilir", () => {
-    expect(kapsamSecenekleri(danismanYap())).toEqual([
-      "OKUL",
-      "IL",
-      "ULUSAL",
-      "ULUSLARARASI",
-    ]);
+  // 23 Ekim 2026 · istek: öğretmen sayfasında "Yeni etkinlik … pasif".
+  it("danışman öğretmen etkinlik açamaz", () => {
+    expect(kapsamSecenekleri(danismanYap())).toEqual([]);
+    expect(faaliyetAcmaYetkisiVarMi(danismanYap())).toBe(false);
   });
 
   it("öğretmenin okul dışı faaliyeti onaya gider, okul içi gitmez", () => {
@@ -89,31 +86,19 @@ describe("kapsam seçenekleri", () => {
     expect(onayDurumuBelirle(ogretmen, "ULUSAL")).toBe("BEKLIYOR");
   });
 
-  it("il koordinatörü il ve ulusal faaliyet açar, okul faaliyeti açmaz", () => {
-    expect(kapsamSecenekleri(koordinatorYap())).toEqual([
-      "IL",
-      "ULUSAL",
-      "ULUSLARARASI",
-    ]);
+  // 23 Ekim 2026 · istek: koordinatör sayfasında "Etkinlikler öğretmeninki ile aynı".
+  it("il koordinatörü etkinlik açamaz", () => {
+    expect(kapsamSecenekleri(koordinatorYap())).toEqual([]);
   });
 
   it("YEĞİTEK'e okul kapsamı teklif edilmez", () => {
     expect(kapsamSecenekleri(projeYoneticisiYap())).not.toContain("OKUL");
   });
 
-  /*
-   * Öğrenciye üç kapsam da teklif edilir, sıralama dar kapsamdan geniş kapsama:
-   * formda ilk seçenek varsayılan olur ve öğrencinin olağan işi kendi
-   * okulundadır. Kapsamı daraltmak gerekmez çünkü hiçbiri kendiliğinden yayına
-   * girmiyor (bkz. "öğrencinin açtığı her faaliyet onay bekler").
-   */
-  it("öğrenciye üç kapsam da okuldan başlayarak teklif edilir", () => {
-    expect(kapsamSecenekleri(ogrenciYap())).toEqual([
-      "OKUL",
-      "IL",
-      "ULUSAL",
-      "ULUSLARARASI",
-    ]);
+  // 23 Ekim 2026 · istek: "Öğrenci etkinlik açamaz, düğme pasif olsun".
+  it("öğrenci etkinlik açamaz", () => {
+    expect(kapsamSecenekleri(ogrenciYap())).toEqual([]);
+    expect(faaliyetAcmaYetkisiVarMi(ogrenciYap())).toBe(false);
   });
 
   it("görev almamış öğretmen faaliyet açamaz", () => {

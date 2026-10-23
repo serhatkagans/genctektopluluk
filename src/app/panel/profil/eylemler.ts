@@ -15,6 +15,15 @@ import {
 } from "@/lib/dis-kimlik/profil-kurallar";
 import { saltOkunurAlanlariAyikla } from "@/lib/kullanici/salt-okunur";
 import { baglantilariDogrula } from "@/lib/ogrenci/iletisim-kurallar";
+import {
+  genelBilgileriKaydet,
+  genelBilgilerDuzenlenebilirMi,
+  genelBilgilerTipi,
+} from "@/lib/ogrenci/genel-bilgiler";
+import {
+  danismanBilgisiCoz,
+  genelBilgileriCoz,
+} from "@/lib/ogrenci/genel-bilgiler-kurallar";
 import { danismanlikDurumunuDegistir } from "@/lib/ogretmen/danismanlik";
 import { erisimLogla } from "@/lib/yetki/log";
 import { disKullaniciMi, ogrenciMi } from "@/lib/yetki/izinler";
@@ -342,4 +351,109 @@ export async function profilFotoSilEylemi(): Promise<void> {
   });
 
   panele("fotografim", "durum=foto-silindi");
+}
+
+// ---------------------------------------------------------------------------
+// Öğrencinin genel bilgileri ve danışman öğretmen beyanı (23 Ekim 2026)
+// ---------------------------------------------------------------------------
+
+export async function genelBilgilerEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  const tip = genelBilgilerTipi(kullanici);
+  if (tip === null || !genelBilgilerDuzenlenebilirMi()) {
+    throw new YetkiHatasi("Genel bilgiler bu hesap için düzenlenemez.");
+  }
+
+  const metin = (alan: string) => String(veri.get(alan) ?? "");
+  const karar = genelBilgileriCoz(
+    {
+    ad: metin("ad"),
+    soyad: metin("soyad"),
+    cinsiyet: metin("cinsiyet"),
+    ilKodu: metin("ilKodu"),
+    ilceKodu: metin("ilceKodu"),
+    okulTuru: metin("okulTuru"),
+    kurumKodu: metin("kurumKodu"),
+    beyanOkulAdi: metin("beyanOkulAdi"),
+    sinifSeviyesi: metin("sinifSeviyesi"),
+    sube: metin("sube"),
+    brans: metin("brans"),
+    },
+    tip,
+  );
+  if (!karar.olurMu) {
+    panele("genel-bilgiler", `hata=${encodeURIComponent(karar.neden)}`);
+  }
+
+  const sonuc = await genelBilgileriKaydet(kullanici.id, karar.bilgiler, tip);
+  if (sonuc.durum === "BASARISIZ") {
+    panele("genel-bilgiler", `hata=${encodeURIComponent(sonuc.mesaj)}`);
+  }
+
+  panele("genel-bilgiler", "durum=genel-bilgiler-kaydedildi");
+}
+
+/**
+ * İl seçilince formun ilçe ve okul listelerini getirir. Okul listesi kayıt
+ * ekranında da herkese açık; yine de oturum istenir, çünkü bu eylem yalnızca
+ * panelden çağrılıyor.
+ */
+export async function ilOkulVerisiGetir(ilKodu: string): Promise<{
+  ilceler: { ilceKodu: string; ad: string }[];
+  okullar: { kurumKodu: number; ad: string; okulTuru: string; ilceKodu: string }[];
+}> {
+  await oturumKullanicisiZorunlu();
+  if (!/^\d{2}$/.test(ilKodu)) return { ilceler: [], okullar: [] };
+
+  const [ilceler, okullar] = await Promise.all([
+    prisma.ilce.findMany({
+      where: { ilKodu },
+      select: { ilceKodu: true, ad: true },
+      orderBy: { ad: "asc" },
+    }),
+    prisma.kurum.findMany({
+      where: { ilKodu, aktif: true },
+      select: { kurumKodu: true, ad: true, okulTuru: true, ilceKodu: true },
+      orderBy: { ad: "asc" },
+    }),
+  ]);
+  return { ilceler, okullar };
+}
+
+export async function danismanBilgisiEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!ogrenciMi(kullanici)) {
+    throw new YetkiHatasi("Danışman öğretmen bilgisi yalnızca öğrenciye açık.");
+  }
+
+  const metin = (alan: string) => String(veri.get(alan) ?? "");
+  const karar = danismanBilgisiCoz({
+    ad: metin("danismanAd"),
+    soyad: metin("danismanSoyad"),
+    brans: metin("danismanBrans"),
+    telefon: metin("danismanTelefon"),
+    eposta: metin("danismanEposta"),
+  });
+  if (!karar.olurMu) {
+    panele(
+      "danisman-ogretmen-bilgileri",
+      `hata=${encodeURIComponent(karar.neden)}`,
+    );
+  }
+
+  await prisma.ogrenciProfil.upsert({
+    where: { kullaniciId: kullanici.id },
+    update: karar.bilgi,
+    create: { kullaniciId: kullanici.id, ...karar.bilgi },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: kullanici.id,
+    detay: "Danışman öğretmen bilgisi güncellendi",
+  });
+
+  panele("danisman-ogretmen-bilgileri", "durum=danisman-bilgisi-kaydedildi");
 }

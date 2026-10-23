@@ -8,6 +8,10 @@ import {
   talebiOnayla,
   talebiReddet,
 } from "@/lib/danisman/talep";
+import {
+  ATAMAYI_YALNIZCA_YONETICI_YAPAR,
+  YONETICI_ATAR_ACIKLAMASI,
+} from "@/lib/danisman/politika";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
 
@@ -63,6 +67,16 @@ export async function danismanTalebiniOnaylaEylemi(
   const kullanici = await oturumKullanicisiZorunlu();
   const talepId = talepKimligi(veri);
   await yetkiyiDogrula(talepId, kullanici.id);
+
+  /*
+   * Onay bir atamadır; atamayı artık yalnızca proje yöneticisi yapar
+   * (23 Ekim 2026 · bkz. politika.ts). Bekleyen talep reddedilebilir.
+   */
+  if (ATAMAYI_YALNIZCA_YONETICI_YAPAR) {
+    redirect(
+      `${YOL}?hata=${encodeURIComponent(YONETICI_ATAR_ACIKLAMASI)}#danisman-talepleri`,
+    );
+  }
 
   const sonuc = await talebiOnayla(talepId, kullanici.id);
   if (!sonuc.olurMu) {

@@ -5,12 +5,17 @@ import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { BILDIRIM_KODLARI } from "@/lib/bildirim/sablon";
 import { bildirimGonder } from "@/lib/bildirim/gonder";
-import { ilKoordinatoruGetir, tekOgrenciyiBirak } from "@/lib/danisman/atama";
+import {
+  ilKoordinatoruGetir,
+  tekOgrenciyiBirak,
+  yoneticiDanismanAta,
+} from "@/lib/danisman/atama";
 import { birakmaGerekcesiniCoz } from "@/lib/danisman/karar";
 import { prisma } from "@/lib/db";
 import {
   danismanligiSonlandirabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
+  projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -283,4 +288,42 @@ export async function danismanligiBirakEylemi(veri: FormData): Promise<void> {
    * dönülüyor, çünkü detay sayfası 404 verebilir ve bu bir hata gibi görünürdü.
    */
   redirect("/panel/ogrenciler?durum=danismanlik-birakildi");
+}
+
+/**
+ * Proje yöneticisinin danışman ataması (23 Ekim 2026 · istek: "atamayı
+ * yönetici yapsın"; seçim: yalnızca proje yöneticisi).
+ *
+ * Kural ve bildirimler lib/danisman/atama.ts · yoneticiDanismanAta'da; burası
+ * yalnızca yetkiyi sorar.
+ */
+export async function yoneticiDanismanAtaEylemi(veri: FormData): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!projeYoneticisiMi(kullanici)) {
+    throw new YetkiHatasi("Danışman atamasını yalnızca proje yöneticisi yapar.");
+  }
+
+  const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
+  const danismanId = Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
+  if (!Number.isFinite(ogrenciId)) throw new BulunamadiHatasi();
+  if (!Number.isFinite(danismanId)) {
+    hataylaDon(ogrenciId, "Atanacak danışman öğretmeni seçin.");
+  }
+
+  const sonuc = await yoneticiDanismanAta(ogrenciId, danismanId);
+  if (!sonuc.olurMu) hataylaDon(ogrenciId, sonuc.neden);
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "DANISMAN_ATAMA",
+    hedefId: ogrenciId,
+    detay: `Proje yöneticisi danışman atadı: ${danismanId}`,
+  });
+
+  revalidatePath(ogrenciYolu(ogrenciId));
+  revalidatePath("/panel/ogrenciler");
+  redirect(
+    `${ogrenciYolu(ogrenciId)}?durum=${sonuc.degistiMi ? "danisman-atandi" : "danisman-ayni"}`,
+  );
 }

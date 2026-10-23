@@ -1,5 +1,15 @@
 import { egitimOgretimYili } from "../ogretmen/gorev-yillari";
-import { sifreKarariniVer } from "../dis-kimlik/kurallar";
+import {
+  epostaGecerliMi,
+  epostaNormalle,
+  sifreKarariniVer,
+  TELEFON_BICIMI,
+} from "../dis-kimlik/kurallar";
+import {
+  BILINEN_OKUL_TURLERI,
+  OKUL_TURU_DIGER,
+  okulTuruSecenekleri,
+} from "../okul/turler";
 
 /**
  * Kayıtla giriş kuralları — EBA SSO gelene kadar (17 Eylül 2026 · istek:
@@ -24,6 +34,31 @@ export const KAYIT_TIPLERI: { kod: KayitTipi; etiket: string }[] = [
 
 export function kayitTipiMi(deger: string): deger is KayitTipi {
   return deger === "OGRENCI" || deger === "OGRETMEN";
+}
+
+/**
+ * Okul seçiminde "Okulum listede yok" seçeneğinin değeri (23 Ekim 2026).
+ * Kurum kodu her zaman pozitif tam sayı olduğu için bir kodla karışmaz.
+ */
+export const OKUL_LISTEDE_YOK = "LISTEDE_YOK";
+
+/**
+ * Kayıtta öğrencinin seçebileceği okul türleri (23 Ekim 2026 · istek: "öğrenci
+ * girişinde okul türü de gelsin, yani öğrenci okul türünü listeden
+ * seçebilsin"). Süzgeçlerdeki standart listenin aynısı, "Diğer" en sonda.
+ */
+export const KAYIT_OKUL_TURLERI: readonly string[] = okulTuruSecenekleri();
+
+/**
+ * Seçilen okul türü, listeden seçilen okulun kaydındaki türle uyuşuyor mu?
+ * "Diğer", standart listede olmayan türlerin tümünü karşılar (bkz.
+ * okul/turler.ts · okulTuruKosulu).
+ */
+export function okulTuruUyarMi(secilen: string, okulunTuru: string): boolean {
+  if (secilen === OKUL_TURU_DIGER) {
+    return !BILINEN_OKUL_TURLERI.includes(okulunTuru);
+  }
+  return secilen === okulunTuru;
 }
 
 /** Lise seviyeleri; GençTek lise öğrencilerine açık. */
@@ -61,7 +96,14 @@ export interface KayitGirdisi {
   soyad: string;
   cinsiyet: string;
   ilKodu: string;
+  /** Kurum kodu ya da `OKUL_LISTEDE_YOK`. */
   kurumKodu: string;
+  /** Okul listede yoksa kişinin yazdığı ad. */
+  beyanOkulAdi: string;
+  /** Yalnızca öğrencide zorunlu. */
+  okulTuru: string;
+  eposta: string;
+  telefon: string;
   sinifSeviyesi: string;
   sube: string;
   brans: string;
@@ -77,7 +119,13 @@ export interface KayitKaydi {
   soyad: string;
   cinsiyet: "E" | "K";
   ilKodu: string;
-  kurumKodu: number;
+  /** Okul listede yoksa null; o zaman `beyanOkulAdi` dolu. */
+  kurumKodu: number | null;
+  beyanOkulAdi: string | null;
+  /** Öğrencinin seçtiği okul türü; öğretmende null. */
+  okulTuru: string | null;
+  eposta: string;
+  telefon: string;
   sinif: string | null;
   brans: string | null;
   egitimOgretimYili: string;
@@ -88,15 +136,76 @@ export type KayitKarari =
   | { olurMu: true; kayit: KayitKaydi }
   | { olurMu: false; neden: string };
 
-const AD_UST_SINIRI = 100;
-const BRANS_UST_SINIRI = 100;
+export const AD_UST_SINIRI = 100;
+export const BRANS_UST_SINIRI = 100;
 
 /**
  * Ad ve soyad, e-Okul'daki yazıma yakın dursun diye Türkçe büyük harfe
  * çevrilmez; yalnızca fazla boşluk atılır. Kişinin yazdığı biçim korunur.
  */
-function adNormalle(deger: string): string {
+export function adNormalle(deger: string): string {
   return deger.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Sınıf seviyesi ve şubeden `kullanici.sinif` değerini kurar ("12-A").
+ * Kayıt formu ile paneldeki "Genel bilgiler" aynı kuralı kullanır.
+ */
+export function sinifCoz(
+  seviye: string,
+  subeHam: string,
+): { olurMu: true; sinif: string } | { olurMu: false; neden: string } {
+  if (!(SINIF_SEVIYELERI as readonly string[]).includes(seviye)) {
+    return { olurMu: false, neden: "Sınıfınızı seçin." };
+  }
+  /*
+   * Şube İSTEĞE BAĞLI: bazı okullarda şube yok ya da öğrenci bilmiyor.
+   * `kullanici.sinif` 10 karakter; "12-A" biçimi e-Okul'dakiyle aynı.
+   */
+  const sube = subeHam.trim().toLocaleUpperCase("tr-TR");
+  if (sube && !/^[A-ZÇĞİÖŞÜ]{1,2}$/.test(sube)) {
+    return { olurMu: false, neden: "Şube bir ya da iki harf olmalı (ör. A)." };
+  }
+  return { olurMu: true, sinif: sube ? `${seviye}-${sube}` : seviye };
+}
+
+/** `kurum.ad` sütunuyla aynı sınır. */
+export const OKUL_ADI_UST_SINIRI = 250;
+
+export type OkulSecimiKarari =
+  | { olurMu: true; kurumKodu: number | null; beyanOkulAdi: string | null }
+  | { olurMu: false; neden: string };
+
+/**
+ * Okul açılır listesinden gelen değeri çözer: ya bir kurum kodu ya da
+ * "Okulum listede yok" ile yazılmış bir ad.
+ */
+export function okulSecimiCoz(
+  kurumKoduHam: string,
+  beyanOkulAdiHam: string,
+): OkulSecimiKarari {
+  const kurumMetni = kurumKoduHam.trim();
+  if (kurumMetni === OKUL_LISTEDE_YOK) {
+    const beyanOkulAdi = adNormalle(beyanOkulAdiHam);
+    if (!beyanOkulAdi) {
+      return { olurMu: false, neden: "Okulunuzun adını yazın." };
+    }
+    if (beyanOkulAdi.length > OKUL_ADI_UST_SINIRI) {
+      return {
+        olurMu: false,
+        neden: `Okul adı en fazla ${OKUL_ADI_UST_SINIRI} karakter olabilir.`,
+      };
+    }
+    return { olurMu: true, kurumKodu: null, beyanOkulAdi };
+  }
+  const kurumKodu = Number(kurumMetni);
+  if (!/^[1-9][0-9]*$/.test(kurumMetni) || !Number.isSafeInteger(kurumKodu)) {
+    return {
+      olurMu: false,
+      neden: 'Okulunuzu listeden seçin ya da "Okulum listede yok" seçeneğini kullanın.',
+    };
+  }
+  return { olurMu: true, kurumKodu, beyanOkulAdi: null };
 }
 
 export function kayitGirdisiniCoz(
@@ -134,28 +243,41 @@ export function kayitGirdisiniCoz(
     return { olurMu: false, neden: "İl seçilmelidir." };
   }
 
-  const kurumMetni = girdi.kurumKodu.trim();
-  const kurumKodu = Number(kurumMetni);
-  if (!/^[1-9][0-9]*$/.test(kurumMetni) || !Number.isSafeInteger(kurumKodu)) {
-    return { olurMu: false, neden: "Okulunuzu listeden seçin." };
+  let okulTuru: string | null = null;
+  if (tip === "OGRENCI") {
+    okulTuru = girdi.okulTuru.trim();
+    if (!KAYIT_OKUL_TURLERI.includes(okulTuru)) {
+      return { olurMu: false, neden: "Okul türünüzü seçin." };
+    }
+  }
+
+  const okulKarari = okulSecimiCoz(girdi.kurumKodu, girdi.beyanOkulAdi);
+  if (!okulKarari.olurMu) return okulKarari;
+  const { kurumKodu, beyanOkulAdi } = okulKarari;
+
+  /*
+   * E-POSTA VE TELEFON ZORUNLU (23 Ekim 2026 · istek: "eposta telefon girişi de
+   * alalım"). Profildeki iletişim alanlarına yazılır; kişi sonradan profilinden
+   * değiştirebilir.
+   */
+  const eposta = epostaNormalle(girdi.eposta);
+  if (!epostaGecerliMi(eposta)) {
+    return { olurMu: false, neden: "E-posta adresi geçerli değil." };
+  }
+  const telefon = girdi.telefon.trim().replace(/\s+/g, " ");
+  // Biçim gevşek (paydaş envanteriyle aynı); yine de en az 10 rakam aranır,
+  // yoksa "+(-)./" gibi işaret dizileri geçerdi.
+  if (!TELEFON_BICIMI.test(telefon) || telefon.replace(/\D/g, "").length < 10) {
+    return { olurMu: false, neden: "Telefon numarası geçerli değil." };
   }
 
   let sinif: string | null = null;
   let brans: string | null = null;
 
   if (tip === "OGRENCI") {
-    if (!(SINIF_SEVIYELERI as readonly string[]).includes(girdi.sinifSeviyesi)) {
-      return { olurMu: false, neden: "Sınıfınızı seçin." };
-    }
-    /*
-     * Şube İSTEĞE BAĞLI: bazı okullarda şube yok ya da öğrenci bilmiyor.
-     * `kullanici.sinif` 10 karakter; "12-A" biçimi e-Okul'dakiyle aynı.
-     */
-    const sube = girdi.sube.trim().toLocaleUpperCase("tr-TR");
-    if (sube && !/^[A-ZÇĞİÖŞÜ]{1,2}$/.test(sube)) {
-      return { olurMu: false, neden: "Şube bir ya da iki harf olmalı (ör. A)." };
-    }
-    sinif = sube ? `${girdi.sinifSeviyesi}-${sube}` : girdi.sinifSeviyesi;
+    const sinifKarari = sinifCoz(girdi.sinifSeviyesi, girdi.sube);
+    if (!sinifKarari.olurMu) return sinifKarari;
+    sinif = sinifKarari.sinif;
   } else {
     brans = adNormalle(girdi.brans);
     if (!brans) {
@@ -172,7 +294,7 @@ export function kayitGirdisiniCoz(
   if (girdi.sifre !== girdi.sifreTekrar) {
     return { olurMu: false, neden: "Şifre ile tekrarı aynı değil." };
   }
-  const sifreKarari = sifreKarariniVer(girdi.sifre, { ad, soyad, eposta: "" });
+  const sifreKarari = sifreKarariniVer(girdi.sifre, { ad, soyad, eposta });
   if (!sifreKarari.olurMu) {
     return { olurMu: false, neden: sifreKarari.neden };
   }
@@ -194,6 +316,10 @@ export function kayitGirdisiniCoz(
       cinsiyet: girdi.cinsiyet,
       ilKodu,
       kurumKodu,
+      beyanOkulAdi,
+      okulTuru,
+      eposta,
+      telefon,
       sinif,
       brans,
       egitimOgretimYili: egitimOgretimYili(simdi),

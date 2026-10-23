@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { BILDIRIM_KODLARI, bildirimGonder } from "@/lib/bildirim/gonder";
 import { atamaDegistir } from "@/lib/danisman/atama";
+import {
+  ATAMAYI_YALNIZCA_YONETICI_YAPAR,
+  YONETICI_ATAR_ACIKLAMASI,
+} from "@/lib/danisman/politika";
 import { prisma } from "@/lib/db";
 import { danismanlikDurumunuDegistir } from "@/lib/ogretmen/danismanlik";
 import { danismanMi } from "@/lib/yetki/izinler";
@@ -97,6 +101,11 @@ export async function ogrenciyiDanismanligaAlEylemi(
 ): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
   const donusYolu = donusYolunuCoz(veri);
+
+  // Atamayı yalnızca proje yöneticisi yapar (23 Ekim 2026 · bkz. politika.ts).
+  if (ATAMAYI_YALNIZCA_YONETICI_YAPAR) {
+    redirect(parametreEkle(donusYolu, "hata", YONETICI_ATAR_ACIKLAMASI));
+  }
 
   if (!danismanMi(kullanici)) {
     throw new YetkiHatasi(

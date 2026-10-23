@@ -37,8 +37,21 @@ const EKIP_MESAJ_MAKS = 2000;
  * ilde tek kişidedir. Öğretmene açılması ayrı bir karardır.
  */
 export function ekipYonetebilirMi(kullanici: OturumKullanicisi): boolean {
-  return ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+  // 23 Ekim 2026 · istek: koordinatörde "Ekipler pasif olsun" (bkz. ekiplerKapaliMi).
+  return projeYoneticisiMi(kullanici);
 }
+
+/**
+ * EKİPLER İL KOORDİNATÖRÜNE KAPALI (23 Ekim 2026 · istek: koordinatör
+ * sayfasında "Ekipler pasif olsun"). Kartlar pasif basılır, ekip sayfaları
+ * koordinatörü panele geri gönderir. Veri silinmez.
+ */
+export function ekiplerKapaliMi(kullanici: OturumKullanicisi): boolean {
+  return ilKoordinatoruMu(kullanici) && !projeYoneticisiMi(kullanici);
+}
+
+export const EKIPLER_KAPALI_ACIKLAMASI =
+  "Ekipler il koordinatörleri için şu an kapalı.";
 
 /**
  * Bu ekibi yönetebilir mi (üye ekleme/çıkarma, kapatma)?
@@ -53,9 +66,10 @@ export function buEkibiYonetebilirMi(
   kullanici: OturumKullanicisi,
   ekipIlKodu: string,
 ): boolean {
-  if (projeYoneticisiMi(kullanici)) return true;
-  if (!ilKoordinatoruMu(kullanici)) return false;
-  return koordinatorIlKodu(kullanici) === ekipIlKodu;
+  // 23 Ekim 2026: ekipleri yalnızca proje yöneticisi yönetir (bkz.
+  // ekiplerKapaliMi); `ekipIlKodu` artık sorulmuyor.
+  void ekipIlKodu;
+  return projeYoneticisiMi(kullanici);
 }
 
 /**
@@ -70,6 +84,8 @@ export function ekipSohbetiOkuyabilirMi(
   kullanici: OturumKullanicisi,
   ekip: { ilKodu: string; uyeKullaniciIdleri: number[] },
 ): boolean {
+  // Koordinatör üye olsa da ekipler ona kapalı (23 Ekim 2026).
+  if (ekiplerKapaliMi(kullanici)) return false;
   if (ekip.uyeKullaniciIdleri.includes(kullanici.id)) return true;
   return buEkibiYonetebilirMi(kullanici, ekip.ilKodu);
 }

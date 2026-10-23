@@ -12,6 +12,10 @@ import { danismanMi, ilKoordinatoruMu, projeYoneticisiMi } from "@/lib/yetki/izi
 import { yazismaKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
+import {
+  BAGLANTILARIM_KAPALI_ACIKLAMASI,
+  baglantilarimKapaliMi,
+} from "@/lib/yazisma/politika";
 
 /**
  * Yazışma eylemleri: mesaj yazma, moderasyon ve kapatma.
@@ -27,6 +31,9 @@ function hataylaDon(yol: string, mesaj: string): never {
 
 export async function mesajYazEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
+  if (baglantilarimKapaliMi(kullanici)) {
+    throw new YetkiHatasi(BAGLANTILARIM_KAPALI_ACIKLAMASI);
+  }
 
   const yazismaId = Number.parseInt(String(veri.get("yazismaId") ?? ""), 10);
   if (!Number.isFinite(yazismaId)) throw new BulunamadiHatasi();

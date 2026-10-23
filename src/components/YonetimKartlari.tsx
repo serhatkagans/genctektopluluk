@@ -274,6 +274,7 @@ export function KisayolKarti({
   yol,
   bekleyen,
   ton = "vurgu",
+  pasifNedeni,
 }: {
   baslik: string;
   /**
@@ -311,7 +312,30 @@ export function KisayolKarti({
    * Varsayılan `vurgu`: yönetim panosundaki kartların çoğu bir envanterdir.
    */
   ton?: "vurgu" | "olumlu" | "uyari" | "notr";
+  /**
+   * PASİF KART (23 Ekim 2026 · istek: koordinatörde "Ekipler pasif olsun").
+   * Verilirse kart bağlantı olmaz, soluk basılır ve açıklama yerine bu metin
+   * yazar.
+   */
+  pasifNedeni?: string;
 }) {
+  if (pasifNedeni) {
+    return (
+      <div
+        aria-disabled="true"
+        title={pasifNedeni}
+        className="flex h-full cursor-not-allowed flex-col overflow-hidden rounded-kart border border-cizgi bg-kart opacity-50 shadow-kart"
+      >
+        <div className="poster poster-notr relative grid h-16 place-items-center">
+          <Ikon size={26} className="text-white/50" aria-hidden />
+        </div>
+        <div className="p-5">
+          <p className="font-semibold text-baslik">{baslik}</p>
+          <p className="mt-0.5 text-sm text-metin-yumusak">{pasifNedeni}</p>
+        </div>
+      </div>
+    );
+  }
   return (
     /*
       PANELDEKİ ÖLÇÜM KARTIYLA AYNI GÖRÜNÜM (21 Ağustos 2026 · istek: "yönetim

@@ -333,7 +333,7 @@ const BEYAN_UST_SINIRI = 2000;
 const MENTORLUK_KONULARI_UST_SINIRI = 500;
 
 /** Telefon biçimi paydaş envanteriyle aynı gevşeklikte tutuldu. */
-const TELEFON_BICIMI = /^[0-9+()\s./-]{7,20}$/;
+export const TELEFON_BICIMI = /^[0-9+()\s./-]{7,20}$/;
 
 /**
  * En eski kabul edilen mezuniyet yılı.

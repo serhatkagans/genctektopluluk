@@ -1,6 +1,6 @@
 import { ArrowLeft, MessageSquare, Send, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { RolEtiketi } from "@/components/RolEtiketi";
 import {
   BilgiKutusu,
@@ -16,6 +16,8 @@ import { prisma } from "@/lib/db";
 import {
   buEkibiYonetebilirMi,
   EKIP_SOHBET_UYARISI,
+  EKIPLER_KAPALI_ACIKLAMASI,
+  ekiplerKapaliMi,
   ekipSohbetiOkuyabilirMi,
   ekipSohbetineYazabilirMi,
 } from "@/lib/ekip/kurallar";
@@ -82,6 +84,10 @@ export default async function EkipSayfasi({
   }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
+  // Ekipler il koordinatörüne kapalı (23 Ekim 2026 · bkz. ekiplerKapaliMi).
+  if (ekiplerKapaliMi(kullanici)) {
+    redirect(`/panel?hata=${encodeURIComponent(EKIPLER_KAPALI_ACIKLAMASI)}`);
+  }
   const { id } = await params;
   const parametreler = await searchParams;
   const { durum, hata } = parametreler;

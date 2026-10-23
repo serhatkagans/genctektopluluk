@@ -1,7 +1,9 @@
+import type { Prisma } from "@/generated/prisma/client";
 import type { AtamaTipi, KapanmaNedeni } from "@/generated/prisma/enums";
 import { BILDIRIM_KODLARI, bildirimGonder, projeYoneticilerineBildir } from "../bildirim/gonder";
 import { prisma } from "../db";
 import { danismanAdayiFiltresi } from "../yetki/kapsam";
+import { ATAMAYI_YALNIZCA_YONETICI_YAPAR } from "./politika";
 import {
   type DanismanAdayi,
   devirKarariVer,
@@ -554,6 +556,20 @@ export async function danismanliktanAyrildi(
     return { devredilenOgrenciSayisi: 0, yenidenSecimBekleyen: 0 };
   }
 
+  /*
+   * ATAMAYI YÖNETİCİ YAPAR (23 Ekim 2026 · bkz. politika.ts): öğrenciler
+   * kimseye devredilmez, il koordinatörüne de bağlanmaz. Atamalar kapanır,
+   * öğrenciler danışmansız kalır ve proje yöneticisinin listesinde "Atanmadı"
+   * olarak görünür; yeni danışmanı yönetici atar.
+   */
+  if (ATAMAYI_YALNIZCA_YONETICI_YAPAR) {
+    await prisma.danismanAtama.updateMany({
+      where: { danismanKullaniciId, bitisTarihi: null },
+      data: { bitisTarihi: new Date(), kapanmaNedeni },
+    });
+    return { devredilenOgrenciSayisi: 0, yenidenSecimBekleyen: 0 };
+  }
+
   let devredilen = 0;
   let yenidenSecimBekleyen = 0;
 
@@ -733,13 +749,18 @@ export async function tekOgrenciyiBirak(girdi: {
    * Öğrenciye "yeniden seç" bildirimi gider, "danışmanın değişti" değil:
    * yeni bir danışmanı YOK ve yapması gereken bir şey var.
    */
-  await bildirimGonder({
-    kullaniciId: ogrenci.id,
-    kod: BILDIRIM_KODLARI.DANISMAN_YENIDEN_SECIM,
-  });
+  // Atamayı yönetici yaparken öğrencinin seçeceği bir şey yok; "yeniden seç"
+  // bildirimi yanıltırdı (bkz. politika.ts).
+  if (!ATAMAYI_YALNIZCA_YONETICI_YAPAR) {
+    await bildirimGonder({
+      kullaniciId: ogrenci.id,
+      kod: BILDIRIM_KODLARI.DANISMAN_YENIDEN_SECIM,
+    });
+  }
 
-  const yeniDurum =
-    "Öğrenci danışmansız kaldı; okulundaki danışman öğretmenlerden birini kendisi seçebilir ya da bir öğretmen danışmanlığına alabilir.";
+  const yeniDurum = ATAMAYI_YALNIZCA_YONETICI_YAPAR
+    ? "Öğrenci danışmansız kaldı; yeni danışmanını proje yöneticisi atar."
+    : "Öğrenci danışmansız kaldı; okulundaki danışman öğretmenlerden birini kendisi seçebilir ya da bir öğretmen danışmanlığına alabilir.";
 
   return { olurMu: true, yeniDurum, ogrenciAdSoyad };
 }
@@ -776,6 +797,9 @@ export async function sahipsizOgrencileriKoordinatoreBagla(
   ilKodu: string,
   koordinatorKullaniciId: number,
 ): Promise<number> {
+  // Atamayı yalnızca proje yöneticisi yapar (bkz. politika.ts).
+  if (ATAMAYI_YALNIZCA_YONETICI_YAPAR) return 0;
+
   const sahipsizler = await prisma.kullanici.findMany({
     where: {
       ilKodu,
@@ -811,6 +835,9 @@ export async function sahipsizOgrencileriKoordinatoreBagla(
 export async function yeniDanismanBildirimiYap(
   kurumKodu: number,
 ): Promise<void> {
+  // Koordinatöre "devredebilirsin" haberi gitmez: devri artık o yapmıyor.
+  if (ATAMAYI_YALNIZCA_YONETICI_YAPAR) return;
+
   const kurum = await prisma.kurum.findUnique({
     where: { kurumKodu },
     select: { ad: true, ilKodu: true },
@@ -839,4 +866,130 @@ export async function yeniDanismanBildirimiYap(
       ogrenciSayisi: String(devredilebilirSayisi),
     },
   });
+}
+
+/**
+ * Proje yöneticisinin danışman ataması (23 Ekim 2026 · istek: "atamayı
+ * yönetici yapsın"; bkz. politika.ts).
+ *
+ * İL GENELİNDE (23 Ekim 2026 · istek: "öğrenci ve öğretmen aynı okulun ismini
+ * aynı girmemiş olabilir … o kısım soru işareti"). Danışman, öğrencinin
+ * İLİNDEKİ danışman öğretmenlerden biri olabilir. Okul uyumu bir öneri olarak
+ * ekranda gösterilir (bkz. lib/okul/benzerlik.ts) ama atamayı engellemez:
+ * elle yazılmış okul adları aynı okulu farklı kayıtlarda tutabiliyor.
+ * Öğrencinin danışmana görünmesi okuldan bağımsızdır (bkz. yetki/kapsam.ts).
+ *
+ * Yetki burada SORULMAZ; çağıran eylem proje yöneticisini denetler (bkz.
+ * ogrenciler/[id]/eylemler.ts).
+ */
+export async function yoneticiDanismanAta(
+  ogrenciId: number,
+  danismanKullaniciId: number,
+): Promise<{ olurMu: false; neden: string } | { olurMu: true; degistiMi: boolean }> {
+  const ogrenci = await prisma.kullanici.findFirst({
+    where: {
+      id: ogrenciId,
+      aktif: true,
+      roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+    },
+    select: { ad: true, soyad: true, ilKodu: true, kurum: { select: { ilKodu: true } } },
+  });
+  if (!ogrenci) return { olurMu: false, neden: "Öğrenci bulunamadı." };
+  const ogrenciIli = ogrenci.kurum?.ilKodu ?? ogrenci.ilKodu;
+  if (!ogrenciIli) {
+    return { olurMu: false, neden: "Öğrencinin ili kayıtlı değil." };
+  }
+
+  const uygun = await prisma.kullanici.findFirst({
+    where: { AND: [ilDanismaniFiltresi(ogrenciIli), { id: danismanKullaniciId }] },
+    select: { id: true },
+  });
+  if (!uygun) {
+    return {
+      olurMu: false,
+      neden: "Seçilen öğretmen öğrencinin ilindeki danışman öğretmenlerden değil.",
+    };
+  }
+
+  const sonuc = await atamaDegistir({
+    ogrenciId,
+    danismanKullaniciId,
+    atamaTipi: "YONETICI_ATADI",
+    kapanmaNedeni: "DEVIR",
+  });
+  if (!sonuc.degistiMi) return { olurMu: true, degistiMi: false };
+
+  await bildirimGonder({
+    kullaniciId: ogrenciId,
+    kod: BILDIRIM_KODLARI.DANISMAN_DEGISTI,
+  });
+  if (sonuc.oncekiDanismanKullaniciId !== null) {
+    await danismanlikBittiBildirimi(
+      sonuc.oncekiDanismanKullaniciId,
+      `${ogrenci.ad} ${ogrenci.soyad}`,
+      "proje yöneticisi tarafından başka bir danışman öğretmene atandı",
+    );
+  }
+  return { olurMu: true, degistiMi: true };
+}
+
+/**
+ * Bir ilin danışman öğretmenleri: etkin, danışman rolü açık, il koordinatörü
+ * olmayan öğretmenler. Okulu ilde olan ya da kendi ili bu il olanlar.
+ */
+function ilDanismaniFiltresi(ilKodu: string): Prisma.KullaniciWhereInput {
+  return {
+    aktif: true,
+    roller: { some: { rolKodu: "DANISMAN", bitisTarihi: null } },
+    NOT: { roller: { some: { rolKodu: "IL_KOORDINATOR", bitisTarihi: null } } },
+    OR: [{ kurum: { ilKodu } }, { ilKodu }],
+  };
+}
+
+export interface IlDanismani {
+  kullaniciId: number;
+  ad: string;
+  soyad: string;
+  brans: string | null;
+  kurumKodu: number | null;
+  /** Listedeki okulun adı ya da öğretmenin elle yazdığı ad. */
+  okulAdi: string | null;
+  /** Şu an danışmanlığındaki öğrenci sayısı. */
+  ogrenciSayisi: number;
+}
+
+/**
+ * Toplu atama ekranının öğretmen listesi (23 Ekim 2026 · istek: "yönetim
+ * panelinde toplu atama olsun"). Az öğrencisi olan önce: "boştaki
+ * öğretmen" sorusunun cevabı listenin tepesinde.
+ */
+export async function ildekiDanismanlar(ilKodu: string): Promise<IlDanismani[]> {
+  const satirlar = await prisma.kullanici.findMany({
+    where: ilDanismaniFiltresi(ilKodu),
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      brans: true,
+      kurumKodu: true,
+      beyanOkulAdi: true,
+      kurum: { select: { ad: true } },
+      _count: { select: { danismanAtamalari: { where: { bitisTarihi: null } } } },
+    },
+  });
+  return satirlar
+    .map((s) => ({
+      kullaniciId: s.id,
+      ad: s.ad,
+      soyad: s.soyad,
+      brans: s.brans,
+      kurumKodu: s.kurumKodu,
+      okulAdi: s.kurum?.ad ?? s.beyanOkulAdi,
+      ogrenciSayisi: s._count.danismanAtamalari,
+    }))
+    .sort(
+      (a, b) =>
+        a.ogrenciSayisi - b.ogrenciSayisi ||
+        `${a.ad} ${a.soyad}`.localeCompare(`${b.ad} ${b.soyad}`, "tr"),
+    );
 }

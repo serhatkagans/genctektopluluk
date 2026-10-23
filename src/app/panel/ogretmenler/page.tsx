@@ -208,6 +208,8 @@ export default async function OgretmenlerSayfasi({
           ilce: { select: { ad: true } },
         },
       },
+      // Kayıtta okulunu listede bulamayan öğretmenin yazdığı ad.
+      beyanOkulAdi: true,
       /*
         İLETİŞİM SÜTUNLARI (27 Ağustos 2026 · istek: "öğretmenin eposta adresi
         ve telefon sütunlarını ekle").
@@ -581,7 +583,10 @@ export default async function OgretmenlerSayfasi({
                       {ogretmen.kurum?.okulTuru ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {ogretmen.kurum?.ad ?? "—"}
+                      {ogretmen.kurum?.ad ??
+                        (ogretmen.beyanOkulAdi
+                          ? `${ogretmen.beyanOkulAdi} (listede yok)`
+                          : "—")}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
                       {ogretmen._count.danismanAtamalari}

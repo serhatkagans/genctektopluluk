@@ -1,6 +1,7 @@
 import { authProvider } from "../auth";
 import { oturumAc } from "../auth/oturum";
 import { aktifAtamaGetir, danismanliktanAyrildi, ilkAtamayiYurut } from "../danisman/atama";
+import { ATAMAYI_YALNIZCA_YONETICI_YAPAR } from "../danisman/politika";
 import { prisma } from "../db";
 import { erisimLogla, kimlikDogrulamaLogla } from "../yetki/log";
 import { kullaniciSagla } from "./sagla";
@@ -60,7 +61,8 @@ export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
 
   let danismanSecimiGerekli = false;
 
-  if (kimlik.tip === "OGRENCI") {
+  // Otomatik atama yok: atamayı proje yöneticisi yapar (bkz. danisman/politika.ts).
+  if (kimlik.tip === "OGRENCI" && !ATAMAYI_YALNIZCA_YONETICI_YAPAR) {
     const karar = await ilkAtamayiYurut(saglama.kullaniciId);
     danismanSecimiGerekli = karar.tur === "SECIM_GEREKLI";
   }
@@ -92,7 +94,7 @@ export async function girisYap(kimlikBilgisi: string): Promise<GirisSonucu> {
 }
 
 /** Öğrenci okul değiştirdiğinde eski atama kapatılır, yeni okulun akışına girer. */
-async function kapatAktifAtama(ogrenciId: number): Promise<void> {
+export async function kapatAktifAtama(ogrenciId: number): Promise<void> {
   const atama = await aktifAtamaGetir(ogrenciId);
   if (!atama) return;
 

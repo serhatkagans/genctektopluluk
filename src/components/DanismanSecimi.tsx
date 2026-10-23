@@ -16,6 +16,10 @@ import {
 } from "@/components/ui";
 import type { KoordinatorBilgisi } from "@/lib/danisman/atama";
 import type { DanismanAdayi } from "@/lib/danisman/karar";
+import {
+  ATAMAYI_YALNIZCA_YONETICI_YAPAR,
+  YONETICI_ATAR_ACIKLAMASI,
+} from "@/lib/danisman/politika";
 import { tarihSaatYaz } from "@/lib/tarih";
 
 /**
@@ -244,6 +248,20 @@ export function DanismanSecimi({
         AYRAÇ, YENİ KART DEĞİL: iki bölüm hâlâ ayrı okunuyor ama tek çerçevenin
         içinde.
       */}
+      {/*
+        ATAMAYI YÖNETİCİ YAPAR (23 Ekim 2026 · istek: "atamayı yönetici
+        yapsın"). Seçim listesi basılmaz; öğrenci yalnızca durumunu görür ve
+        danışman öğretmeninin bilgisini Panelim'deki beyan bölümüne yazar.
+      */}
+      {ATAMAYI_YALNIZCA_YONETICI_YAPAR ? (
+        <div className="mt-6 border-t border-cizgi pt-6">
+          <BilgiKutusu>
+            {YONETICI_ATAR_ACIKLAMASI} Danışman öğretmeninizin bilgilerini
+            Panelim&apos;deki &quot;Danışman öğretmen bilgileri&quot; bölümüne
+            yazabilirsiniz.
+          </BilgiKutusu>
+        </div>
+      ) : (
       <div className="mt-6 border-t border-cizgi pt-6">
         {adaylar.length === 0 ? (
           /*
@@ -365,6 +383,7 @@ export function DanismanSecimi({
           </>
         )}
       </div>
+      )}
     </Sarmalayici>
   );
 }

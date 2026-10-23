@@ -12,6 +12,7 @@ import {
   School,
   ShieldCheck,
   ShieldUser,
+  UserCheck,
   UserCog,
   Users,
   UsersRound,
@@ -33,7 +34,11 @@ import {
 } from "@/components/YonetimKartlari";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
-import { ekipYonetebilirMi } from "@/lib/ekip/kurallar";
+import {
+  EKIPLER_KAPALI_ACIKLAMASI,
+  ekiplerKapaliMi,
+  ekipYonetebilirMi,
+} from "@/lib/ekip/kurallar";
 import { acikKvkkBasvuruSayisi } from "@/lib/kvkk/basvuru";
 import { egitimOgretimYili } from "@/lib/ogretmen/gorev-yillari";
 import { ilerlemeYuzdesi, YOL_HARITASI } from "@/lib/proje/yol-haritasi";
@@ -575,13 +580,30 @@ export default async function YonetimSayfasi({
             kalkan yalnızca buradaki kapı — işaretin kendisi artık Öğretmenler
             listesinin bir sütunu.
           */}
-          {ekipYonetebilirMi(kullanici) && (
+          {/*
+            TOPLU DANIŞMAN ATAMASI (23 Ekim 2026 · istek: "yönetim panelinde
+            toplu atama olsun"). Atamayı yalnızca proje yöneticisi yapıyor.
+          */}
+          {projeYoneticisiMi(kullanici) && (
+            <KisayolKarti
+              baslik="Toplu danışman ataması"
+              aciklama="İldeki danışmansız öğrencileri okullarına göre öğretmenlere atayın"
+              Ikon={UserCheck}
+              yol="/panel/yonetim/toplu-danisman"
+              ton="uyari"
+            />
+          )}
+          {(ekipYonetebilirMi(kullanici) || ekiplerKapaliMi(kullanici)) && (
             <KisayolKarti
               baslik="Ekipler"
               aciklama="İlinizde kurduğunuz ekipler, üyeleri ve ekip sohbetleri"
               Ikon={UsersRound}
               yol="/panel/ekipler"
               ton="olumlu"
+              // Koordinatörde kart pasif (23 Ekim 2026 · "Ekipler pasif olsun").
+              pasifNedeni={
+                ekiplerKapaliMi(kullanici) ? EKIPLER_KAPALI_ACIKLAMASI : undefined
+              }
             />
           )}
           {/*

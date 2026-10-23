@@ -11,7 +11,11 @@ import {
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
-import { BulunamadiHatasi } from "@/lib/yetki/tipler";
+import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
+import {
+  BAGLANTILARIM_KAPALI_ACIKLAMASI,
+  baglantilarimKapaliMi,
+} from "@/lib/yazisma/politika";
 
 /**
  * Yazışmanın açılması.
@@ -76,6 +80,9 @@ function hataylaDon(yol: string, mesaj: string): never {
  */
 export async function dogrudanYazismaAcEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
+  if (baglantilarimKapaliMi(kullanici)) {
+    throw new YetkiHatasi(BAGLANTILARIM_KAPALI_ACIKLAMASI);
+  }
 
   const hedefId = Number.parseInt(String(veri.get("hedefId") ?? ""), 10);
   if (!Number.isFinite(hedefId)) throw new BulunamadiHatasi();

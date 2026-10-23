@@ -83,6 +83,7 @@ export default async function OgretmenDetaySayfasi({
       egitimOgretimYili: true,
       aktif: true,
       kurum: { select: { ad: true, okulTuru: true } },
+      beyanOkulAdi: true,
       il: { select: { ad: true } },
       ilce: { select: { ad: true } },
       ogretmenProfil: {
@@ -192,7 +193,7 @@ export default async function OgretmenDetaySayfasi({
         baslik={`${ogretmen.ad} ${ogretmen.soyad}`}
         aciklama={[
           ogretmen.brans,
-          ogretmen.kurum?.ad,
+          ogretmen.kurum?.ad ?? ogretmen.beyanOkulAdi,
           ogretmen.aktif ? null : "kayıt pasif",
         ]
           .filter(Boolean)
@@ -215,7 +216,10 @@ export default async function OgretmenDetaySayfasi({
           <Alan etiket="Ad" deger={ogretmen.ad} />
           <Alan etiket="Soyad" deger={ogretmen.soyad} />
           <Alan etiket="Branş" deger={ogretmen.brans} />
-          <Alan etiket="Okul" deger={ogretmen.kurum?.ad ?? null} />
+          <Alan
+            etiket={ogretmen.kurum ? "Okul" : "Okul (listede yok)"}
+            deger={ogretmen.kurum?.ad ?? ogretmen.beyanOkulAdi ?? null}
+          />
           <Alan etiket="Okul türü" deger={ogretmen.kurum?.okulTuru ?? null} />
           <Alan etiket="İl" deger={ogretmen.il?.ad ?? null} />
           <Alan etiket="İlçe" deger={ogretmen.ilce?.ad ?? null} />

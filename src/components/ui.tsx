@@ -354,6 +354,7 @@ export function OlcumKarti({
   Ikon,
   yol,
   ton = "notr",
+  pasifNedeni,
 }: {
   baslik: string;
   deger: string;
@@ -363,7 +364,16 @@ export function OlcumKarti({
   yol?: string;
   /** Poster bandının rengi; bilgi taşır (bkz. başlıktaki not). */
   ton?: "vurgu" | "olumlu" | "uyari" | "notr";
+  /**
+   * PASİF KART (23 Ekim 2026). Verilirse `yol` yok sayılır, kart soluk basılır
+   * ve açıklama yerine bu metin yazar.
+   */
+  pasifNedeni?: string;
 }) {
+  if (pasifNedeni) {
+    yol = undefined;
+    aciklama = pasifNedeni;
+  }
   const icerik = (
     <>
       {/*
@@ -408,7 +418,13 @@ export function OlcumKarti({
       {icerik}
     </Link>
   ) : (
-    <div className={sinif}>{icerik}</div>
+    <div
+      aria-disabled={pasifNedeni ? "true" : undefined}
+      title={pasifNedeni}
+      className={pasifNedeni ? `${sinif} cursor-not-allowed opacity-50` : sinif}
+    >
+      {icerik}
+    </div>
   );
 }
 

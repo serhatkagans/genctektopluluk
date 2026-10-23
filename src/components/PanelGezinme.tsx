@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BadgeCheck,
   CalendarDays,
   ClipboardList,
   Handshake,
@@ -25,6 +26,7 @@ import { usePathname } from "next/navigation";
  * çevirmek, ikon listesini de tek yerde toplu tutar.
  */
 const IKONLAR = {
+  BadgeCheck,
   CalendarDays,
   ClipboardList,
   Handshake,
@@ -54,6 +56,12 @@ export type GezinmeBaglantisi = {
   grup?: string;
   /** `IKONLAR` anahtarı. Verilmezse satır ikonsuz basılır. */
   ikon?: IkonAdi;
+  /**
+   * PASİF SATIR (23 Ekim 2026 · istek: "Bağlantılarım komple pasif"). Satır
+   * menüde görünür ama bağlantı değildir: tıklanmaz, soluk basılır, üzerine
+   * gelince nedeni yazar. Verilen metin bu nedendir.
+   */
+  pasifNedeni?: string;
 };
 
 function aktifMi(yol: string, baglanti: GezinmeBaglantisi) {
@@ -136,6 +144,20 @@ export function PanelGezinme({
               {grup.ogeler.map((baglanti) => {
                 const secili = aktifMi(yol, baglanti);
                 const Ikon = baglanti.ikon ? IKONLAR[baglanti.ikon] : null;
+                if (baglanti.pasifNedeni) {
+                  return (
+                    <li key={baglanti.yol}>
+                      <span
+                        aria-disabled="true"
+                        title={baglanti.pasifNedeni}
+                        className="flex cursor-not-allowed items-center gap-2.5 rounded-kutu px-3 py-2 text-sm font-medium text-metin-yumusak opacity-50"
+                      >
+                        {Ikon && <Ikon size={16} className="shrink-0" />}
+                        {baglanti.etiket}
+                      </span>
+                    </li>
+                  );
+                }
                 return (
                   <li key={baglanti.yol}>
                     <Link
@@ -167,6 +189,20 @@ export function PanelGezinme({
         {baglantilar.map((baglanti) => {
           const secili = aktifMi(yol, baglanti);
           const Ikon = baglanti.ikon ? IKONLAR[baglanti.ikon] : null;
+          if (baglanti.pasifNedeni) {
+            return (
+              <li key={baglanti.yol} className="shrink-0">
+                <span
+                  aria-disabled="true"
+                  title={baglanti.pasifNedeni}
+                  className="flex cursor-not-allowed items-center gap-1.5 rounded-full bg-kart px-3.5 py-2 text-sm font-medium whitespace-nowrap text-metin-yumusak opacity-50"
+                >
+                  {Ikon && <Ikon size={15} />}
+                  {baglanti.etiket}
+                </span>
+              </li>
+            );
+          }
           return (
             <li key={baglanti.yol} className="shrink-0">
               <Link

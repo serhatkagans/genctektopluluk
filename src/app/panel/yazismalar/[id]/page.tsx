@@ -1,5 +1,9 @@
 import { EyeOff, Lock, Send } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import {
+  BAGLANTILARIM_KAPALI_ACIKLAMASI,
+  baglantilarimKapaliMi,
+} from "@/lib/yazisma/politika";
 import {
   BilgiKutusu,
   Kart,
@@ -46,6 +50,10 @@ export default async function YazismaSayfasi({
 }) {
   const [{ id }, { durum, hata }] = await Promise.all([params, searchParams]);
   const kullanici = await oturumKullanicisiZorunlu();
+  // Bağlantılarım öğrenciye kapalı (23 Ekim 2026 · bkz. lib/yazisma/politika.ts).
+  if (baglantilarimKapaliMi(kullanici)) {
+    redirect(`/panel?hata=${encodeURIComponent(BAGLANTILARIM_KAPALI_ACIKLAMASI)}`);
+  }
 
   const yazismaId = Number.parseInt(id, 10);
   if (!Number.isInteger(yazismaId)) notFound();

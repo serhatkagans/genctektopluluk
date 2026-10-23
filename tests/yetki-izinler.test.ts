@@ -1176,13 +1176,14 @@ describe("belge üretme yetkisi", () => {
     ).toBe(true);
   });
 
-  it("il koordinatörü ÖĞRENCİNİN açtığı etkinliğe belge üretir", () => {
+  // 23 Ekim 2026 · istek: koordinatörde "Belge oluştur … pasif".
+  it("il koordinatörü kendi ilinde de belge üretemez", () => {
     expect(
       faaliyetBelgesiUretebilirMi(
         koordinatorYap({ ilKodu: "34" }),
         ogrenciFaaliyeti(),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("başka ilin koordinatörü üretemez", () => {
@@ -1200,8 +1201,8 @@ describe("belge üretme yetkisi", () => {
     ).toBe(true);
   });
 
-  it("giriş ekranının rol sorusu yalnızca koordinatör ve merkezi geçirir", () => {
-    expect(belgeUretenRoldeMi(koordinatorYap({ ilKodu: "34" }))).toBe(true);
+  it("giriş ekranının rol sorusu yalnızca merkezi geçirir", () => {
+    expect(belgeUretenRoldeMi(koordinatorYap({ ilKodu: "34" }))).toBe(false);
     expect(belgeUretenRoldeMi(projeYoneticisiYap())).toBe(true);
     expect(belgeUretenRoldeMi(danismanYap())).toBe(false);
     expect(belgeUretenRoldeMi(ogrenciYap())).toBe(false);

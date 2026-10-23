@@ -74,7 +74,11 @@ import {
   basvuruYapabilirMi,
   danismanMi,
   faaliyetDisaAktarabilirMi,
+  belgeUretenRoldeMi,
+  disKullaniciMi,
+  etkinlikRaporlariGorebilirMi,
   ilKoordinatoruMu,
+  ogrenciMi,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
@@ -1025,6 +1029,26 @@ export default async function FaaliyetlerSayfasi({
                 Yeni etkinlik
               </Link>
             )}
+            {/*
+              ÖĞRENCİDE PASİF DÜĞME (23 Ekim 2026 · istek: "Öğrenci etkinlik
+              açamaz, düğme pasif olsun"). Düğme kaldırılmadı, tıklanamaz
+              basılıyor; yanındaki ipucu nedenini söylüyor.
+            */}
+            {!acabilir && (
+              <button
+                type="button"
+                disabled
+                title={
+                  ogrenciMi(kullanici)
+                    ? "Öğrenciler etkinlik açamaz; mevcut etkinliklere başvurabilirsiniz."
+                    : "Etkinlikleri proje yöneticisi açar."
+                }
+                className={`${SINIF_KIRMIZI_BUTON} cursor-not-allowed opacity-50`}
+              >
+                <Plus size={16} aria-hidden />
+                Yeni etkinlik
+              </button>
+            )}
           {/*
             BELGE OLUŞTUR menüden kalktı (J3); etkinlik seçim ekranına giden yol
             buradan açık kalıyor. Sayfa silinmedi, yalnızca menüden çıktı.
@@ -1040,11 +1064,28 @@ export default async function FaaliyetlerSayfasi({
             roller. "Görünür olsun" bir yer ve vurgu isteğidir; öğrenciye belge
             üretme kapısı açmaz.
           */}
-            {raporYazabilir && (
+            {/*
+              23 EKİM 2026 · istekler: öğretmen ve koordinatörde "Belge oluştur
+              … pasif". Belgeyi yalnızca proje yöneticisi üretir; diğer
+              rollerde düğme tıklanamaz basılıyor.
+            */}
+            {belgeUretenRoldeMi(kullanici) ? (
               <Link href="/panel/belgeler" className={SINIF_KIRMIZI_BUTON}>
                 <Award size={16} aria-hidden />
                 Belge oluştur
               </Link>
+            ) : (
+              !disKullaniciMi(kullanici) && (
+                <button
+                  type="button"
+                  disabled
+                  title="Belgeleri proje yöneticisi oluşturur."
+                  className={`${SINIF_KIRMIZI_BUTON} cursor-not-allowed opacity-50`}
+                >
+                  <Award size={16} aria-hidden />
+                  Belge oluştur
+                </button>
+              )
             )}
             {/*
               ETKİNLİK RAPORLARI (26 Ağustos 2026 · istek: "bu kartı
@@ -1059,11 +1100,23 @@ export default async function FaaliyetlerSayfasi({
               (koordinatör, merkez ve danışman öğretmen) — kartın panodaki
               hâlinde de böyleydi.
             */}
-            {raporYazabilir && (
+            {etkinlikRaporlariGorebilirMi(kullanici) ? (
               <Link href="/panel/raporlar" className={SINIF_IKINCIL_BUTON}>
                 <FileText size={16} aria-hidden />
                 Etkinlik raporları
               </Link>
+            ) : (
+              !disKullaniciMi(kullanici) && (
+                <button
+                  type="button"
+                  disabled
+                  title="Etkinlik raporları listesi proje yöneticisine açıktır."
+                  className={`${SINIF_IKINCIL_BUTON} cursor-not-allowed opacity-50`}
+                >
+                  <FileText size={16} aria-hidden />
+                  Etkinlik raporları
+                </button>
+              )
             )}
           </>
         }

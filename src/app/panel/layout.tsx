@@ -15,7 +15,12 @@ import { uygulamaYolu } from "@/lib/ortam";
 import { aktifTema } from "@/lib/tema";
 import { rolIlAdlariniGetir } from "@/lib/yetki/rol-il-adlari";
 import {
+  BAGLANTILARIM_KAPALI_ACIKLAMASI,
+  baglantilarimKapaliMi,
+} from "@/lib/yazisma/politika";
+import {
   disKullaniciMi,
+  ogrenciMi,
   projeYoneticisiMi,
   rolEnvanteriGorebilirMi,
   yonetimPanosuGorebilirMi,
@@ -343,6 +348,21 @@ export default async function PanelDuzeni({
   });
 
   /*
+   * GENÇTEK GÖREVLERİM SOL MENÜDE (23 Ekim 2026 · istekler: öğretmen sayfasında
+   * "Gençtek görevlerim yine ana menüde", koordinatör sayfasında "Gençtek
+   * görevleri sol menüde"). Öğrencide giriş Panel'deki kart; öğretmen ve
+   * koordinatörün kendi görevleri bu ekranda.
+   */
+  if (!ogrenciMi(kullanici) && !projeYoneticisiMi(kullanici)) {
+    baglantilar.push({
+      yol: "/panel/gorevlerim",
+      etiket: "GençTek görevlerim",
+      grup: "Çalışma",
+      ikon: "BadgeCheck",
+    });
+  }
+
+  /*
    * "Bağlantılarım" (eski adı Yazışmalar) herkese açık; kimin ne göreceğini
    * kapsam filtresi belirler. Öğrenci kendi yazışmalarını, danışman
    * öğrencilerininkini, koordinatör ilindekileri görür.
@@ -356,6 +376,10 @@ export default async function PanelDuzeni({
     etiket: "Bağlantılarım",
     grup: "İletişim",
     ikon: "MessagesSquare",
+    // Öğrencide satır pasif (23 Ekim 2026 · bkz. lib/yazisma/politika.ts).
+    pasifNedeni: baglantilarimKapaliMi(kullanici)
+      ? BAGLANTILARIM_KAPALI_ACIKLAMASI
+      : undefined,
   });
 
   /*

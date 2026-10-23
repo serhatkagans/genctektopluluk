@@ -7,6 +7,10 @@ import {
   ogrenciDanismaniniBirakti,
   ogrenciDanismanSecti,
 } from "@/lib/danisman/atama";
+import {
+  ATAMAYI_YALNIZCA_YONETICI_YAPAR,
+  YONETICI_ATAR_ACIKLAMASI,
+} from "@/lib/danisman/politika";
 import { talebimiGeriCek } from "@/lib/danisman/talep";
 import { ogrenciMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -40,6 +44,13 @@ export async function danismanSecEylemi(veri: FormData): Promise<void> {
 
   const donusYolu = donusYolunuCoz(veri);
   const capa = donusYolu === "/panel" ? "#danismanim" : "";
+
+  // Atamayı yalnızca proje yöneticisi yapar (23 Ekim 2026 · bkz. politika.ts).
+  if (ATAMAYI_YALNIZCA_YONETICI_YAPAR) {
+    redirect(
+      `${donusYolu}?hata=${encodeURIComponent(YONETICI_ATAR_ACIKLAMASI)}${capa}`,
+    );
+  }
 
   const secilenId = Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
   if (!Number.isFinite(secilenId)) {

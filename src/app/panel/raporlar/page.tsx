@@ -37,6 +37,7 @@ import { enBuyukler, yillaraGoreSay } from "@/lib/rapor/grafik-verisi";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import {
   danismanMi,
+  etkinlikRaporlariGorebilirMi,
   faaliyetDisaAktarabilirMi,
   ilKoordinatoruMu,
   projeYoneticisiMi,
@@ -59,16 +60,14 @@ export const dynamic = "force-dynamic";
 export default async function RaporlarSayfasi() {
   const kullanici = await oturumKullanicisiZorunlu();
 
-  if (
-    !ilKoordinatoruMu(kullanici) &&
-    !projeYoneticisiMi(kullanici) &&
-    !danismanMi(kullanici)
-  ) {
+  // 23 Ekim 2026: liste yalnızca proje yöneticisine açık (bkz.
+  // etkinlikRaporlariGorebilirMi).
+  if (!etkinlikRaporlariGorebilirMi(kullanici)) {
     return (
       <Kart>
         <KartBasligi
           baslik="Etkinlik raporları"
-          aciklama="Bu ekran etkinlik düzenleyen rollere açıktır."
+          aciklama="Bu ekran proje yöneticisine açıktır. Bir etkinliğin raporunu etkinliğin kendi sayfasından yazabilirsiniz."
         />
       </Kart>
     );

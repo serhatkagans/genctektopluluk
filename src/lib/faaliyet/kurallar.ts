@@ -211,12 +211,22 @@ export function etkinlikKategorisiDogrula(
  */
 export function kapsamSecenekleri(kullanici: OturumKullanicisi): Kapsam[] {
   if (projeYoneticisiMi(kullanici)) return ["IL", "ULUSAL", "ULUSLARARASI"];
-  if (ilKoordinatoruMu(kullanici)) return ["IL", "ULUSAL", "ULUSLARARASI"];
-  if (ogrenciMi(kullanici))
-    return ["OKUL", "IL", "ULUSAL", "ULUSLARARASI"];
+  /*
+   * ÖĞRETMEN VE KOORDİNATÖR DE ETKİNLİK AÇAMAZ (23 Ekim 2026 · istekler:
+   * öğretmen ve koordinatör sayfalarında "Etkinlikler öğrencilerle aynı …
+   * Yeni etkinlik, Belge oluştur, Etkinlik raporları pasif"). Etkinliği
+   * proje yöneticisi açar; mezun/paydaş/mentör bildirimi (onaya düşen) sürüyor.
+   */
+  if (ilKoordinatoruMu(kullanici)) return [];
+  /*
+   * ÖĞRENCİ ETKİNLİK AÇAMAZ (23 Ekim 2026 · istek: "Öğrenci etkinlik açamaz,
+   * düğme pasif olsun"). Liste boş döndüğü için form, kaydetme eylemi ve
+   * "Yeni etkinlik" düğmesi birlikte kapanır; düğme etkinlikler ekranında
+   * pasif olarak basılır. Öğrenci mevcut etkinliklere başvurur.
+   */
+  if (ogrenciMi(kullanici)) return [];
   if (disKullaniciMi(kullanici)) return ["IL", "ULUSAL", "ULUSLARARASI"];
-  if (danismanMi(kullanici))
-    return ["OKUL", "IL", "ULUSAL", "ULUSLARARASI"];
+  // Danışman öğretmen de açamaz (23 Ekim 2026; yukarıdaki nota bakın).
   return [];
 }
 

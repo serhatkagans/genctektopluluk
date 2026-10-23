@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ILLER } from "../../../prisma/veri/iller";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
+import { KayitOkulSecimi } from "@/components/KayitOkulSecimi";
 import {
   BilgiKutusu,
   Kart,
@@ -122,7 +123,7 @@ export default async function KayitSayfasi({
   const ogrenciMi = secilenTip === "OGRENCI";
   const okullar = await prisma.kurum.findMany({
     where: { ilKodu: secilenIl, aktif: true },
-    select: { kurumKodu: true, ad: true },
+    select: { kurumKodu: true, ad: true, okulTuru: true },
     orderBy: { ad: "asc" },
   });
 
@@ -141,7 +142,8 @@ export default async function KayitSayfasi({
 
       {okullar.length === 0 && (
         <BilgiKutusu cesit="uyari" className="mt-6">
-          {ilAdi} ilinde kayıtlı okul bulunamadı. Proje yöneticisine başvurun.
+          {ilAdi} ilinde kayıtlı okul bulunamadı. Okul listesinden &quot;Okulum
+          listede yok&quot; seçeneğini seçip okulunuzun adını yazabilirsiniz.
         </BilgiKutusu>
       )}
 
@@ -213,30 +215,52 @@ export default async function KayitSayfasi({
 
         <Kart>
           <h2 className="mb-4 text-lg font-semibold text-baslik">
+            İletişim bilgileri
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-metin-yumusak">
+                E-posta
+              </span>
+              <input
+                type="email"
+                name="eposta"
+                required
+                maxLength={150}
+                autoComplete="email"
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-metin-yumusak">
+                Telefon
+              </span>
+              <input
+                type="tel"
+                name="telefon"
+                required
+                maxLength={20}
+                autoComplete="tel"
+                placeholder="05xx xxx xx xx"
+                className={SINIF_GIRDI}
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-metin-yumusak">
+            Profilinizden sonradan değiştirebilirsiniz.
+          </p>
+        </Kart>
+
+        <Kart>
+          <h2 className="mb-4 text-lg font-semibold text-baslik">
             Okul bilgileri
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block sm:col-span-2">
-              <span className="text-sm font-medium text-metin-yumusak">
-                Okul
-              </span>
-              <select
-                name="kurumKodu"
-                required
-                defaultValue=""
-                className={SINIF_GIRDI}
-              >
-                <option value="">Seçiniz</option>
-                {okullar.map((okul) => (
-                  <option key={okul.kurumKodu} value={okul.kurumKodu}>
-                    {okul.ad}
-                  </option>
-                ))}
-              </select>
-              <span className="mt-1 block text-xs text-metin-yumusak">
-                Yalnızca {ilAdi} ilindeki okullar listeleniyor.
-              </span>
-            </label>
+            <KayitOkulSecimi
+              okullar={okullar}
+              ilAdi={ilAdi}
+              turSecilsin={ogrenciMi}
+            />
 
             {ogrenciMi ? (
               <>
@@ -326,11 +350,7 @@ export default async function KayitSayfasi({
         </Kart>
 
         <div className="flex flex-wrap items-center gap-4">
-          <button
-            type="submit"
-            disabled={okullar.length === 0}
-            className={SINIF_BIRINCIL_BUTON}
-          >
+          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
             <UserPlus size={16} aria-hidden />
             Kayıt ol
           </button>

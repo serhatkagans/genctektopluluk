@@ -111,3 +111,13 @@ export function okulTuruKosulu(
   }
   return { okulTuru };
 }
+
+/**
+ * Okulun kayıttaki türünü bir seçim formunun seçeneklerinden birine çevirir:
+ * standart listede olmayan bir tür "Diğer" olarak seçili gelir (23 Ekim 2026 ·
+ * öğrenci panelindeki "Genel bilgiler").
+ */
+export function formOkulTuru(tur: string | null | undefined): string {
+  if (!tur) return "";
+  return BILINEN_OKUL_TURLERI.includes(tur) ? tur : OKUL_TURU_DIGER;
+}

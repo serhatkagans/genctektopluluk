@@ -3,7 +3,7 @@ import { prisma } from "../db";
 import { sifreOzetle } from "../dis-kimlik/sifre";
 import { kullaniciSagla } from "../kullanici/sagla";
 import { erisimLogla } from "../yetki/log";
-import type { KayitKaydi } from "./kurallar";
+import { type KayitKaydi, okulTuruUyarMi } from "./kurallar";
 
 export type KayitSonucu =
   | { durum: "BASARILI"; kullaniciId: number }
@@ -22,12 +22,28 @@ export type KayitSonucu =
  * numarasını bilen kişi o hesabı (rolleri ve verisiyle) sahiplenebilirdi.
  */
 export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
-  const kurum = await prisma.kurum.findUnique({
-    where: { kurumKodu: kayit.kurumKodu },
-    select: { ilKodu: true, ilceKodu: true, aktif: true },
-  });
-  if (!kurum || !kurum.aktif || kurum.ilKodu !== kayit.ilKodu) {
-    return { durum: "BASARISIZ", mesaj: "Okulunuzu listeden seçin." };
+  /*
+   * LİSTEDE OLMAYAN OKUL (23 Ekim 2026): kurum kodu boş gelir, kişi okulsuz
+   * açılır ve yazdığı ad `beyanOkulAdi`nda durur. İlçe bilinmediği için boş.
+   * Okulsuz öğretmene danışman rolü verilmez (kullanici/sagla.ts); okul
+   * referans tabloya eklenip kişi bağlandığında olağan akış devreye girer.
+   */
+  let ilceKodu: string | null = null;
+  if (kayit.kurumKodu !== null) {
+    const kurum = await prisma.kurum.findUnique({
+      where: { kurumKodu: kayit.kurumKodu },
+      select: { ilKodu: true, ilceKodu: true, aktif: true, okulTuru: true },
+    });
+    if (!kurum || !kurum.aktif || kurum.ilKodu !== kayit.ilKodu) {
+      return { durum: "BASARISIZ", mesaj: "Okulunuzu listeden seçin." };
+    }
+    if (kayit.okulTuru !== null && !okulTuruUyarMi(kayit.okulTuru, kurum.okulTuru)) {
+      return {
+        durum: "BASARISIZ",
+        mesaj: "Seçtiğiniz okul, seçtiğiniz okul türünde değil. Okul türünü kontrol edin.",
+      };
+    }
+    ilceKodu = kurum.ilceKodu;
   }
 
   const mevcut = await prisma.kullanici.findUnique({
@@ -54,7 +70,7 @@ export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
     cinsiyet: kayit.cinsiyet,
     kurumKodu: kayit.kurumKodu,
     ilKodu: kayit.ilKodu,
-    ilceKodu: kurum.ilceKodu,
+    ilceKodu,
     sinif: kayit.sinif,
     brans: kayit.brans,
     egitimOgretimYili: kayit.egitimOgretimYili,
@@ -75,7 +91,29 @@ export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
     throw hata;
   }
 
-  await prisma.kayitKimlik.create({ data: { kullaniciId, sifreOzeti } });
+  /*
+   * Şifre, beyan edilen okul ve iletişim bilgisi TEK İŞLEMDE yazılır. Profil
+   * satırı (öğrenci/öğretmen) sağlama akışında açıldı; iletişim alanları
+   * profildekilerle aynı yerde durur, kişi sonradan profilinden değiştirir.
+   */
+  const iletisim = { eposta: kayit.eposta, telefon: kayit.telefon };
+  await prisma.$transaction([
+    prisma.kayitKimlik.create({ data: { kullaniciId, sifreOzeti } }),
+    ...(kayit.beyanOkulAdi !== null
+      ? [
+          prisma.kullanici.update({
+            where: { id: kullaniciId },
+            data: {
+              beyanOkulAdi: kayit.beyanOkulAdi,
+              beyanOkulTuru: kayit.okulTuru,
+            },
+          }),
+        ]
+      : []),
+    kayit.tip === "OGRENCI"
+      ? prisma.ogrenciProfil.update({ where: { kullaniciId }, data: iletisim })
+      : prisma.ogretmenProfil.update({ where: { kullaniciId }, data: iletisim }),
+  ]);
 
   await erisimLogla({
     kullaniciId,

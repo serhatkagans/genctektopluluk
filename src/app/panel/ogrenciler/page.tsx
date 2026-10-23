@@ -47,6 +47,7 @@ import {
   MENTORLUK_DURUM_SINIFLARI,
 } from "@/lib/mentor/kurallar";
 import { ogrenciyiDanismanligaAlEylemi } from "./eylemler";
+import { ATAMAYI_YALNIZCA_YONETICI_YAPAR } from "@/lib/danisman/politika";
 import {
   mentorlukKaldirmaTalebiKararEylemi,
   ogrenciMentorluguKararEylemi,
@@ -828,7 +829,10 @@ export default async function OgrencilerSayfasi({
    * reddediyor) ve ona boş bir liste göstermenin karşılığı yok.
    */
   const danismansizlar =
-    danismanMi(kullanici) && kullanici.kurumKodu !== null
+    // Öğretmen öğrenci alamaz: atamayı proje yöneticisi yapar (23 Ekim 2026).
+    !ATAMAYI_YALNIZCA_YONETICI_YAPAR &&
+    danismanMi(kullanici) &&
+    kullanici.kurumKodu !== null
       ? await prisma.kullanici.findMany({
           where: {
             kurumKodu: kullanici.kurumKodu,
@@ -917,6 +921,7 @@ export default async function OgrencilerSayfasi({
       soyad: true,
       sinif: true,
       kurum: { select: { ad: true } },
+      beyanOkulAdi: true,
       il: { select: { ad: true } },
       ilce: { select: { ad: true } },
       calismaGruplari: {
@@ -1903,7 +1908,10 @@ export default async function OgrencilerSayfasi({
                       {ogrenci.sinif ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
-                      {ogrenci.kurum?.ad ?? "—"}
+                      {ogrenci.kurum?.ad ??
+                        (ogrenci.beyanOkulAdi
+                          ? `${ogrenci.beyanOkulAdi} (listede yok)`
+                          : "—")}
                     </td>
                     <td className="px-4 py-3 text-metin-yumusak">
                       {ogrenci.il?.ad ?? "—"}

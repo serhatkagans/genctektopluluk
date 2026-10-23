@@ -186,7 +186,7 @@ export function KatkiGorevBolumu({
           {faaliyetler.length === 0 ? (
             <p className="mt-1 text-sm text-metin-yumusak">
               {kendiMi
-                ? "Henüz bir organizasyonda görev almadın. Bir etkinlik kurmak istersen önerin il koordinatörüne ve YEĞİTEK'e onaya gider."
+                ? "Henüz bir organizasyonda görev almadın."
                 : "Henüz bir organizasyonda görev almamış."}
             </p>
           ) : (
@@ -209,14 +209,11 @@ export function KatkiGorevBolumu({
               ))}
             </ul>
           )}
-          {kendiMi && (
-            <Link
-              href="/panel/etkinlikler/yeni"
-              className="mt-2 inline-block text-sm font-medium text-vurgu-metin underline underline-offset-2"
-            >
-              Yeni etkinlik öner
-            </Link>
-          )}
+          {/*
+            "YENİ ETKİNLİK ÖNER" BAĞLANTISI KALKTI (23 Ekim 2026 · istek:
+            "Öğrenci etkinlik açamaz"). Kart yalnızca öğrencide basılıyor ve
+            bağlantı artık yetki hatasına çıkıyordu.
+          */}
         </div>
       )}
     </div>

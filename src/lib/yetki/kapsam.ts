@@ -73,20 +73,31 @@ export function ogrenciKapsamFiltresi(
    * öğrencisi bu listede yok ve olmamalı — danışmanlık kişiye özel bir bağdır,
    * "okulun tamamını gör" yetkisi il koordinatöründe.
    */
+  /*
+   * ATANMIŞ ÖĞRENCİ OKULDAN BAĞIMSIZ GÖRÜNÜR (23 Ekim 2026). Atamayı artık
+   * proje yöneticisi yapıyor ve okul adları elle yazıldığı için aynı okul iki
+   * kişide farklı kayıtta durabiliyor ("büyük küçük harf bir iki harf değişik
+   * falan"). Yöneticinin bağladığı öğrenci, öğretmenin okul koduyla
+   * eşleşmediği için listeden düşseydi atama kâğıt üzerinde kalırdı.
+   * Danışmansız öğrenciler ise yine yalnızca öğretmenin KENDİ okulunda.
+   */
+  const atanmisOgrenci: Prisma.KullaniciWhereInput = {
+    ogrenciAtamalari: {
+      some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
+    },
+  };
   const kurumKodu = danismanKurumKodu(kullanici);
   if (kurumKodu !== null) {
     return {
       AND: [
         AKTIF_OGRENCI,
-        { kurumKodu },
         {
           OR: [
+            atanmisOgrenci,
             {
-              ogrenciAtamalari: {
-                some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
-              },
+              kurumKodu,
+              ogrenciAtamalari: { none: { bitisTarihi: null } },
             },
-            { ogrenciAtamalari: { none: { bitisTarihi: null } } },
           ],
         },
       ],

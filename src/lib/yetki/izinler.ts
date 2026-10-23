@@ -647,11 +647,24 @@ export function faaliyetBelgesiUretebilirMi(
   kullanici: OturumKullanicisi,
   faaliyet: FaaliyetKapsami,
 ): boolean {
-  if (projeYoneticisiMi(kullanici)) return true;
-  if (!ilKoordinatoruMu(kullanici)) return false;
+  // 23 Ekim 2026 · istek: koordinatörde "Belge oluştur … pasif". Belgeyi
+  // yalnızca proje yöneticisi üretir; `faaliyet` artık sorulmuyor.
+  void faaliyet;
+  return projeYoneticisiMi(kullanici);
+}
 
-  const faaliyetIli = faaliyet.kapsamIlKodu ?? faaliyet.ilKodu;
-  return faaliyetIli !== null && koordinatorIlKodu(kullanici) === faaliyetIli;
+/**
+ * ETKİNLİK RAPORLARI LİSTESİNİ GÖREBİLİR Mİ? (23 Ekim 2026 · istekler:
+ * öğretmen ve koordinatör sayfalarında "Etkinlik raporları … pasif").
+ *
+ * `/panel/raporlar` toplu listesi artık yalnızca proje yöneticisine açık.
+ * Tek bir etkinliğin raporu ve yoklaması `faaliyetRaporuYazabilirMi` ile
+ * etkinlik sayfasında yazılmaya devam ediyor.
+ */
+export function etkinlikRaporlariGorebilirMi(
+  kullanici: OturumKullanicisi,
+): boolean {
+  return projeYoneticisiMi(kullanici);
 }
 
 /**
@@ -666,7 +679,8 @@ export function faaliyetBelgesiUretebilirMi(
  * zaten kapsam filtresinden geçiyor.
  */
 export function belgeUretenRoldeMi(kullanici: OturumKullanicisi): boolean {
-  return ilKoordinatoruMu(kullanici) || projeYoneticisiMi(kullanici);
+  // 23 Ekim 2026: koordinatörden alındı (bkz. faaliyetBelgesiUretebilirMi).
+  return projeYoneticisiMi(kullanici);
 }
 
 export function ekYukleyebilirMi(

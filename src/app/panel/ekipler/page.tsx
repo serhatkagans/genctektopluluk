@@ -16,8 +16,11 @@ import { prisma } from "@/lib/db";
 import {
   EKIP_FORM_TURLERI,
   EKIP_TURU_ETIKETLERI,
+  EKIPLER_KAPALI_ACIKLAMASI,
+  ekiplerKapaliMi,
   ekipYonetebilirMi,
 } from "@/lib/ekip/kurallar";
+import { redirect } from "next/navigation";
 import { ekipleriGetir } from "@/lib/ekip/veri";
 import { koordinatorIlKodu, projeYoneticisiMi } from "@/lib/yetki/izinler";
 import type { SorguParametreleri } from "../ogrenciler/filtreler";
@@ -69,6 +72,10 @@ export default async function EkiplerSayfasi({
   searchParams: Promise<SorguParametreleri & { durum?: string; hata?: string }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
+  // Ekipler il koordinatörüne kapalı (23 Ekim 2026 · bkz. ekiplerKapaliMi).
+  if (ekiplerKapaliMi(kullanici)) {
+    redirect(`/panel?hata=${encodeURIComponent(EKIPLER_KAPALI_ACIKLAMASI)}`);
+  }
   const parametreler = await searchParams;
   const { durum, hata } = parametreler;
 
