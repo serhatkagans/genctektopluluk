@@ -852,7 +852,7 @@ ssh genctek genctek-yayinla
 
 Platformdan (`/genctek`) **ayrı** bir kurulum: ayrı sistem kullanıcısı
 (`genctektopluluk`), dizin (`/opt/genctektopluluk`), PostgreSQL veritabanı
-(`genctektopluluk`), servis (`genctektopluluk.service`) ve port (**3040**).
+(`genctektopluluk`), servis (`genctektopluluk.service`) ve port (ilk kurulumda 3040–3099 arasındaki ilk boş port seçilip `.env`'e yazılır; 3040 doluydu).
 Kod `github.com/serhatkagans/genctektopluluk` (açık depo, anonim HTTPS) `main`
 dalından çekilir. `TEMEL_YOL="/genctektopluluk"`, `AUTH_PROVIDER="kayit"`.
 

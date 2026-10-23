@@ -20,7 +20,6 @@ set -euo pipefail
 
 UYGULAMA=genctektopluluk
 DIZIN=/opt/$UYGULAMA
-PORT=3040
 TEMEL_YOL=/genctektopluluk
 DEPO=https://github.com/serhatkagans/genctektopluluk.git
 DAL="${DAL:-main}"
@@ -39,10 +38,6 @@ id "$UYGULAMA" >/dev/null 2>&1 || useradd --system --home-dir "$DIZIN" --shell /
 ILK_KURULUM=hayir
 if [ ! -d "$DIZIN/.git" ]; then
   ILK_KURULUM=evet
-  if ss -ltn | grep -q ":$PORT "; then
-    echo "!!! $PORT portu dolu; servis dosyasında ve bu betikte başka bir port seçin." >&2
-    exit 1
-  fi
   echo "==> Depo kopyalanıyor ($DEPO, $DAL)"
   mkdir -p "$DIZIN"
   chown "$UYGULAMA:$UYGULAMA" "$DIZIN"
@@ -63,6 +58,15 @@ else
 fi
 
 if [ ! -f "$DIZIN/.env" ]; then
+  # PORT: 3040-3099 arasında dinlenmeyen ilk port. Belgedeki dolu port listesi
+  # eksik çıktı (3040 doluydu); elle seçmek yerine sunucuya soruluyor ve
+  # seçilen değer .env'e yazılıyor — servis ve Apache bloğu oradan okur.
+  PORT=""
+  for aday in $(seq 3040 3099); do
+    if ! ss -ltnH | awk '{print $4}' | grep -qE ":$aday$"; then PORT=$aday; break; fi
+  done
+  [ -n "$PORT" ] || { echo "!!! 3040-3099 arasında boş port yok." >&2; exit 1; }
+  echo "==> Port: $PORT"
   echo "==> İlk kurulum: PostgreSQL rolü ve veritabanı"
   if sudo -u postgres psql -Atc "SELECT 1 FROM pg_roles WHERE rolname='$UYGULAMA'" | grep -q 1; then
     echo "!!! '$UYGULAMA' rolü var ama $DIZIN/.env yok. Parola bilinmediği için durduruldu." >&2
@@ -78,6 +82,8 @@ SQL
   umask 077
   cat > "$DIZIN/.env" <<ENV
 DATABASE_URL="postgresql://$UYGULAMA:$PAROLA@127.0.0.1:5432/$UYGULAMA?schema=public"
+PORT="$PORT"
+HOSTNAME="127.0.0.1"
 AUTH_PROVIDER="kayit"
 URETIMDE_MOCK_GIRISE_IZIN_VER="hayir"
 GUVENILEN_VEKIL_SAYISI="1"
@@ -92,6 +98,9 @@ ENV
   umask 022
   unset PAROLA
 fi
+
+PORT="$(grep -E '^PORT=' "$DIZIN/.env" | head -1 | cut -d= -f2 | tr -d '"')"
+[ -n "$PORT" ] || { echo "!!! $DIZIN/.env içinde PORT yok." >&2; exit 1; }
 
 mkdir -p "$DIZIN/depolama"
 chown -R "$UYGULAMA:$UYGULAMA" "$DIZIN"

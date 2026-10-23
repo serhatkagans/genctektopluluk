@@ -20,9 +20,8 @@ Group=genctektopluluk
 WorkingDirectory=/opt/genctektopluluk
 EnvironmentFile=/opt/genctektopluluk/.env
 Environment=NODE_ENV=production
-# 3040: sunucuda 3000, 3010, 3011, 3017, 3020, 3021 ve 3030 dolu.
-Environment=PORT=3040
-Environment=HOSTNAME=127.0.0.1
+# PORT ve HOSTNAME (127.0.0.1) .env'den gelir: port, ilk kurulumda boş
+# olan ilk port olarak seçilir (bkz. dagitim/topluluk-kur.sh).
 # Node 24'ün tam yolu: sistemdeki Node 16 ile Prisma 7 açılmıyor.
 ExecStart=/opt/node24/bin/node /opt/genctektopluluk/.next/standalone/server.js
 

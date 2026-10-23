@@ -20,10 +20,13 @@
 set -euo pipefail
 
 DOSYA=/usr/local/directadmin/data/users/admin/domains/aiotechs.cloud.cust_httpd
+# Port kurulumda seçilip .env'e yazıldı (bkz. topluluk-kur.sh).
+PORT="$(grep -E '^PORT=' /opt/genctektopluluk/.env | head -1 | cut -d= -f2 | tr -d '"')"
 ISARET="# >>> genctektopluluk"
 
 [ "$(id -u)" -eq 0 ] || { echo "!!! root ile çalıştırın." >&2; exit 1; }
 [ -f "$DOSYA" ] || { echo "!!! $DOSYA yok." >&2; exit 1; }
+[ -n "$PORT" ] || { echo "!!! /opt/genctektopluluk/.env içinde PORT yok; önce topluluk-kur.sh." >&2; exit 1; }
 
 if grep -qF "$ISARET" "$DOSYA"; then
   echo "==> Blok zaten var; değişiklik yapılmadı."
@@ -35,13 +38,13 @@ cp -a "$DOSYA" "$YEDEK"
 echo "==> Yedek: $YEDEK"
 
 YENI="$(mktemp)"
-cat > "$YENI" <<'APACHE'
-# >>> genctektopluluk — GençTek Topluluk -> 127.0.0.1:3040 (genctektopluluk.service)
+cat > "$YENI" <<APACHE
+# >>> genctektopluluk — GençTek Topluluk -> 127.0.0.1:$PORT (genctektopluluk.service)
 # /genctek ve /genctekportal bloklarının ÜSTÜNDE durmalı (önek eşleşmesi).
-ProxyPass /genctektopluluk/ http://127.0.0.1:3040/genctektopluluk/
-ProxyPassReverse /genctektopluluk/ http://127.0.0.1:3040/genctektopluluk/
-ProxyPass /genctektopluluk http://127.0.0.1:3040/genctektopluluk
-ProxyPassReverse /genctektopluluk http://127.0.0.1:3040/genctektopluluk
+ProxyPass /genctektopluluk/ http://127.0.0.1:$PORT/genctektopluluk/
+ProxyPassReverse /genctektopluluk/ http://127.0.0.1:$PORT/genctektopluluk/
+ProxyPass /genctektopluluk http://127.0.0.1:$PORT/genctektopluluk
+ProxyPassReverse /genctektopluluk http://127.0.0.1:$PORT/genctektopluluk
 # <<< genctektopluluk
 
 APACHE
