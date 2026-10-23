@@ -937,12 +937,13 @@ export async function yoneticiDanismanAta(
  * Bir ilin danışman öğretmenleri: etkin, danışman rolü açık, il koordinatörü
  * olmayan öğretmenler. Okulu ilde olan ya da kendi ili bu il olanlar.
  */
-function ilDanismaniFiltresi(ilKodu: string): Prisma.KullaniciWhereInput {
+function ilDanismaniFiltresi(ilKodu: string | null): Prisma.KullaniciWhereInput {
   return {
     aktif: true,
     roller: { some: { rolKodu: "DANISMAN", bitisTarihi: null } },
     NOT: { roller: { some: { rolKodu: "IL_KOORDINATOR", bitisTarihi: null } } },
-    OR: [{ kurum: { ilKodu } }, { ilKodu }],
+    // İl verilmezse tüm illerin danışmanları (toplu atamanın "Tüm iller" görünümü).
+    ...(ilKodu ? { OR: [{ kurum: { ilKodu } }, { ilKodu }] } : {}),
   };
 }
 
@@ -952,6 +953,8 @@ export interface IlDanismani {
   soyad: string;
   brans: string | null;
   kurumKodu: number | null;
+  /** Öğretmenin ili: okulunun ili, okulu yoksa kendi kaydındaki il. */
+  ilKodu: string | null;
   /** Listedeki okulun adı ya da öğretmenin elle yazdığı ad. */
   okulAdi: string | null;
   /** Şu an danışmanlığındaki öğrenci sayısı. */
@@ -963,7 +966,9 @@ export interface IlDanismani {
  * panelinde toplu atama olsun"). Az öğrencisi olan önce: "boştaki
  * öğretmen" sorusunun cevabı listenin tepesinde.
  */
-export async function ildekiDanismanlar(ilKodu: string): Promise<IlDanismani[]> {
+export async function ildekiDanismanlar(
+  ilKodu: string | null,
+): Promise<IlDanismani[]> {
   const satirlar = await prisma.kullanici.findMany({
     where: ilDanismaniFiltresi(ilKodu),
     select: {
@@ -972,8 +977,9 @@ export async function ildekiDanismanlar(ilKodu: string): Promise<IlDanismani[]> 
       soyad: true,
       brans: true,
       kurumKodu: true,
+      ilKodu: true,
       beyanOkulAdi: true,
-      kurum: { select: { ad: true } },
+      kurum: { select: { ad: true, ilKodu: true } },
       _count: { select: { danismanAtamalari: { where: { bitisTarihi: null } } } },
     },
   });
@@ -984,6 +990,7 @@ export async function ildekiDanismanlar(ilKodu: string): Promise<IlDanismani[]> 
       soyad: s.soyad,
       brans: s.brans,
       kurumKodu: s.kurumKodu,
+      ilKodu: s.kurum?.ilKodu ?? s.ilKodu,
       okulAdi: s.kurum?.ad ?? s.beyanOkulAdi,
       ogrenciSayisi: s._count.danismanAtamalari,
     }))
