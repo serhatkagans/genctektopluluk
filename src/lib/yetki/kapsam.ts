@@ -104,6 +104,16 @@ export function ogrenciKapsamFiltresi(
     };
   }
 
+  /*
+   * OKULSUZ DANIŞMAN (23 Ekim 2026 · migration 20261023150000): okulu listede
+   * olmayan öğretmen de danışman olabiliyor. Okulu bilinmediği için
+   * "okulumdaki danışmansızlar" kolu yok; yalnızca kendisine atanmış
+   * öğrencileri görür.
+   */
+  if (danismanMi(kullanici)) {
+    return { AND: [AKTIF_OGRENCI, atanmisOgrenci] };
+  }
+
   // Öğrenci: yalnızca kendisi. İl Temsilcisi / Okul Temsilcisi görev rolleri
   // burada istisna değildir — hiçbir ek görüntüleme yetkisi vermezler.
   if (ogrenciMi(kullanici)) {

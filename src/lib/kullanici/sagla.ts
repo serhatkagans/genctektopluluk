@@ -50,8 +50,13 @@ export async function kullaniciSagla(
    * Öğretmen ilk girişte danışman OLUYOR mu? Karar işlemin dışında veriliyor
    * çünkü sonrasında bildirim gönderimi de buna bakıyor (aşağıdaki bloğa bkz.).
    */
-  const danismanOlabilir =
-    kimlik.tip === "OGRETMEN" && kimlik.kurumKodu !== null;
+  /*
+   * OKULSUZ ÖĞRETMEN DE DANIŞMAN OLUR (23 Ekim 2026 · migration
+   * 20261023150000). Okul listesi henüz gerçek MEB verisi değil ve öğretmenlerin
+   * çoğu okulunu elle yazıyor; atamayı da proje yöneticisi il bazında yapıyor.
+   * Rol kaydındaki kurum kodu varsa yazılır, yoksa boş kalır.
+   */
+  const danismanOlabilir = kimlik.tip === "OGRETMEN";
 
   if (!mevcut) {
     const olusan = await prisma.$transaction(async (islem) => {
@@ -90,10 +95,9 @@ export async function kullaniciSagla(
          * onay değil, yalnızca bir kutuydu — kimse reddetmiyordu, dolayısıyla
          * herkesin tek tek geçtiği boş bir kapıydı.
          *
-         * OKULU OLMAYANA ROL VERİLMEZ: danışmanlık bir OKULA bağlanır
-         * (`kurumKodu` rol kaydında) ve kural katmanı da kurumsuz kişiyi
-         * reddediyor (bkz. ogretmen/danismanlik.ts). Bu kişinin işi kayıt
-         * düzeltmesidir; Panelim ona bunu yazıyor.
+         * OKULSUZ ÖĞRETMENE DE ROL VERİLİR (23 Ekim 2026): rol kaydındaki kurum
+         * kodu boş kalır; danışman atanmış öğrencisini okuldan bağımsız görür
+         * (bkz. yetki/kapsam.ts). Eski kural: "okulu olmayana rol verilmez".
          *
          * BIRAKMA AKIŞI DEĞİŞMEDİ ve bu yüzden rol YALNIZCA OLUŞTURMADA
          * veriliyor, her girişte değil: görevi bırakan öğretmen bir sonraki

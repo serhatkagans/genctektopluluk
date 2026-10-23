@@ -65,12 +65,21 @@ export async function genelBilgileriKaydet(
   bilgiler: GenelBilgiler,
   tip: GenelBilgilerTipi = "OGRENCI",
 ): Promise<GenelBilgilerSonucu> {
-  const ilce = await prisma.ilce.findUnique({
-    where: { ilceKodu: bilgiler.ilceKodu },
-    select: { ilKodu: true },
-  });
-  if (!ilce || ilce.ilKodu !== bilgiler.ilKodu) {
-    return { durum: "BASARISIZ", mesaj: "İlçe seçilen ile ait değil." };
+  /*
+   * İLÇE İSTEĞE BAĞLI (23 Ekim 2026). Gerçek MEB ilçe listesi henüz yüklenmedi:
+   * çoğu ilin listesi boş, birkaçında da eksik (İstanbul'da yalnızca iki ilçe).
+   * Zorunlu olsaydı ya formu kaydetmek imkânsız olurdu ya da kişi yanlış
+   * ilçeyi seçmeye zorlanırdı. Seçildiyse ile ait olduğu denetlenir.
+   */
+  let ilceKodu = bilgiler.ilceKodu;
+  if (ilceKodu !== null) {
+    const ilce = await prisma.ilce.findUnique({
+      where: { ilceKodu },
+      select: { ilKodu: true },
+    });
+    if (!ilce || ilce.ilKodu !== bilgiler.ilKodu) {
+      return { durum: "BASARISIZ", mesaj: "İlçe seçilen ile ait değil." };
+    }
   }
 
   if (bilgiler.kurumKodu !== null) {
@@ -82,7 +91,7 @@ export async function genelBilgileriKaydet(
       !kurum ||
       !kurum.aktif ||
       kurum.ilKodu !== bilgiler.ilKodu ||
-      kurum.ilceKodu !== bilgiler.ilceKodu
+      (ilceKodu !== null && kurum.ilceKodu !== ilceKodu)
     ) {
       return {
         durum: "BASARISIZ",
@@ -95,6 +104,7 @@ export async function genelBilgileriKaydet(
         mesaj: "Seçtiğiniz okul, seçtiğiniz okul türünde değil.",
       };
     }
+    ilceKodu = kurum.ilceKodu;
   }
 
   const onceki = await prisma.kullanici.findUniqueOrThrow({
@@ -116,7 +126,7 @@ export async function genelBilgileriKaydet(
       soyad: bilgiler.soyad,
       cinsiyet: bilgiler.cinsiyet,
       ilKodu: bilgiler.ilKodu,
-      ilceKodu: bilgiler.ilceKodu,
+      ilceKodu,
       kurumKodu: bilgiler.kurumKodu,
       ...(tip === "OGRENCI"
         ? { sinif: bilgiler.sinif }
@@ -157,13 +167,10 @@ export async function genelBilgileriKaydet(
  * Öğretmenin okulu değişti: danışmanlıklar kapanır, danışman rolü yeni okula
  * taşınır.
  *
- * ROL KİME AÇILIR: eski okulda danışman olan öğretmen yeni okulda da danışman
- * olur. Okulu daha önce listede olmayan (dolayısıyla hiç rol alamamış)
- * öğretmen, listedeki bir okulu seçtiğinde ilk kez danışman olur — kayıtta
- * okulu olan öğretmenin ilk girişte aldığı rolün aynısı (bkz.
- * kullanici/sagla.ts). Danışmanlığı kendi isteğiyle bırakmış öğretmene rol
- * geri verilmez. İl koordinatörüne danışman rolü verilmez (bkz.
- * ogretmen/danismanlik.ts · DanismanlikCakismasiHatasi).
+ * ROL TAŞINIR, AÇILMAZ: eski okulda danışman olan öğretmen yeni okulda da
+ * danışman olur; yeni okul listede değilse rol kaydının kurum kodu boş kalır
+ * (23 Ekim 2026 · migration 20261023150000). Danışman rolü olmayan öğretmene
+ * — görevi kendisi bırakmış ya da il koordinatörü — rol verilmez.
  */
 async function ogretmeninOkuluDegisti(
   kullaniciId: number,
@@ -176,39 +183,15 @@ async function ogretmeninOkuluDegisti(
   await danismanliktanAyrildi(kullaniciId, onceki.kurumKodu, "OGRETMEN_AYRILDI");
 
   const danismanRolu = onceki.roller.find((rol) => rol.rolKodu === "DANISMAN");
-  const koordinatorMu = onceki.roller.some(
-    (rol) => rol.rolKodu === "IL_KOORDINATOR",
-  );
+  if (!danismanRolu) return;
 
-  if (danismanRolu) {
-    await prisma.kullaniciRol.update({
+  await prisma.$transaction([
+    prisma.kullaniciRol.update({
       where: { id: danismanRolu.id },
       data: { bitisTarihi: new Date() },
-    });
-  }
-
-  const ilkKezOkulaBaglandi = onceki.kurumKodu === null;
-  const rolAcilsin =
-    yeniKurumKodu !== null &&
-    !koordinatorMu &&
-    (danismanRolu !== undefined || ilkKezOkulaBaglandi);
-
-  if (rolAcilsin) {
-    await prisma.kullaniciRol.create({
+    }),
+    prisma.kullaniciRol.create({
       data: { kullaniciId, rolKodu: "DANISMAN", kurumKodu: yeniKurumKodu },
-    });
-  }
-
-  await prisma.ogretmenProfil.upsert({
-    where: { kullaniciId },
-    update: {
-      danismanOlmakIstiyor: rolAcilsin,
-      isaretlemeTarihi: rolAcilsin ? new Date() : null,
-    },
-    create: {
-      kullaniciId,
-      danismanOlmakIstiyor: rolAcilsin,
-      isaretlemeTarihi: rolAcilsin ? new Date() : null,
-    },
-  });
+    }),
+  ]);
 }

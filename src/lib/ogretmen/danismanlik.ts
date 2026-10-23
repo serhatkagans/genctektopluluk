@@ -50,11 +50,8 @@ export async function danismanlikDurumunuDegistir(
     throw new DanismanlikCakismasiHatasi();
   }
 
-  if (gorevAlmakIstiyor && kullanici.kurumKodu === null) {
-    throw new Error(
-      "Kurum kodu olmayan bir kullanıcı danışman öğretmen olamaz.",
-    );
-  }
+  // Okulsuz öğretmen de danışman olabilir (23 Ekim 2026 · migration
+  // 20261023150000); rol kaydındaki kurum kodu o zaman boş kalır.
 
   const danismanRolu = kullanici.roller.find(
     (rol) => rol.rolKodu === "DANISMAN",

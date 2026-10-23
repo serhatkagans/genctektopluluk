@@ -25,6 +25,12 @@ export PATH=/opt/node24/bin:$PATH
 [ -f "$DIZIN/.env" ] || { echo "!!! Önce dagitim/topluluk-kur.sh çalıştırın." >&2; exit 1; }
 cd /tmp
 
+ISARET="$DIZIN/.temizlik-yapildi"
+if [ -f "$ISARET" ]; then
+  # Temizlikten sonra kullanıcı kopyalaması test hesaplarını ve sahte okulları
+  # geri getirirdi (bkz. topluluk-temizlik.sh); yalnızca takvim işlenir.
+  echo "==> Kullanıcılar ATLANDI: temizlik yapılmış ($ISARET)"
+else
 echo "==> Kullanıcılar (genctek → $UYGULAMA)"
 sudo -u postgres pg_dump -d genctek --data-only --column-inserts --on-conflict-do-nothing \
   -t public.il -t public.ilce -t public.kurum -t public.kullanici \
@@ -33,6 +39,7 @@ sudo -u postgres pg_dump -d genctek --data-only --column-inserts --on-conflict-d
   | sudo -u postgres psql -q -v ON_ERROR_STOP=1 --single-transaction -d "$UYGULAMA" >/dev/null
 sudo -u postgres psql -d "$UYGULAMA" -Atc \
   "SELECT 'kullanıcı: ' || count(*) FROM kullanici UNION ALL SELECT 'okul: ' || count(*) FROM kurum"
+fi
 
 echo "==> Takvim etkinlikleri (genctektakvim → $UYGULAMA)"
 JSON="$(mktemp /tmp/topluluk-takvim-XXXXXX.json)"
@@ -45,7 +52,7 @@ FROM (
     FROM events
    WHERE deleted_at IS NULL
      AND start >= to_char(current_date, 'YYYY-MM-DD')
-     AND start <  to_char(current_date + 31, 'YYYY-MM-DD')
+     AND start <  to_char(current_date + 32, 'YYYY-MM-DD')
 ) e;
 SQL
 chown "$UYGULAMA" "$JSON"

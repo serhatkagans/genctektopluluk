@@ -72,6 +72,12 @@ describe("genel bilgiler", () => {
     });
   });
 
+  // 23 Ekim 2026: gerçek ilçe listesi gelene kadar ilçe isteğe bağlı.
+  test("ilçe boş bırakılabilir", () => {
+    const karar = genelBilgileriCoz(genel({ ilceKodu: "" }));
+    expect(karar.olurMu && karar.bilgiler.ilceKodu).toBeNull();
+  });
+
   test("okulu listede olmayan öğrenci adını yazar", () => {
     const karar = genelBilgileriCoz(
       genel({ kurumKodu: OKUL_LISTEDE_YOK, beyanOkulAdi: "Deneme Lisesi" }),
@@ -86,7 +92,7 @@ describe("genel bilgiler", () => {
     ["ad boş", { ad: "" }],
     ["cinsiyet yok", { cinsiyet: "" }],
     ["il yok", { ilKodu: "" }],
-    ["ilçe yok", { ilceKodu: "" }],
+    ["ilçe biçimsiz", { ilceKodu: "06" }],
     ["okul türü yok", { okulTuru: "" }],
     ["okul seçilmemiş", { kurumKodu: "" }],
     ["listede yok ama ad boş", { kurumKodu: OKUL_LISTEDE_YOK }],

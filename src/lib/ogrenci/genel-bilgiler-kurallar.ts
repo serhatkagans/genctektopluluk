@@ -53,7 +53,8 @@ export interface GenelBilgiler {
   soyad: string;
   cinsiyet: "E" | "K";
   ilKodu: string;
-  ilceKodu: string;
+  /** İlin ilçe listesi yoksa boş (bkz. genel-bilgiler.ts). */
+  ilceKodu: string | null;
   okulTuru: string;
   kurumKodu: number | null;
   beyanOkulAdi: string | null;
@@ -92,14 +93,15 @@ export function genelBilgileriCoz(
     return { olurMu: false, neden: "İl seçilmelidir." };
   }
   /*
-   * İLÇE ZORUNLU: listeden seçilen okulda ilçe okulun kaydından da okunabilir,
-   * ama okulu listede olmayan öğrencinin ilçesini başka hiçbir yer söylemiyor.
-   * İlçenin bu ile ait olduğu veritabanında denetlenir.
+   * İLÇE BOŞ GELEBİLİR (23 Ekim 2026): gerçek MEB ilçe listesi henüz yok ve
+   * ilçe isteğe bağlı. Seçildiyse ilçenin bu ile ait olduğu veritabanında
+   * denetlenir (bkz. genel-bilgiler.ts).
    */
-  const ilceKodu = girdi.ilceKodu.trim();
-  if (!/^\d{4}$/.test(ilceKodu)) {
+  const ilceMetni = girdi.ilceKodu.trim();
+  if (ilceMetni && !/^\d{4}$/.test(ilceMetni)) {
     return { olurMu: false, neden: "İlçe seçilmelidir." };
   }
+  const ilceKodu = ilceMetni || null;
 
   const okulTuru = girdi.okulTuru.trim();
   if (!KAYIT_OKUL_TURLERI.includes(okulTuru)) {

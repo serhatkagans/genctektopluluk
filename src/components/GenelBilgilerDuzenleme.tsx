@@ -64,10 +64,18 @@ export function GenelBilgilerDuzenleme({
   // "12-A" → seviye 12, şube A.
   const [ilkSeviye, ilkSube = ""] = baslangic.sinif.split("-");
 
+  /*
+   * İLÇE İSTEĞE BAĞLI (23 Ekim 2026): gerçek MEB ilçe listesi henüz
+   * yüklenmedi. İlçe seçildiyse okul listesi ona göre daralır, seçilmediyse
+   * ilin tamamından süzülür. Listesi boş ilde kutu kapalı basılır.
+   */
+  const ilceVar = ilceler.length > 0;
   const gosterilenler = okullar.filter(
-    (o) => o.ilceKodu === ilceKodu && (!tur || okulTuruUyarMi(tur, o.okulTuru)),
+    (o) =>
+      (!ilceKodu || o.ilceKodu === ilceKodu) &&
+      (!tur || okulTuruUyarMi(tur, o.okulTuru)),
   );
-  const okulKapali = !ilceKodu || !tur || yukleniyor;
+  const okulKapali = !tur || yukleniyor;
 
   function ilDegisti(yeni: string) {
     setIlKodu(yeni);
@@ -194,11 +202,13 @@ export function GenelBilgilerDuzenleme({
           </select>
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-metin">İlçe</span>
+          <span className="text-sm font-medium text-metin">
+            İlçe (isteğe bağlı)
+          </span>
           <select
             name="ilceKodu"
-            required
-            disabled={!ilKodu || yukleniyor}
+            required={false}
+            disabled={!ilKodu || yukleniyor || !ilceVar}
             value={ilceKodu}
             onChange={(olay) => {
               setIlceKodu(olay.target.value);
@@ -207,7 +217,13 @@ export function GenelBilgilerDuzenleme({
             }}
             className={SINIF_GIRDI}
           >
-            <option value="">{yukleniyor ? "Yükleniyor…" : "Seçiniz"}</option>
+            <option value="">
+              {yukleniyor
+                ? "Yükleniyor…"
+                : ilKodu && !ilceVar
+                  ? "Bu il için ilçe listesi yok"
+                  : "Seçiniz"}
+            </option>
             {ilceler.map((ilce) => (
               <option key={ilce.ilceKodu} value={ilce.ilceKodu}>
                 {ilce.ad}
@@ -247,7 +263,7 @@ export function GenelBilgilerDuzenleme({
             className={SINIF_GIRDI}
           >
             <option value="">
-              {!ilceKodu || !tur ? "Önce ilçe ve okul türünü seçin" : "Seçiniz"}
+              {!tur ? "Önce okul türünü seçin" : "Seçiniz"}
             </option>
             {gosterilenler.map((o) => (
               <option key={o.kurumKodu} value={o.kurumKodu}>
