@@ -845,3 +845,34 @@ ssh genctek 'install -o genctek -g genctek -m 644 /tmp/genctek.bundle /opt/genct
 ssh genctek 'cd /opt/genctek && sudo -u genctek git fetch paket && sudo -u genctek git merge --ff-only paket/main'
 ssh genctek genctek-yayinla
 ```
+
+---
+
+## 15. GençTek Topluluk: aiotechs.cloud/genctektopluluk (23 Ekim 2026)
+
+Platformdan (`/genctek`) **ayrı** bir kurulum: ayrı sistem kullanıcısı
+(`genctektopluluk`), dizin (`/opt/genctektopluluk`), PostgreSQL veritabanı
+(`genctektopluluk`), servis (`genctektopluluk.service`) ve port (**3040**).
+Kod `github.com/serhatkagans/genctektopluluk` (açık depo, anonim HTTPS) `main`
+dalından çekilir. `TEMEL_YOL="/genctektopluluk"`, `AUTH_PROVIDER="kayit"`.
+
+Üç betik, hepsi yerelden root ile çalıştırılır ve sunucuda ayrıca indirilmez:
+
+```bash
+ssh genctek 'bash -s' < dagitim/topluluk-kur.sh      # kurulum VE her güncelleme
+ssh genctek 'bash -s' < dagitim/topluluk-veri.sh     # bir kez: kullanıcılar + takvim etkinlikleri
+ssh genctek 'bash -s' < dagitim/topluluk-apache.sh   # bir kez: Apache bloğu
+```
+
+- `topluluk-kur.sh` ilk çalışmada rolü, veritabanını ve `.env`'i (rastgele
+  parola ve oturum anahtarı) üretir; sonraki çalışmalarda önce
+  `/var/backups/genctektopluluk/` altına veritabanı yedeği alır, sonra kodu
+  günceller, derler ve migration'ları uygular. `.env`'e dokunmaz.
+- `topluluk-veri.sh` platform veritabanından kullanıcıları (`genctek`) ve takvim
+  veritabanından önümüzdeki bir ayın etkinliklerini (`genctektakvim`) yalnızca
+  OKUR; tekrar çalıştırılması zararsızdır.
+- `topluluk-apache.sh` `cust_httpd`'nin EN ÜSTÜNE blok ekler (önek eşleşmesi
+  yüzünden `/genctek` bloğunun üstünde olmalı), yedek alır ve `httpd -t`
+  geçmezse yedeği geri koyar.
+
+Günlük: `ssh genctek 'journalctl -u genctektopluluk -n 50 --no-pager'`

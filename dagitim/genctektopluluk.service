@@ -1,0 +1,49 @@
+# GençTek Topluluk — /etc/systemd/system/genctektopluluk.service
+#
+# aiotechs.cloud/genctektopluluk. Platformdan (genctek) AYRI uygulama, ayrı
+# kullanıcı, ayrı veritabanı. Kurulum ve güncelleme: dagitim/topluluk-kur.sh.
+#
+# Günlükler:  journalctl -u genctektopluluk -f
+
+[Unit]
+Description=GençTek Topluluk
+Documentation=file:/opt/genctektopluluk/DAGITIM.md
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=genctektopluluk
+Group=genctektopluluk
+WorkingDirectory=/opt/genctektopluluk
+EnvironmentFile=/opt/genctektopluluk/.env
+Environment=NODE_ENV=production
+# 3040: sunucuda 3000, 3010, 3011, 3017, 3020, 3021 ve 3030 dolu.
+Environment=PORT=3040
+Environment=HOSTNAME=127.0.0.1
+# Node 24'ün tam yolu: sistemdeki Node 16 ile Prisma 7 açılmıyor.
+ExecStart=/opt/node24/bin/node /opt/genctektopluluk/.next/standalone/server.js
+
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/genctektopluluk/depolama
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=genctektopluluk
+
+[Install]
+WantedBy=multi-user.target
