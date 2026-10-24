@@ -22,7 +22,9 @@ import { ILLER } from "../prisma/veri/iller";
  *
  * KURALLAR:
  *   · "tanışma" geçen etkinlikler (ad, tür ya da açıklama) alınmaz.
- *   · Adında "toplantı" geçenler (öğretmen/koordinatör toplantıları) alınmaz.
+ *   · Toplantılar ALINIR (24 Ekim 2026 · istek: "iki aylık tüm etkinlikler,
+ *     yalnızca tanışma hariç"). Dışarıda kalan tek tür tanışma; bu kural
+ *     ileride değişebilir.
  *   · İptal edilen ve ertelenen etkinlikler alınmaz.
  *   · BAŞVURU KAPALI: başvuru başlangıcı ve bitişi aktarım anından önceye
  *     yazılır; sistem etkinliği "başvuru kapandı" olarak gösterir.
@@ -123,12 +125,6 @@ async function main() {
 
     if (tanismaMi(e)) {
       atlananlar.push(`${etiket}  (tanışma etkinliği)`);
-      continue;
-    }
-    // Öğretmen/koordinatör toplantıları öğrenci etkinliği değil (23 Ekim 2026 ·
-    // seçim: "toplantıları alma").
-    if (/toplant[ıi]/i.test(e.title)) {
-      atlananlar.push(`${etiket}  (toplantı)`);
       continue;
     }
     if (e.status === "İptal edildi" || e.status === "Ertelendi") {

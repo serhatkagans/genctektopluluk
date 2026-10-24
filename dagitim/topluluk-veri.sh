@@ -10,8 +10,9 @@
 #    betik ikinci kez çalışırsa bir şey bozulmaz. Tek işlemde yüklenir; bir
 #    satır bile hata verirse hiçbir şey yazılmaz.
 # 2. ETKİNLİKLER: takvim veritabanından (genctektakvim) bugünden itibaren
-#    bir ayın etkinlikleri okunur ve scripts/takvimden-etkinlik-aktar.ts ile
-#    eklenir: tanışma ve toplantılar alınmaz, başvurular KAPALI.
+#    önümüzdeki İKİ AYIN etkinlikleri okunur ve scripts/takvimden-etkinlik-aktar.ts
+#    ile eklenir: yalnızca tanışma etkinlikleri alınmaz, başvurular KAPALI.
+#    Daha önce eklenenler atlanır; betik yeniden çalıştırılabilir.
 #
 # Ön koşul: dagitim/topluluk-kur.sh en az bir kez çalışmış olmalı.
 
@@ -52,7 +53,7 @@ FROM (
     FROM events
    WHERE deleted_at IS NULL
      AND start >= to_char(current_date, 'YYYY-MM-DD')
-     AND start <  to_char(current_date + 32, 'YYYY-MM-DD')
+     AND start <  to_char(current_date + interval '2 months', 'YYYY-MM-DD')
 ) e;
 SQL
 chown "$UYGULAMA" "$JSON"
