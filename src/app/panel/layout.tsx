@@ -246,6 +246,13 @@ export default async function PanelDuzeni({
      * mentörlük, mezun ile paydaşın ekosistemdeki ASIL işi — öğrencinin
      * yanında ise sekiz sekmenin arasına giren ikincil bir kutu.
      */
+    // Pano'daki kart menüye taşındı (24 Ekim 2026); dış kullanıcı da başvurabiliyor.
+    baglantilar.push({
+      yol: "/panel/talepler/genctek-gorevleri",
+      etiket: "GençTek görevlerim",
+      grup: "Çalışma",
+      ikon: "BadgeCheck",
+    });
     baglantilar.push(...mentorSekmesi);
     baglantilar.push({
       yol: "/panel/urunler",
@@ -352,10 +359,17 @@ export default async function PanelDuzeni({
    * "Gençtek görevlerim yine ana menüde", koordinatör sayfasında "Gençtek
    * görevleri sol menüde"). Öğrencide giriş Panel'deki kart; öğretmen ve
    * koordinatörün kendi görevleri bu ekranda.
+   *
+   * PANODAKİ KART MENÜYE TAŞINDI (24 Ekim 2026 · istekler: "panodaki gençtek
+   * görevlerim var o soldaki menüye taşınacaktı" · "başvurulabilir olanları
+   * görüp başvuracak"). Satır artık açık görevlerin başvuru ekranına gidiyor
+   * ve ÖĞRENCİDE DE basılıyor — Pano'daki kart herkese açıktı. Aldığı
+   * görevlerin listesi (/panel/gorevlerim) o ekrandan bağlantıyla açılıyor.
+   * Proje yöneticisi görevleri yönetir; onun kapısı Pano'daki onay kartı.
    */
-  if (!ogrenciMi(kullanici) && !projeYoneticisiMi(kullanici)) {
+  if (!projeYoneticisiMi(kullanici)) {
     baglantilar.push({
-      yol: "/panel/gorevlerim",
+      yol: "/panel/talepler/genctek-gorevleri",
       etiket: "GençTek görevlerim",
       grup: "Çalışma",
       ikon: "BadgeCheck",

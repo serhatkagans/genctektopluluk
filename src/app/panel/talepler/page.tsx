@@ -360,20 +360,11 @@ export default async function TaleplerSayfasi({
           </>
         )}
         {/*
-          GENÇTEK GÖREVLERİ (21 Ağustos 2026 · istek: "Panoda yeni kart GençTek
-          Görevlerim isminde kart olsun, içinde başvur butonları olacak").
-
-          Kart HERKESTE basılıyor: görevler role göre kısıtlı değil, merkezin
-          açtığı çağrılardır ve kimin uygun olduğuna başvurunun kararı karar
-          veriyor. Başvuru formları kartın açtığı sayfada — pano ilan listesi
-          ekranıdır, form barındırmıyor (14 Ağustos kararı).
+          GENÇTEK GÖREVLERİ KARTI SOL MENÜYE TAŞINDI (24 Ekim 2026 · istek:
+          "panodaki gençtek görevlerim var o soldaki menüye taşınacaktı").
+          Başvuru ekranı aynı adreste; kapısı artık menüdeki "GençTek
+          görevlerim" satırı (bkz. panel/layout.tsx).
         */}
-        <KisayolKarti
-          baslik="GençTek Görevleri"
-          Ikon={BadgeCheck}
-          yol="/panel/talepler/genctek-gorevleri"
-          ton="olumlu"
-        />
         {mentorBasvurabilir && (
           <KisayolKarti
             baslik="Mentör olmak için başvur"

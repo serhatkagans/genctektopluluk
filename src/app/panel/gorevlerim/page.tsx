@@ -1,7 +1,13 @@
-import { BadgeCheck, Layers, Sparkles } from "lucide-react";
+import { ArrowRight, BadgeCheck, Layers, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { KatkiGorevBolumu, KatkiGrupBolumu } from "@/components/KatkiKarti";
 import { OgretmenKatkiKarti } from "@/components/OgretmenKatkiKarti";
-import { Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
+import {
+  Kart,
+  KartBasligi,
+  SayfaBasligi,
+  SINIF_IKINCIL_BUTON,
+} from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { katkiVerisiGetir } from "@/lib/ogrenci/katki";
@@ -44,15 +50,29 @@ export default async function GorevlerimSayfasi() {
    * reddedilen hiç değildir. İkisinin durumu başvuru ekranında yazıyor; burası
    * "şu an neyin sorumlusuyum" listesi.
    */
-  const gencTekGorevleri = await prisma.gencTekGorevBasvurusu.findMany({
-    where: { kullaniciId: kullanici.id, onayDurumu: "ONAYLANDI" },
-    orderBy: { kararTarihi: "desc" },
-    select: {
-      id: true,
-      kararTarihi: true,
-      gorev: { select: { ad: true, aciklama: true, aktif: true } },
-    },
-  });
+  const [gencTekGorevleri, acikGorevSayisi, bekleyenBasvurular] =
+    await Promise.all([
+      prisma.gencTekGorevBasvurusu.findMany({
+        where: { kullaniciId: kullanici.id, onayDurumu: "ONAYLANDI" },
+        orderBy: { kararTarihi: "desc" },
+        select: {
+          id: true,
+          kararTarihi: true,
+          gorev: { select: { ad: true, aciklama: true, aktif: true } },
+        },
+      }),
+      /*
+       * AÇIK GÖREVLERE GİDEN YOL (24 Ekim 2026 · istek: "gençtek görevlerim
+       * boş çıkıyor, açık görev mi yok, neden göremiyor"). Liste yalnızca
+       * onaylanmış görevleri gösterdiği için başvurmamış kişi boş bir sayfa
+       * görüyor ve görevlerin Pano'da olduğunu bilmiyordu.
+       */
+      prisma.gencTekGorevi.count({ where: { aktif: true } }),
+      prisma.gencTekGorevBasvurusu.findMany({
+        where: { kullaniciId: kullanici.id, onayDurumu: "BEKLIYOR" },
+        select: { id: true, gorev: { select: { ad: true } } },
+      }),
+    ]);
 
   /*
    * KART BAŞLIKLARINDA AÇIKLAMA YOK (25 Ağustos 2026 · istek: "buradaki
@@ -67,6 +87,8 @@ export default async function GorevlerimSayfasi() {
       {gencTekGorevleri.length === 0 ? (
         <p className="text-sm text-metin-yumusak">
           Henüz bir GençTek görevinde yer almıyorsunuz.
+          {acikGorevSayisi > 0 &&
+            ` Şu an başvuruya açık ${acikGorevSayisi} görev var.`}
         </p>
       ) : (
         <ul className="divide-y divide-cizgi">
@@ -95,6 +117,23 @@ export default async function GorevlerimSayfasi() {
             </li>
           ))}
         </ul>
+      )}
+      {bekleyenBasvurular.length > 0 && (
+        <p className="mt-4 text-sm text-metin-yumusak">
+          Onay bekleyen başvurunuz:{" "}
+          {bekleyenBasvurular.map((basvuru) => basvuru.gorev.ad).join(", ")}
+        </p>
+      )}
+      {acikGorevSayisi > 0 && (
+        <div className="mt-4">
+          <Link
+            href="/panel/talepler/genctek-gorevleri"
+            className={SINIF_IKINCIL_BUTON}
+          >
+            Açık görevlere göz at ve başvur
+            <ArrowRight size={16} aria-hidden />
+          </Link>
+        </div>
       )}
     </Kart>
   );

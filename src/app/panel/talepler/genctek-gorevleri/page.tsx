@@ -1,13 +1,14 @@
 import { BadgeCheck, Users } from "lucide-react";
+import Link from "next/link";
 import {
   BilgiKutusu,
   Kart,
   KartBasligi,
-  KirintiYolu,
   Rozet,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
   SINIF_GIRDI,
+  SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
@@ -92,17 +93,23 @@ export default async function GencTekGorevleriSayfasi({
         (bkz. components/ui.tsx · KirintiYolu). SayfaBasligi'nın geri
         bağlantısı bu yüzden `null`.
       */}
-      <KirintiYolu
-        basamaklar={[
-          { etiket: "Pano", yol: "/panel/talepler" },
-          { etiket: "GençTek Görevleri" },
-        ]}
-      />
-
+      {/*
+        Kırıntı yolu kalktı (24 Ekim 2026): ekran artık Pano'dan değil, sol
+        menüdeki "GençTek görevlerim" satırından açılıyor.
+      */}
       <SayfaBasligi
         baslik="GençTek Görevleri"
         aciklama="Merkezin açtığı görevlere başvurun; başvurunuz proje yöneticisinin onayından geçer."
         geri={null}
+        eylem={
+          /*
+            ALDIĞIM GÖREVLER: menü satırı bu ekrana geldiği için kişinin kabul
+            edildiği görevlerin ve temsilciliklerinin listesine yol buradan.
+          */
+          <Link href="/panel/gorevlerim" className={SINIF_IKINCIL_BUTON}>
+            Aldığım görevler
+          </Link>
+        }
       />
 
       {durum && DURUM_MESAJLARI[durum] && (
