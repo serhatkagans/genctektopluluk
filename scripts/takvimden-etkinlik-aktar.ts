@@ -30,8 +30,9 @@ import { ILLER } from "../prisma/veri/iller";
  *     yazılır; sistem etkinliği "başvuru kapandı" olarak gösterir.
  *   · Aynı ad ve başlangıç tarihli etkinlik zaten varsa tekrar eklenmez;
  *     betik ikinci kez çalıştırılabilir.
- *   · Uluslararası etkinlik ULUSAL kapsamla eklenir: veritabanındaki kapsam
- *     kısıtı (ck_faaliyet_kapsam) uluslararası kapsamı henüz kabul etmiyor.
+ *   · HER ETKİNLİK ULUSAL kapsamla eklenir (24 Ekim 2026 · istek: "hepsi
+ *     görünsün"): herkes listede görür. Bölgesel etkinliğin ili düzenleyen
+ *     birim adında yazar ("Uşak İl Koordinatörlüğü").
  *   · Takvimdeki türlerden biri GençTek temel etkinlik programıyla eşleşirse
  *     TEMEL_ETKINLIK, eşleşmezse IL_ETKINLIGI olarak eklenir.
  */
@@ -135,14 +136,16 @@ async function main() {
     const tarih = tarihCoz(e.start);
     const bitis = e.end ? tarihCoz(e.end) : null;
 
-    // Kapsam ve il.
+    // Kapsam: HEPSİ ULUSAL (24 Ekim 2026 · istek: "hepsi görünsün"). Takvim
+    // etkinliklerine başvuru alınmadığı için il sınırı yalnızca görünürlüğü
+    // daraltıyordu; il, düzenleyen birim adında kalıyor.
     const duzenleyenIller = liste(e.cities).filter((c) => c !== "YEĞİTEK");
-    let kapsam: Kapsam = "ULUSAL";
-    let ilKodu: string | null = null;
-    if (e.scope === "Bölgesel / Yerel" && duzenleyenIller.length > 0) {
-      ilKodu = ilKoduBul(duzenleyenIller[0]);
-      if (ilKodu) kapsam = "IL";
-    }
+    const kapsam: Kapsam = "ULUSAL";
+    const ilKodu: string | null = null;
+    const duzenleyenIli =
+      e.scope === "Bölgesel / Yerel" && duzenleyenIller[0] && ilKoduBul(duzenleyenIller[0])
+        ? duzenleyenIller[0]
+        : null;
 
     // Kategori ve program.
     const program = liste(e.subtypes).map(programBul).find(Boolean) ?? null;
@@ -165,7 +168,7 @@ async function main() {
       .filter(Boolean)
       .join("\n\n");
 
-    const ozet = `${etiket}  → ${kapsam}${ilKodu ? ` (${ilKodu})` : ""} · ${program ? program.ad : "İl etkinliği"}`;
+    const ozet = `${etiket}  → ${kapsam}${duzenleyenIli ? ` (${duzenleyenIli})` : ""} · ${program ? program.ad : "İl etkinliği"}`;
 
     const mevcut = await prisma.faaliyet.findFirst({
       where: { ad: e.title.slice(0, 250), tarih },
@@ -193,10 +196,9 @@ async function main() {
         ilKodu,
         kontenjan: e.students > 0 ? e.students : 100,
         duzenleyenKullaniciId: yonetici.id,
-        duzenleyenBirim:
-          kapsam === "IL" && duzenleyenIller[0]
-            ? `${duzenleyenIller[0]} İl Koordinatörlüğü`
-            : "YEĞİTEK",
+        duzenleyenBirim: duzenleyenIli
+          ? `${duzenleyenIli} İl Koordinatörlüğü`
+          : "YEĞİTEK",
         onayDurumu: "ONAY_GEREKMEZ",
         basvuruBaslangic: basvuruKapandi,
         basvuruBitis: basvuruKapandi,
