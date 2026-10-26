@@ -154,17 +154,35 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
   }
 
   const tarih = yerelTarihSaat(metin(veri, "tarih") || null);
-  const basvuruBaslangic = gunBasi(metin(veri, "basvuruBaslangic") || null);
-  const basvuruBitis = gunSonu(metin(veri, "basvuruBitis") || null);
-  if (!tarih || !basvuruBaslangic || !basvuruBitis) {
-    hataylaDon(yol, "Etkinlik tarihi ve başvuru tarihleri zorunludur.");
+  if (!tarih) {
+    hataylaDon(yol, "Etkinlik tarihi zorunludur.");
+  }
+  // Bitiş isteğe bağlıdır: boş bırakılan faaliyet tek günlüktür.
+  const faaliyetBitisi = yerelTarihSaat(metin(veri, "bitisTarihi") || null);
+
+  /*
+   * GEÇMİŞ TARİHLİ ETKİNLİK (26 Ekim 2026 · istek: "geriye dönük birkaç
+   * etkinlik gireyim, başvuramasalar da görsün"). Etkinlik bitmişse başvuru
+   * tarihleri sorulmaz: başvuru penceresi etkinliğin başladığı ana kurulur (o
+   * an geçmişte olduğu için),
+   * yani kayıt "başvuru kapandı" olarak görünür. Önceden formdaki başvuru
+   * başlangıcı kendiliğinden BUGÜN geldiği için geçmiş bir başvuru bitişi
+   * "bitiş başlangıçtan önce olamaz" diye reddediliyordu.
+   */
+  const gecmisEtkinlikMi = (faaliyetBitisi ?? tarih) < new Date();
+  const basvuruBaslangic = gecmisEtkinlikMi
+    ? tarih
+    : gunBasi(metin(veri, "basvuruBaslangic") || null);
+  const basvuruBitis = gecmisEtkinlikMi
+    ? tarih
+    : gunSonu(metin(veri, "basvuruBitis") || null);
+  if (!basvuruBaslangic || !basvuruBitis) {
+    hataylaDon(yol, "Başvuru tarihleri zorunludur.");
   }
   if (basvuruBitis < basvuruBaslangic) {
     hataylaDon(yol, "Başvuru bitişi başlangıçtan önce olamaz.");
   }
 
-  // Bitiş isteğe bağlıdır: boş bırakılan faaliyet tek günlüktür.
-  const faaliyetBitisi = yerelTarihSaat(metin(veri, "bitisTarihi") || null);
   const sureKarari = faaliyetSuresiGecerliMi(tarih, faaliyetBitisi);
   if (!sureKarari.olurMu) {
     hataylaDon(yol, sureKarari.neden ?? "Etkinlik süresi geçersiz.");

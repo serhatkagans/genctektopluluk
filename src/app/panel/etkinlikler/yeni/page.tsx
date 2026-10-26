@@ -380,7 +380,6 @@ export default async function YeniFaaliyetSayfasi({
                 <input
                   type="date"
                   name="basvuruBaslangic"
-                  required
                   defaultValue={bugun}
                   className={SINIF_GIRDI}
                 />
@@ -390,11 +389,14 @@ export default async function YeniFaaliyetSayfasi({
                 <input
                   type="date"
                   name="basvuruBitis"
-                  required
                   className={SINIF_GIRDI}
                 />
               </label>
             </div>
+            <p className="-mt-2 text-sm text-metin-yumusak">
+              Geçmiş tarihli bir etkinlik giriyorsanız başvuru tarihlerine
+              gerek yok: etkinlik listede görünür, başvuruya kapalı olur.
+            </p>
             <label className="block">
               {/* "(isteğe bağlı)" notu kalktı (21 Ağustos 2026 · istek):
                   alan zaten `required` değil ve altındaki satır biçim ile
