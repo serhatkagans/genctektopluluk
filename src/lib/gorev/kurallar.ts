@@ -40,8 +40,8 @@ export type BasvuruSonucu =
  * başka hiçbir şeye bakmıyor. Boş bir başvuru, "bu kişiyi neden alalım"
  * sorusunu cevapsız bırakır ve kuyruğu karar verilemez satırlarla doldurur.
  *
- * KAPALI GÖREVE BAŞVURULMAZ: kapatılan görev panoda görünmüyor; kimliğini elle
- * yazan biri için fiilen açık kalmamalı.
+ * KAPALI GÖREVE BAŞVURULMAZ: kapatılan görev listede görünür ama formu
+ * basılmaz; kimliğini elle yazan biri için de fiilen açık kalmamalı.
  *
  * KONTENJAN DOLUYSA BAŞVURU ALINMAZ. Ölçüt ONAYLANMIŞ başvurulardır, bekleyen
  * değil: bekleyenleri saymak, kararı verilmemiş başvuruların yeni başvuruyu

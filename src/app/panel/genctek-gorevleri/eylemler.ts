@@ -351,7 +351,7 @@ export async function gorevDuzenleEylemi(veri: FormData): Promise<void> {
  * Görevi başvuruya açar ya da kapatır.
  *
  * SİLME YOK: kapatılan görevin başvuruları ve kararları kayıttır. Kapalı görev
- * panoda görünmez ve yeni başvuru kabul etmez (bkz. gorevBasvurusuKabulEdilirMi).
+ * listede görünür ama yeni başvuru kabul etmez (bkz. gorevBasvurusuKabulEdilirMi).
  */
 export async function gorevDurumEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();

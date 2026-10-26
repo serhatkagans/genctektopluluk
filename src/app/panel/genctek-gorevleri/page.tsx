@@ -31,7 +31,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "karar-verildi": "Başvuru karara bağlandı; başvurana bildirim gönderildi.",
   "gorev-eklendi": "Görev açıldı ve panoda görünmeye başladı.",
   "gorev-kapatildi":
-    "Görev kapatıldı; panoda görünmüyor ve yeni başvuru kabul etmiyor.",
+    "Görev kapatıldı; listede görünmeye devam ediyor ama yeni başvuru kabul etmiyor.",
   "gorev-acildi": "Görev yeniden başvuruya açıldı.",
   "gorev-duzenlendi": "Görev ilanı güncellendi.",
 };
@@ -164,7 +164,7 @@ export default async function GencTekGorevYonetimiSayfasi({
       <Kart>
         <KartBasligi
           baslik="Görev ilanları"
-          aciklama="Kapatılan ilan panoda görünmez ve yeni başvuru kabul etmez; başvuruları kayıtta kalır."
+          aciklama="Kapatılan ilan listede görünmeye devam eder ama yeni başvuru kabul etmez; başvuruları kayıtta kalır."
         />
         <ul className="divide-y divide-cizgi">
           {gorevler.map((gorev) => (

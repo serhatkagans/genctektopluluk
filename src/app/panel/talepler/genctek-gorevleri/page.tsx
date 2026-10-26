@@ -50,15 +50,17 @@ export default async function GencTekGorevleriSayfasi({
 
   const [gorevler, basvurularim] = await Promise.all([
     /*
-     * Yalnızca AÇIK görevler: kapatılmış ilan panoda görünmez. Onaylanmış
-     * başvuru sayısı kontenjanın yanında yazıyor — "üç kişilik ekibin ikisi
-     * doldu" bilgisi, başvurup başvurmama kararını değiştiriyor.
+     * KAPALI GÖREVLER DE LİSTEDE (26 Ekim 2026 · istek: "kapattığımda
+     * gözükmeye devam etsin, sadece başvuruya kapansın"). Açıklar önce gelir;
+     * kapalı görevin kartı durur, formun yerinde "başvuruya kapandı" yazar.
+     * Onaylanmış başvuru sayısı kontenjanın yanında yazıyor — "üç kişilik
+     * ekibin ikisi doldu" bilgisi, başvurup başvurmama kararını değiştiriyor.
      */
     prisma.gencTekGorevi.findMany({
-      where: { aktif: true },
-      orderBy: [{ siraNo: "asc" }, { id: "asc" }],
+      orderBy: [{ aktif: "desc" }, { siraNo: "asc" }, { id: "asc" }],
       select: {
         id: true,
+        aktif: true,
         ad: true,
         aciklama: true,
         kontenjan: true,
@@ -119,7 +121,7 @@ export default async function GencTekGorevleriSayfasi({
 
       {gorevler.length === 0 ? (
         <Kart className="text-metin-yumusak">
-          Şu anda başvuruya açık görev yok.
+          Henüz açılmış bir görev yok.
         </Kart>
       ) : (
         gorevler.map((gorev) => {
@@ -133,6 +135,7 @@ export default async function GencTekGorevleriSayfasi({
            * var — kaybolan bir düğme, "başvuru kapandı mı" sorusunu doğurur.
            */
           const formGorunur =
+            gorev.aktif &&
             !kontenjanDoldu &&
             basvurum?.onayDurumu !== "BEKLIYOR" &&
             basvurum?.onayDurumu !== "ONAYLANDI";
@@ -148,6 +151,7 @@ export default async function GencTekGorevleriSayfasi({
                 <div className="grow">
                   <KartBasligi baslik={gorev.ad} Ikon={BadgeCheck} />
                 </div>
+                {!gorev.aktif && <Rozet cesit="notr">Başvuruya kapalı</Rozet>}
                 {basvurum && (
                   <Rozet
                     cesit={
@@ -205,7 +209,9 @@ export default async function GencTekGorevleriSayfasi({
                     ? "Bu görevde yer alıyorsunuz."
                     : basvurum?.onayDurumu === "BEKLIYOR"
                       ? "Başvurunuz proje yöneticisinin kararını bekliyor."
-                      : "Bu görevin kontenjanı doldu."}
+                      : !gorev.aktif
+                        ? "Bu görev başvuruya kapandı."
+                        : "Bu görevin kontenjanı doldu."}
                 </p>
               )}
             </Kart>
