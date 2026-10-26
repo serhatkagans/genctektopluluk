@@ -37,7 +37,7 @@ import type { OnayDurumu } from "@/generated/prisma/enums";
  *     ayrıca dış kullanıcıların (mezun, paydaş) ürününü iki sekmenin de
  *     dışında bırakıyordu.
  *
- * Kaydın SAHİBİ hâlâ görünüyor (kart üstünde ad ve "Öğrenci/Öğretmen ürünü"
+ * Kaydın SAHİBİ hâlâ görünüyor (kart üstünde ad ve "Ekleyen öğrenci/öğretmen"
  * ibaresi): bilgi duruyor, vitrini bölen süzgeç kalkıyor.
  */
 export type MarketSuzgeci = "TUMU" | "BENIM";

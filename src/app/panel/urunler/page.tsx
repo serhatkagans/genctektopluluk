@@ -360,13 +360,17 @@ export default async function MarketSayfasi({
                   ürünü" ayrımı, geliştirici adının ardına iliştirilmiş gri bir
                   cümle parçasıydı ve göz taramasıyla ayırt edilmiyordu — oysa
                   vitrinde ilk aranan ayrım bu.
+
+                  26 Ekim 2026: "Öğretmen ürünü" yerine "Ekleyen öğretmen".
+                  Ürün çoğunlukla ekip işi; rozet ürünün kimin olduğunu değil,
+                  vitrine kimin eklediğini söylüyor.
                 */
                 rozetler={
                   <Rozet cesit="vurgu">
                     {urun.sahipKumesi === "OGRENCI"
-                      ? "Öğrenci ürünü"
+                      ? "Ekleyen öğrenci"
                       : urun.sahipKumesi === "OGRETMEN"
-                        ? "Öğretmen ürünü"
+                        ? "Ekleyen öğretmen"
                         : "Ekosistem ürünü"}
                   </Rozet>
                 }

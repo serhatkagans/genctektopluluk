@@ -266,9 +266,9 @@ export default async function UrunDetaySayfasi({
           <span className="inline-flex items-center gap-1.5">
             <Users size={14} aria-hidden />
             {kume === "OGRENCI"
-              ? "Öğrenci ürünü"
+              ? "Ekleyen öğrenci"
               : kume === "OGRETMEN"
-                ? "Öğretmen ürünü"
+                ? "Ekleyen öğretmen"
                 : "Ekosistem ürünü"}
           </span>
           <span className="inline-flex items-center gap-1.5">
