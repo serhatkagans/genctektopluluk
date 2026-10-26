@@ -54,7 +54,7 @@ export function CalismaGrubuSecimi({
               <span>
                 <span className="block text-metin">{grup.ad}</span>
                 {grup.aciklama && (
-                  <span className="mt-0.5 block text-sm text-metin-yumusak">
+                  <span className="mt-0.5 block text-xs leading-snug text-metin-yumusak">
                     {grup.aciklama}
                   </span>
                 )}
