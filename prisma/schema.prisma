@@ -1006,7 +1006,7 @@ model GencTekGorevi {
   /// koparırdı.
   siraNo          Int      @default(0) @map("sira_no")
   /// Kapatılan görev SİLİNMEZ: başvuruları ve kararları kayıttır. Kapalı görev
-  /// panoda görünmez, yeni başvuru kabul etmez.
+  /// listede görünür, yeni başvuru kabul etmez.
   aktif           Boolean  @default(true)
   olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
@@ -1316,6 +1316,9 @@ model DanismanTalebi {
 model CalismaGrubu {
   id     Int     @id @default(autoincrement())
   ad     String  @unique @db.VarChar(150)
+  /// Grup seçilirken adın altında görünen tek cümlelik tanıtım. Ayarlar
+  /// ekranından düzenlenir; boş bırakılabilir.
+  aciklama String? @db.VarChar(300)
   siraNo Int     @map("sira_no")
   aktif  Boolean @default(true)
 

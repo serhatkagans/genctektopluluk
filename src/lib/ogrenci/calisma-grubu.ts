@@ -38,14 +38,14 @@ export function calismaGrubuSayisiAsildiMi(secilenSayisi: number): boolean {
  * ama yeniden seçilemez (bkz. calisma-gruplari/eylemler.ts).
  */
 export async function calismaGruplariniGetir(ogrenciId: number): Promise<{
-  gruplar: { id: number; ad: string }[];
+  gruplar: { id: number; ad: string; aciklama: string | null }[];
   seciliIdler: Set<number>;
 }> {
   const [gruplar, secimler] = await Promise.all([
     prisma.calismaGrubu.findMany({
       where: { aktif: true },
       orderBy: { siraNo: "asc" },
-      select: { id: true, ad: true },
+      select: { id: true, ad: true, aciklama: true },
     }),
     prisma.ogrenciCalismaGrubu.findMany({
       where: { ogrenciId },

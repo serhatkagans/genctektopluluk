@@ -27,6 +27,7 @@ import { sistemAyarlariniYonetebilirMi } from "@/lib/yetki/izinler";
 import {
   ayarKaydetEylemi,
   bildirimSablonuKaydetEylemi,
+  calismaGrubuAciklamaEylemi,
   calismaGrubuDurumEylemi,
   calismaGrubuEkleEylemi,
   programDurumEylemi,
@@ -53,6 +54,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "grup-eklendi": "Çalışma grubu eklendi.",
   "grup-pasif": "Çalışma grubu pasife alındı; geçmiş seçimler korunuyor.",
   "grup-aktif": "Çalışma grubu yeniden aktifleştirildi.",
+  "grup-aciklama": "Çalışma grubunun açıklaması kaydedildi.",
   "program-eklendi": "Etkinlik programı eklendi.",
   "program-pasif": "Etkinlik programı pasife alındı; geçmiş etkinlikler korunuyor.",
   "program-aktif": "Etkinlik programı yeniden aktifleştirildi.",
@@ -446,6 +448,25 @@ export default async function AyarlarSayfasi({
                   </span>
                 )}
               </span>
+              {/* Kısa açıklama: öğrenci grup seçerken adın altında okur. */}
+              <form
+                action={calismaGrubuAciklamaEylemi}
+                className="flex w-full grow items-center gap-2 sm:w-auto"
+              >
+                <input type="hidden" name="id" value={grup.id} />
+                <input
+                  type="text"
+                  name="aciklama"
+                  defaultValue={grup.aciklama ?? ""}
+                  maxLength={300}
+                  placeholder="Kısa açıklama"
+                  aria-label={`${grup.ad} açıklaması`}
+                  className={SINIF_GIRDI}
+                />
+                <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                  Kaydet
+                </button>
+              </form>
               <form action={calismaGrubuDurumEylemi}>
                 <input type="hidden" name="id" value={grup.id} />
                 <input

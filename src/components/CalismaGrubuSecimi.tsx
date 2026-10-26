@@ -24,7 +24,7 @@ export function CalismaGrubuSecimi({
   kaydetEylemi,
   donusYolu,
 }: {
-  gruplar: { id: number; ad: string }[];
+  gruplar: { id: number; ad: string; aciklama?: string | null }[];
   seciliIdler: Set<number>;
   kaydetEylemi: (veri: FormData) => Promise<void>;
   /**
@@ -43,15 +43,22 @@ export function CalismaGrubuSecimi({
       <ul className="grid gap-3 sm:grid-cols-2">
         {gruplar.map((grup) => (
           <li key={grup.id}>
-            <label className="flex cursor-pointer items-center gap-3 rounded-kart border border-cizgi px-4 py-3 transition hover:border-vurgu hover:bg-vurgu-zemin">
+            <label className="flex h-full cursor-pointer items-start gap-3 rounded-kart border border-cizgi px-4 py-3 transition hover:border-vurgu hover:bg-vurgu-zemin">
               <input
                 type="checkbox"
                 name="grupId"
                 value={grup.id}
                 defaultChecked={seciliIdler.has(grup.id)}
-                className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+                className="mt-1 h-4 w-4 shrink-0 rounded border-cizgi accent-[var(--renk-birincil)]"
               />
-              <span className="text-metin">{grup.ad}</span>
+              <span>
+                <span className="block text-metin">{grup.ad}</span>
+                {grup.aciklama && (
+                  <span className="mt-0.5 block text-sm text-metin-yumusak">
+                    {grup.aciklama}
+                  </span>
+                )}
+              </span>
             </label>
           </li>
         ))}

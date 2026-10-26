@@ -27,6 +27,28 @@ import { ILLER, ORNEK_ILCELER, ORNEK_KURUMLAR } from "./veri/iller";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
+/** Grupların kısa açıklamaları (ayarlar ekranından değiştirilebilir). */
+const CALISMA_GRUBU_ACIKLAMALARI: Record<string, string> = {
+  "Oyun Tasarımı": "Fikirden oynanabilir oyuna uzanan üretim sürecini ekipçe deneyimle.",
+  "Bilgisayar Olimpiyatları": "Algoritmik düşünmeyi olimpiyat kültürü içinde ileri düzeye taşı.",
+  "Web Programlama": "Web teknolojileriyle gerçek ürünler geliştir, ekipçe yayına al.",
+  "Robotik": "Robotik sistemleri tasarla, programla ve gerçek ortamda test et.",
+  "E-Ticaret ve E-İhracat": "Dijital bir ürünü pazara ve dünyaya açmanın yollarını öğren.",
+  "Dijital Sanatlar ve İçerik Geliştirme": "Dijital araçlarla üret; portfolyonu ve anlatını birlikte geliştir.",
+  "Espor": "Esporu oyunculuk, takım yönetimi, yayıncılık ve organizasyonla ele al.",
+  "Siber Güvenlik": "CTF ve uygulamalı senaryolarla güvenliği teknik yönleriyle keşfet.",
+  "Mobil Programlama": "Kendi fikrini fikirden prototipe, prototipten ürüne dönüştür.",
+  "Havacılık Sistemleri": "İHA ve uçuş sistemlerini uzmanlarla buluşarak yakından tanı.",
+  "Yapay Zekâ": "Yapay zekâyı kullanmakla kalma; nasıl çalıştığını anla ve uygula.",
+  "Eğitim Teknolojileri": "Eğitimde bir ihtiyacı belirle, teknolojiyle çözüm prototipi geliştir.",
+  "Açık Kaynak": "İncele, geliştir, belgele ve ürettiğini toplulukla paylaş.",
+  "Bilişim Hukuku ve Güvenli İnternet": "Dijital dünyada haklarını, sorumluluklarını ve güvenliği öğren.",
+  "Bilişim Hukuku": "Dijital dünyada haklarını, sorumluluklarını ve güvenliği öğren.",
+  "Güvenli İnternet": "Dijital dünyada haklarını, sorumluluklarını ve güvenliği öğren.",
+  "GençX": "Kız öğrencilerin teknolojide üretimini, liderliğini ve görünürlüğünü destekler.",
+  "EğitiJAM": "K12 Oyun Geliştirme Maratonu: 48 saatte fikirden oynanabilir oyuna.",
+};
+
 const CALISMA_GRUPLARI = [
   "Oyun Tasarımı",
   "Siber Güvenlik",
@@ -498,7 +520,11 @@ async function calismaGruplariniYukle() {
     await prisma.calismaGrubu.upsert({
       where: { ad },
       update: { siraNo: sira + 1 },
-      create: { ad, siraNo: sira + 1 },
+      create: {
+        ad,
+        siraNo: sira + 1,
+        aciklama: CALISMA_GRUBU_ACIKLAMALARI[ad] ?? null,
+      },
     });
   }
   console.log(`  ${CALISMA_GRUPLARI.length} çalışma grubu`);

@@ -148,6 +148,36 @@ export async function calismaGrubuEkleEylemi(veri: FormData): Promise<void> {
   redirect(`${YOL}?durum=grup-eklendi`);
 }
 
+/** Çalışma grubunun kısa açıklamasını kaydeder (boş bırakılırsa silinir). */
+export async function calismaGrubuAciklamaEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await yoneticiZorunlu();
+
+  const id = Number.parseInt(String(veri.get("id") ?? ""), 10);
+  if (!Number.isFinite(id)) throw new BulunamadiHatasi();
+  const aciklama =
+    String(veri.get("aciklama") ?? "").trim().slice(0, 300) || null;
+
+  const grup = await prisma.calismaGrubu.update({
+    where: { id },
+    data: { aciklama },
+    select: { ad: true },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "CALISMA_GRUBU",
+    hedefId: id,
+    detay: `Çalışma grubu açıklaması güncellendi: ${grup.ad}`,
+  });
+
+  revalidatePath(YOL);
+  revalidatePath("/panel/calisma-gruplari");
+  redirect(`${YOL}?durum=grup-aciklama`);
+}
+
 export async function calismaGrubuDurumEylemi(veri: FormData): Promise<void> {
   const kullanici = await yoneticiZorunlu();
 
