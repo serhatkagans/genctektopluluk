@@ -6,6 +6,7 @@ import {
   MOCK_PROJE_YONETICISI_KIMLIKLERI,
   mockKimlikBul,
 } from "../src/lib/auth/mock-kullanicilar";
+import { CALISMA_GRUBU_TANITIMLARI } from "./veri/calisma-grubu-tanitimlari";
 import { ILLER, ORNEK_ILCELER, ORNEK_KURUMLAR } from "./veri/iller";
 
 /**
@@ -524,6 +525,7 @@ async function calismaGruplariniYukle() {
         ad,
         siraNo: sira + 1,
         aciklama: CALISMA_GRUBU_ACIKLAMALARI[ad] ?? null,
+        tanitim: CALISMA_GRUBU_TANITIMLARI[ad] ?? null,
       },
     });
   }

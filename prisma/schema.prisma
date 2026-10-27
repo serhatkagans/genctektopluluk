@@ -1319,6 +1319,9 @@ model CalismaGrubu {
   /// Grup seçilirken adın altında görünen tek cümlelik tanıtım. Ayarlar
   /// ekranından düzenlenir; boş bırakılabilir.
   aciklama String? @db.VarChar(300)
+  /// Grubun uzun tanıtım yazısı (27 Ekim 2026). Öğrenci grubu seçince seçim
+  /// listesinin altında okur; Ayarlar ekranından düzenlenir, boş olabilir.
+  tanitim  String? @db.Text
   siraNo Int     @map("sira_no")
   aktif  Boolean @default(true)
 

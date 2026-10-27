@@ -148,7 +148,10 @@ export async function calismaGrubuEkleEylemi(veri: FormData): Promise<void> {
   redirect(`${YOL}?durum=grup-eklendi`);
 }
 
-/** Çalışma grubunun kısa açıklamasını kaydeder (boş bırakılırsa silinir). */
+/**
+ * Çalışma grubunun kısa açıklamasını ve uzun tanıtım yazısını kaydeder (boş
+ * bırakılan silinir). İkisi aynı formdan gelir (27 Ekim 2026).
+ */
 export async function calismaGrubuAciklamaEylemi(
   veri: FormData,
 ): Promise<void> {
@@ -158,10 +161,11 @@ export async function calismaGrubuAciklamaEylemi(
   if (!Number.isFinite(id)) throw new BulunamadiHatasi();
   const aciklama =
     String(veri.get("aciklama") ?? "").trim().slice(0, 300) || null;
+  const tanitim = String(veri.get("tanitim") ?? "").trim().slice(0, 5000) || null;
 
   const grup = await prisma.calismaGrubu.update({
     where: { id },
-    data: { aciklama },
+    data: { aciklama, tanitim },
     select: { ad: true },
   });
 

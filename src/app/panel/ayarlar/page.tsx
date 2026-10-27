@@ -54,7 +54,7 @@ const DURUM_MESAJLARI: Record<string, string> = {
   "grup-eklendi": "Çalışma grubu eklendi.",
   "grup-pasif": "Çalışma grubu pasife alındı; geçmiş seçimler korunuyor.",
   "grup-aktif": "Çalışma grubu yeniden aktifleştirildi.",
-  "grup-aciklama": "Çalışma grubunun açıklaması kaydedildi.",
+  "grup-aciklama": "Çalışma grubunun açıklaması ve tanıtımı kaydedildi.",
   "program-eklendi": "Etkinlik programı eklendi.",
   "program-pasif": "Etkinlik programı pasife alındı; geçmiş etkinlikler korunuyor.",
   "program-aktif": "Etkinlik programı yeniden aktifleştirildi.",
@@ -448,10 +448,14 @@ export default async function AyarlarSayfasi({
                   </span>
                 )}
               </span>
-              {/* Kısa açıklama: öğrenci grup seçerken adın altında okur. */}
+              {/*
+                Kısa açıklama ve tanıtım: öğrenci grubu seçince seçim
+                listesinin altında okur (27 Ekim 2026). İkisi tek formda,
+                tek Kaydet ile.
+              */}
               <form
                 action={calismaGrubuAciklamaEylemi}
-                className="flex w-full grow items-center gap-2 sm:w-auto"
+                className="w-full space-y-2 sm:w-auto sm:grow"
               >
                 <input type="hidden" name="id" value={grup.id} />
                 <input
@@ -460,7 +464,16 @@ export default async function AyarlarSayfasi({
                   defaultValue={grup.aciklama ?? ""}
                   maxLength={300}
                   placeholder="Kısa açıklama"
-                  aria-label={`${grup.ad} açıklaması`}
+                  aria-label={`${grup.ad} kısa açıklaması`}
+                  className={SINIF_GIRDI}
+                />
+                <textarea
+                  name="tanitim"
+                  defaultValue={grup.tanitim ?? ""}
+                  maxLength={5000}
+                  rows={3}
+                  placeholder="Tanıtım yazısı"
+                  aria-label={`${grup.ad} tanıtım yazısı`}
                   className={SINIF_GIRDI}
                 />
                 <button type="submit" className={SINIF_IKINCIL_BUTON}>
