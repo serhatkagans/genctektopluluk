@@ -243,8 +243,8 @@ export async function gorevEkleEylemi(veri: FormData): Promise<void> {
 
   /*
    * Sıra numarası listenin SONUNA yazılıyor: yeni ilan, merkezin öncelik
-   * sırasını bozup panonun başına geçmemeli. Sıra değiştirmek ayrı bir iş ve
-   * bugün istenmedi.
+   * sırasını bozup panonun başına geçmemeli. Proje yöneticisi sonra yönetim
+   * ekranında sürükleyerek yerini değiştirir (bkz. gorevSiralaEylemi).
    */
   const sonSira = await prisma.gencTekGorevi.aggregate({
     _max: { siraNo: true },
@@ -382,4 +382,62 @@ export async function gorevDurumEylemi(veri: FormData): Promise<void> {
   });
 
   yonetimeDon(gorev.aktif ? "durum=gorev-kapatildi" : "durum=gorev-acildi");
+}
+
+/**
+ * Görevlerin sırasını kaydeder (27 Ekim 2026 · istek: "gençtek görevleri alt
+ * alta … fare ile sürüklenebilir yapabilsin proje yöneticisi").
+ *
+ * Yönetim ekranındaki sürükle-bırak listesinden çağrılır; sayfa yenilenmez,
+ * bu yüzden yönlendirme yapmaz, sonucu döndürür. Gelen dizi ekrandaki TAM
+ * sıradır: her görevin siraNo'su 10, 20, 30 … diye baştan yazılır. Araya
+ * boşluk bırakmak, yeni görevin "sona +10" kuralıyla çakışmasın diye.
+ *
+ * Açık görevler yine kapalılardan önce listelenir (26 Ekim 2026 kuralı);
+ * sıra, iki grubun kendi içindeki diziliştir.
+ */
+export async function gorevSiralaEylemi(
+  idler: number[],
+): Promise<{ hata: string | null }> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!gencTekGoreviYonetebilirMi(kullanici)) {
+    return { hata: "Görev sırasını değiştiremezsiniz." };
+  }
+
+  const temiz = Array.isArray(idler)
+    ? idler.filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+  const mevcut = await prisma.gencTekGorevi.findMany({ select: { id: true } });
+  const mevcutKume = new Set(mevcut.map((gorev) => gorev.id));
+
+  // Liste ekranda açıkken başka biri görev eklemiş ya da sıra bozulmuşsa
+  // yarım bir sıra yazılmaz: kişi sayfayı yenileyip yeniden dener.
+  if (
+    temiz.length !== mevcut.length ||
+    new Set(temiz).size !== temiz.length ||
+    temiz.some((id) => !mevcutKume.has(id))
+  ) {
+    return { hata: "Görev listesi değişmiş; sayfayı yenileyip tekrar deneyin." };
+  }
+
+  await prisma.$transaction(
+    temiz.map((id, sira) =>
+      prisma.gencTekGorevi.update({
+        where: { id },
+        data: { siraNo: (sira + 1) * 10 },
+      }),
+    ),
+  );
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "SISTEM_AYARI",
+    hedefId: "siralama",
+    detay: "GençTek görevlerinin sırası değiştirildi",
+  });
+
+  revalidatePath(YONETIM);
+  revalidatePath(PANO);
+  return { hata: null };
 }

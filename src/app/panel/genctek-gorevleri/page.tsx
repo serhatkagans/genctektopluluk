@@ -1,6 +1,7 @@
 import { BadgeCheck, Check, Pencil, Plus, X } from "lucide-react";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import { GorevBasvuruKuyrugu } from "@/components/GorevBasvuruKuyrugu";
+import { SiralanabilirGorevListesi } from "@/components/SiralanabilirGorevListesi";
 import {
   BilgiKutusu,
   Kart,
@@ -23,6 +24,7 @@ import {
   gorevDuzenleEylemi,
   gorevEkleEylemi,
   gorevKararEylemi,
+  gorevSiralaEylemi,
 } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -166,27 +168,39 @@ export default async function GencTekGorevYonetimiSayfasi({
           baslik="Görev ilanları"
           aciklama="Kapatılan ilan listede görünmeye devam eder ama yeni başvuru kabul etmez; başvuruları kayıtta kalır."
         />
-        <ul className="divide-y divide-cizgi">
-          {gorevler.map((gorev) => (
-            <li key={gorev.id} className="py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-metin">
-                    {gorev.ad}
-                    <span className="ml-2 inline-block align-middle">
-                      <Rozet cesit={gorev.aktif ? "olumlu" : "notr"}>
-                        {gorev.aktif ? "Açık" : "Kapalı"}
-                      </Rozet>
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-sm text-metin-yumusak">
-                    {gorev.kontenjan === null
-                      ? `${gorev._count.basvurular} kişi görevde · kontenjan sınırsız`
-                      : `${gorev._count.basvurular}/${gorev.kontenjan} kişi görevde`}
-                    {gorev.basvurular.length > gorev._count.basvurular &&
-                      ` · ${gorev.basvurular.length} başvuru`}
-                  </p>
-                  {/*
+        {/*
+          SÜRÜKLE-BIRAK SIRALAMA (27 Ekim 2026 · istek: "alt alta … fare ile
+          sürüklenebilir yapabilsin proje yöneticisi"). Satırlar burada
+          basılıyor; liste bileşeni yalnızca sırayı tutup kaydediyor. Anahtar
+          sıra ve durum değişince bileşeni sıfırlıyor: başka bir eylemden
+          (kapatma, yeni görev) dönüldüğünde eski sıra ekranda kalmasın.
+        */}
+        <SiralanabilirGorevListesi
+          key={gorevler.map((gorev) => `${gorev.id}:${gorev.aktif}`).join(",")}
+          siralaEylemi={gorevSiralaEylemi}
+          ogeler={gorevler.map((gorev) => ({
+            id: gorev.id,
+            aktif: gorev.aktif,
+            icerik: (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-metin">
+                      {gorev.ad}
+                      <span className="ml-2 inline-block align-middle">
+                        <Rozet cesit={gorev.aktif ? "olumlu" : "notr"}>
+                          {gorev.aktif ? "Açık" : "Kapalı"}
+                        </Rozet>
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-sm text-metin-yumusak">
+                      {gorev.kontenjan === null
+                        ? `${gorev._count.basvurular} kişi görevde · kontenjan sınırsız`
+                        : `${gorev._count.basvurular}/${gorev.kontenjan} kişi görevde`}
+                      {gorev.basvurular.length > gorev._count.basvurular &&
+                        ` · ${gorev.basvurular.length} başvuru`}
+                    </p>
+                    {/*
                     LİSTE ÇIKTISI İLANIN YANINDA (22 Ağustos 2026 · istek: "her
                     görev için excel listesi alınabilsin — kaç kişi, kimler
                     doldurdu vs"). Ekran onayları görev görev değil kişi kişi
@@ -199,23 +213,23 @@ export default async function GencTekGorevYonetimiSayfasi({
                     hiç olmadığını düşündürdü. Yanındaki sayı zaten dosyanın
                     boş olduğunu söylüyor.
                   */}
-                  <p className="mt-2">
-                    <DisaAktarmaBagi
-                      yol={`/panel/genctek-gorevleri/${gorev.id}/disa-aktar`}
-                      kayitSayisi={gorev.basvurular.length}
-                      etiket="Başvuru listesi"
-                    />
-                  </p>
+                    <p className="mt-2">
+                      <DisaAktarmaBagi
+                        yol={`/panel/genctek-gorevleri/${gorev.id}/disa-aktar`}
+                        kayitSayisi={gorev.basvurular.length}
+                        etiket="Başvuru listesi"
+                      />
+                    </p>
+                  </div>
+                  <form action={gorevDurumEylemi}>
+                    <input type="hidden" name="gorevId" value={gorev.id} />
+                    <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                      {gorev.aktif ? "Kapat" : "Yeniden aç"}
+                    </button>
+                  </form>
                 </div>
-                <form action={gorevDurumEylemi}>
-                  <input type="hidden" name="gorevId" value={gorev.id} />
-                  <button type="submit" className={SINIF_IKINCIL_BUTON}>
-                    {gorev.aktif ? "Kapat" : "Yeniden aç"}
-                  </button>
-                </form>
-              </div>
 
-              {/*
+                {/*
                 DÜZENLEME KATLI GELİYOR (22 Ağustos 2026 · istek: "görev
                 ilanları düzenlenebilsin"). Beş ilanın beş formu birden açık
                 dursaydı liste, okunacak bir durum özeti olmaktan çıkıp beş
@@ -225,67 +239,68 @@ export default async function GencTekGorevYonetimiSayfasi({
                 Alanlar MEVCUT DEĞERLERLE dolu: boş form, düzenlemeyi baştan
                 yazmaya çevirirdi.
               */}
-              <details className="group mt-2">
-                <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-vurgu-metin">
-                  <Pencil size={14} aria-hidden />
-                  Düzenle
-                </summary>
-                <form
-                  action={gorevDuzenleEylemi}
-                  className="mt-3 space-y-3 rounded-kutu border border-cizgi p-4"
-                >
-                  <input type="hidden" name="gorevId" value={gorev.id} />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="text-sm font-medium text-metin">
-                        Görev adı
-                      </span>
-                      <input
-                        type="text"
-                        name="ad"
-                        required
-                        maxLength={200}
-                        defaultValue={gorev.ad}
-                        className={SINIF_GIRDI}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-medium text-metin">
-                        Kontenjan{" "}
-                        <span className="text-metin-yumusak">
-                          (boş bırakılırsa sınırsız)
+                <details className="group mt-2">
+                  <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-vurgu-metin">
+                    <Pencil size={14} aria-hidden />
+                    Düzenle
+                  </summary>
+                  <form
+                    action={gorevDuzenleEylemi}
+                    className="mt-3 space-y-3 rounded-kutu border border-cizgi p-4"
+                  >
+                    <input type="hidden" name="gorevId" value={gorev.id} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-sm font-medium text-metin">
+                          Görev adı
                         </span>
+                        <input
+                          type="text"
+                          name="ad"
+                          required
+                          maxLength={200}
+                          defaultValue={gorev.ad}
+                          className={SINIF_GIRDI}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm font-medium text-metin">
+                          Kontenjan{" "}
+                          <span className="text-metin-yumusak">
+                            (boş bırakılırsa sınırsız)
+                          </span>
+                        </span>
+                        <input
+                          type="number"
+                          name="kontenjan"
+                          min={1}
+                          defaultValue={gorev.kontenjan ?? ""}
+                          className={SINIF_GIRDI}
+                        />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-sm font-medium text-metin">
+                        Açıklama
                       </span>
-                      <input
-                        type="number"
-                        name="kontenjan"
-                        min={1}
-                        defaultValue={gorev.kontenjan ?? ""}
+                      <textarea
+                        name="aciklama"
+                        required
+                        rows={3}
+                        defaultValue={gorev.aciklama}
                         className={SINIF_GIRDI}
                       />
                     </label>
-                  </div>
-                  <label className="block">
-                    <span className="text-sm font-medium text-metin">
-                      Açıklama
-                    </span>
-                    <textarea
-                      name="aciklama"
-                      required
-                      rows={3}
-                      defaultValue={gorev.aciklama}
-                      className={SINIF_GIRDI}
-                    />
-                  </label>
-                  <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-                    <Check size={15} aria-hidden />
-                    Kaydet
-                  </button>
-                </form>
-              </details>
-            </li>
-          ))}
-        </ul>
+                    <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+                      <Check size={15} aria-hidden />
+                      Kaydet
+                    </button>
+                  </form>
+                </details>
+              </>
+            ),
+          }))}
+        />
       </Kart>
 
       <Kart>
