@@ -27,7 +27,9 @@ import { ILLER } from "../prisma/veri/iller";
  *     ileride değişebilir.
  *   · İptal edilen ve ertelenen etkinlikler alınmaz.
  *   · BAŞVURU KAPALI: başvuru başlangıcı ve bitişi aktarım anından önceye
- *     yazılır; sistem etkinliği "başvuru kapandı" olarak gösterir.
+ *     yazılır; sistem etkinliği "başvuru kapandı" olarak gösterir. Proje
+ *     yöneticisi istediği an etkinliğin "Etkinliği düzenle" kartından
+ *     başvuru tarihlerini değiştirerek başvuruya açabilir (27 Ekim 2026).
  *   · Aynı ad ve başlangıç tarihli etkinlik zaten varsa tekrar eklenmez;
  *     betik ikinci kez çalıştırılabilir.
  *   · HER ETKİNLİK ULUSAL kapsamla eklenir (24 Ekim 2026 · istek: "hepsi
@@ -163,7 +165,10 @@ async function main() {
       e.purpose?.trim() ? `Amaç: ${e.purpose.trim()}` : null,
       e.location?.trim() ? `Yer: ${e.location.trim()}` : null,
       e.url?.trim() ? `Bağlantı: ${e.url.trim()}` : null,
-      "GençTek Takvim'den aktarıldı; bu etkinliğe sistem üzerinden başvuru alınmıyor.",
+      // Başvuru kapalı gelir; proje yöneticisi düzenleme kartından başvuru
+      // tarihlerini değiştirerek istediği an açabilir. Bu yüzden açıklama
+      // "başvuru alınmıyor" demiyor.
+      "GençTek Takvim'den aktarıldı.",
     ]
       .filter(Boolean)
       .join("\n\n");
