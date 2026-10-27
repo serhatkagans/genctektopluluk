@@ -64,12 +64,32 @@ export type GezinmeBaglantisi = {
   pasifNedeni?: string;
 };
 
-function aktifMi(yol: string, baglanti: GezinmeBaglantisi) {
+function eslesirMi(yol: string, baglantiYolu: string) {
   // "/panel" her yolun ön eki olduğu için tam eşleşme ister; diğerleri alt
   // sayfalarında da seçili kalmalı (etkinlik detayındayken Etkinlikler gibi).
-  return baglanti.yol === "/panel"
+  return baglantiYolu === "/panel"
     ? yol === "/panel"
-    : yol.startsWith(baglanti.yol);
+    : yol === baglantiYolu || yol.startsWith(`${baglantiYolu}/`);
+}
+
+/**
+ * EN UZUN EŞLEŞEN SATIR SEÇİLİ (27 Ekim 2026 · istek: "sol menüde gençtek
+ * görevlerine tıklayınca pano da kırmızı oluyor"). "GençTek görevlerim"
+ * Pano'nun alt adresinde duruyor (/panel/talepler/genctek-gorevleri); yalnızca
+ * ön eke bakılınca iki satır birden seçili görünüyordu. Kendi satırı olan alt
+ * sayfada yalnızca o satır yanar; satırı olmayan alt sayfada (Pano'nun öteki
+ * ekranları) Pano yanmaya devam eder.
+ */
+function aktifMi(
+  yol: string,
+  baglanti: GezinmeBaglantisi,
+  tumu: GezinmeBaglantisi[],
+) {
+  if (!eslesirMi(yol, baglanti.yol)) return false;
+  return !tumu.some(
+    (diger) =>
+      diger.yol.length > baglanti.yol.length && eslesirMi(yol, diger.yol),
+  );
 }
 
 /**
@@ -142,7 +162,7 @@ export function PanelGezinme({
             */}
             <ul className="space-y-0.5" aria-label={grup.ad}>
               {grup.ogeler.map((baglanti) => {
-                const secili = aktifMi(yol, baglanti);
+                const secili = aktifMi(yol, baglanti, baglantilar);
                 const Ikon = baglanti.ikon ? IKONLAR[baglanti.ikon] : null;
                 if (baglanti.pasifNedeni) {
                   return (
@@ -187,7 +207,7 @@ export function PanelGezinme({
       */}
       <ul className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden">
         {baglantilar.map((baglanti) => {
-          const secili = aktifMi(yol, baglanti);
+          const secili = aktifMi(yol, baglanti, baglantilar);
           const Ikon = baglanti.ikon ? IKONLAR[baglanti.ikon] : null;
           if (baglanti.pasifNedeni) {
             return (
