@@ -66,7 +66,38 @@ export interface IlKoordinatorDurumu {
    * bu sayı sıfırdan büyük olur ve ekranda kırmızı uyarı olarak gösterilir.
    */
   atanmamisOgrenciSayisi: number;
+  /**
+   * İlde koordinatör olarak atanabilecek öğretmen sayısı (27 Ekim 2026 ·
+   * istek: "hangi illerde görevli öğretmen var hangisi atamaya uygun bunu
+   * ayırt etmek zor oluyor"). Koşul aday listesininkiyle AYNIDIR
+   * (bkz. ADAY_KOSULU): sayı 3 diyorsa liste açıldığında 3 kişi çıkar.
+   */
+  adaySayisi: number;
 }
+
+/**
+ * Koordinatör adayı olabilecek kullanıcı — aday listesi ile il tablosundaki
+ * aday sayısı bu tek tanımı paylaşır.
+ *
+ * Öğrenciye koordinatörlük verilmez; başka ilin koordinatörü de aday olamaz.
+ *
+ * MEZUN ve PAYDAS_TEMSILCISI de elenir: ikisinin de iletişim bilgisi
+ * ogretmen_profil'de tutuluyor (tablonun adı tarihsel, içeriği "öğrenci
+ * olmayanın iletişim bilgisi") ve ilKodu'ları var — koşul buna bakmasaydı bir
+ * mezun, ilinin koordinatör aday listesinde çıkardı.
+ */
+const ADAY_KOSULU: Prisma.KullaniciWhereInput = {
+  aktif: true,
+  ogretmenProfil: { isNot: null },
+  roller: {
+    none: {
+      bitisTarihi: null,
+      rolKodu: {
+        in: ["OGRENCI", "IL_KOORDINATOR", "MEZUN", "PAYDAS_TEMSILCISI"],
+      },
+    },
+  },
+};
 
 export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
   const [
@@ -75,6 +106,7 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
     ogrenciSayilari,
     atanmamisSayilari,
     ogretmenSayilari,
+    adaySayilari,
   ] = await Promise.all([
     prisma.il.findMany({
       orderBy: { ad: "asc" },
@@ -112,6 +144,11 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
       where: { AND: [{ aktif: true }, OGRETMEN] },
       _count: { _all: true },
     }),
+    prisma.kullanici.groupBy({
+      by: ["ilKodu"],
+      where: ADAY_KOSULU,
+      _count: { _all: true },
+    }),
   ]);
 
   const koordinatorHaritasi = new Map(
@@ -122,6 +159,7 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
   const ogrenciHaritasi = sayimHaritasi(ogrenciSayilari);
   const atanmamisHaritasi = sayimHaritasi(atanmamisSayilari);
   const ogretmenHaritasi = sayimHaritasi(ogretmenSayilari);
+  const adayHaritasi = sayimHaritasi(adaySayilari);
 
   return iller.map((il) => {
     const rol = koordinatorHaritasi.get(il.ilKodu);
@@ -143,6 +181,7 @@ export async function ilKoordinatorDurumlari(): Promise<IlKoordinatorDurumu[]> {
       ogrenciSayisi: ogrenciHaritasi.get(il.ilKodu) ?? 0,
       ogretmenSayisi: ogretmenHaritasi.get(il.ilKodu) ?? 0,
       atanmamisOgrenciSayisi: atanmamisHaritasi.get(il.ilKodu) ?? 0,
+      adaySayisi: adayHaritasi.get(il.ilKodu) ?? 0,
     };
   });
 }
@@ -277,33 +316,7 @@ export async function koordinatorAdaylari(
   ilKodu: string,
 ): Promise<KoordinatorAdayi[]> {
   const ogretmenler = await prisma.kullanici.findMany({
-    where: {
-      ilKodu,
-      aktif: true,
-      ogretmenProfil: { isNot: null },
-      /*
-       * Öğrenciye koordinatörlük verilmez; başka ilin koordinatörü de aday
-       * olamaz.
-       *
-       * MEZUN ve PAYDAS_TEMSILCISI de elenir: ikisinin de iletişim bilgisi
-       * ogretmen_profil'de tutuluyor (tablonun adı tarihsel, içeriği "öğrenci
-       * olmayanın iletişim bilgisi") ve ilKodu'ları var — koşul buna
-       * bakmasaydı bir mezun, ilinin koordinatör aday listesinde çıkardı.
-       */
-      roller: {
-        none: {
-          bitisTarihi: null,
-          rolKodu: {
-            in: [
-              "OGRENCI",
-              "IL_KOORDINATOR",
-              "MEZUN",
-              "PAYDAS_TEMSILCISI",
-            ],
-          },
-        },
-      },
-    },
+    where: { AND: [{ ilKodu }, ADAY_KOSULU] },
     orderBy: [{ ad: "asc" }, { soyad: "asc" }],
     select: {
       id: true,

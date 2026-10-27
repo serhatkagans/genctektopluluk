@@ -1,8 +1,5 @@
-import {
-  AlertTriangle,
-  MapPin,
-  UserPlus,
-} from "lucide-react";
+import { Fragment } from "react";
+import { AlertTriangle, MapPin } from "lucide-react";
 import {
   BilgiKutusu,
   Kart,
@@ -20,6 +17,7 @@ import {
   ilKoordinatorDurumlari,
   koordinatorAdaylari,
   kurumDanismanDurumlari,
+  type KoordinatorAdayi,
 } from "@/lib/rapor/rol-envanteri";
 import { rolEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -79,6 +77,24 @@ const SIRALAMALAR = {
 
 type Siralama = keyof typeof SIRALAMALAR;
 
+/**
+ * GÖRÜNÜM SÜZGECİ (27 Ekim 2026 · istek: "hangi illerde görevli öğretmen var
+ * hangisi atamaya uygun bunu ayırt etmek zor oluyor"). 81 satırı tek tek
+ * taramak yerine "atamaya hazır" iller tek seçimle ayrılıyor.
+ */
+const GORUNUMLER = {
+  tumu: "Tüm iller",
+  atanabilir: "Koordinatörsüz · aday öğretmeni olan",
+  bos: "Koordinatörsüz (tümü)",
+  dolu: "Koordinatörü olan",
+} as const;
+
+type Gorunum = keyof typeof GORUNUMLER;
+
+function gorunumCoz(deger: string | null): Gorunum {
+  return deger !== null && deger in GORUNUMLER ? (deger as Gorunum) : "tumu";
+}
+
 function siralamaCoz(deger: string | null): Siralama {
   return deger !== null && deger in SIRALAMALAR ? (deger as Siralama) : "il-az";
 }
@@ -113,6 +129,7 @@ export default async function RolEnvanteriSayfasi({
   const parametreler = await searchParams;
   const secilenIl = tekil(parametreler.il);
   const siralama = siralamaCoz(tekil(parametreler.sirala));
+  const gorunum = gorunumCoz(tekil(parametreler.goster));
   const hata = tekil(parametreler.hata);
   const durum = tekil(parametreler.durum);
 
@@ -143,6 +160,7 @@ export default async function RolEnvanteriSayfasi({
    * il sayısı çok daha az. İkisi de yazılıyor.
    */
   const acilBosIller = bosIller.filter((il) => il.ogrenciSayisi > 0);
+  const atanabilirIller = bosIller.filter((il) => il.adaySayisi > 0);
   const atanmamisToplam = iller.reduce(
     (toplam, il) => toplam + il.atanmamisOgrenciSayisi,
     0,
@@ -154,6 +172,50 @@ export default async function RolEnvanteriSayfasi({
   const secilenIlBilgisi = secilenIl
     ? (iller.find((il) => il.ilKodu === secilenIl) ?? null)
     : null;
+  /* Aday listesi yalnızca koordinatörsüz bir il seçiliyken açık. */
+  const acikIlKodu =
+    secilenIlBilgisi && !secilenIlBilgisi.koordinator
+      ? secilenIlBilgisi.ilKodu
+      : null;
+
+  /*
+   * Bağlantılar sıralamayı ve süzgeci taşır: "Koordinatör ata"ya basan kişinin
+   * süzdüğü liste açılışta kaybolmasın. Çapa satırın kendisine gider; sayfa
+   * bastığınız ilde kalır.
+   */
+  function adres(il: string | null): string {
+    const parca = new URLSearchParams();
+    if (il) parca.set("il", il);
+    if (siralama !== "il-az") parca.set("sirala", siralama);
+    if (gorunum !== "tumu") parca.set("goster", gorunum);
+    const sorgu = parca.toString();
+    return uygulamaYolu(
+      `/panel/rol-envanteri${sorgu ? `?${sorgu}` : ""}${il ? `#il-${il}` : ""}`,
+    );
+  }
+
+  const gorunenIller = [...iller]
+    .filter((il) => {
+      if (gorunum === "atanabilir") return !il.koordinator && il.adaySayisi > 0;
+      if (gorunum === "bos") return !il.koordinator;
+      if (gorunum === "dolu") return il.koordinator !== null;
+      return true;
+    })
+    .sort((a, b) => {
+      const tersMi = siralama.endsWith("-za");
+      if (siralama.startsWith("brans")) {
+        const fark = karsilastir(
+          a.koordinator?.brans ?? null,
+          b.koordinator?.brans ?? null,
+          tersMi,
+        );
+        /* Aynı branşta ikincil ölçüt her zaman il adı: eşit
+           satırların sırası her açılışta değişmesin. */
+        if (fark !== 0) return fark;
+        return a.ilAdi.localeCompare(b.ilAdi, "tr");
+      }
+      return karsilastir(a.ilAdi, b.ilAdi, tersMi);
+    });
 
   const dagitilan = Number.parseInt(tekil(parametreler.dagitilan) ?? "", 10);
   const yenidenSecim = Number.parseInt(
@@ -193,7 +255,7 @@ export default async function RolEnvanteriSayfasi({
       <SayfaBasligi
         geri={null}
         baslik="Rol/atama envanteri"
-        aciklama={`${iller.length} il · ${bosIller.length} ilde koordinatör yok (${acilBosIller.length}'i öğrencili) · ${danismansizOkullar.length} okul danışmansız`}
+        aciklama={`${iller.length} il · ${bosIller.length} ilde koordinatör yok (${acilBosIller.length}'i öğrencili, ${atanabilirIller.length}'inde aday öğretmen var) · ${danismansizOkullar.length} okul danışmansız`}
       />
 
       {/*
@@ -250,7 +312,8 @@ export default async function RolEnvanteriSayfasi({
         <BilgiKutusu cesit="olumlu">Atama açıklaması kaydedildi.</BilgiKutusu>
       )}
 
-      {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+      {/* Açık aday listesi varsa hata onun içinde basılıyor. */}
+      {hata && !acikIlKodu && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       {atanmamisToplam > 0 && (
         <div className="rounded-kart border border-hata-cizgi bg-hata-zemin px-4 py-3 text-sm text-hata-metin">
@@ -270,7 +333,7 @@ export default async function RolEnvanteriSayfasi({
       <Kart>
         <KartBasligi
           baslik="İl koordinatörü durumu"
-          aciklama="Sıralamayı aşağıdan seçebilirsiniz. Öğrencisi olup koordinatörü olmayan iller, sıra ne olursa olsun vurgulu kalır."
+          aciklama="Koordinatörsüz illerde İşlem sütunu o ilde kaç aday öğretmen olduğunu gösterir; Koordinatör ata'ya basınca adaylar ilin hemen altında açılır. Öğrencisi olup koordinatörü olmayan iller vurgulu kalır."
           Ikon={MapPin}
         />
 
@@ -303,8 +366,24 @@ export default async function RolEnvanteriSayfasi({
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Göster</span>
+            <select
+              name="goster"
+              defaultValue={gorunum}
+              className="mt-1 rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+            >
+              {Object.entries(GORUNUMLER).map(([deger, etiket]) => (
+                <option key={deger} value={deger}>
+                  {etiket}
+                  {deger === "atanabilir" ? ` (${atanabilirIller.length})` : ""}
+                  {deger === "bos" ? ` (${bosIller.length})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="submit" className={SINIF_IKINCIL_BUTON}>
-            Sırala
+            Uygula
           </button>
         </form>
 
@@ -349,22 +428,7 @@ export default async function RolEnvanteriSayfasi({
               </tr>
             </thead>
             <tbody>
-              {[...iller]
-                .sort((a, b) => {
-                  const tersMi = siralama.endsWith("-za");
-                  if (siralama.startsWith("brans")) {
-                    const fark = karsilastir(
-                      a.koordinator?.brans ?? null,
-                      b.koordinator?.brans ?? null,
-                      tersMi,
-                    );
-                    /* Aynı branşta ikincil ölçüt her zaman il adı: eşit
-                       satırların sırası her açılışta değişmesin. */
-                    if (fark !== 0) return fark;
-                    return a.ilAdi.localeCompare(b.ilAdi, "tr");
-                  }
-                  return karsilastir(a.ilAdi, b.ilAdi, tersMi);
-                })
+              {gorunenIller
                 .map((il, sira) => {
                   const bosMu = il.koordinator === null;
                   /*
@@ -375,11 +439,17 @@ export default async function RolEnvanteriSayfasi({
                    * vurgulu — bakan kişinin gerçekten yapacağı iş o.
                    */
                   const acilMi = bosMu && il.ogrenciSayisi > 0;
+                  const acikMi = il.ilKodu === acikIlKodu;
                   return (
+                    <Fragment key={il.ilKodu}>
                     <tr
-                      key={il.ilKodu}
-                      className={`border-b border-cizgi last:border-0 ${
-                        acilMi ? "bg-uyari-zemin" : ""
+                      id={`il-${il.ilKodu}`}
+                      className={`scroll-mt-24 border-b border-cizgi last:border-0 ${
+                        acikMi
+                          ? "bg-vurgu-zemin"
+                          : acilMi
+                            ? "bg-uyari-zemin"
+                            : ""
                       }`}
                     >
                       <td
@@ -499,219 +569,68 @@ export default async function RolEnvanteriSayfasi({
                               </form>
                             </details>
                           </div>
+                        ) : il.adaySayisi === 0 ? (
+                          /*
+                            ADAYI OLMAYAN İLDE BAĞLANTI YOK (27 Ekim 2026):
+                            eskiden her boş ilde "Koordinatör ata" vardı, basınca
+                            "öğretmen bulunmuyor" yazısı çıkıyordu. Bilgi artık
+                            tıklamadan okunuyor.
+                          */
+                          <span className="text-xs text-metin-yumusak">
+                            Aday öğretmen yok
+                          </span>
+                        ) : acikMi ? (
+                          <a
+                            href={adres(null)}
+                            className="text-xs font-medium text-metin-yumusak"
+                          >
+                            Kapat ▲
+                          </a>
                         ) : (
                           <a
-                            href={uygulamaYolu(
-                              `/panel/rol-envanteri?il=${il.ilKodu}#atama`,
-                            )}
-                            className="text-xs font-medium text-vurgu-metin"
+                            href={adres(il.ilKodu)}
+                            className="inline-flex flex-col text-xs font-medium text-vurgu-metin"
                           >
-                            Koordinatör ata
+                            <span>Koordinatör ata ▼</span>
+                            <span className="font-normal text-metin-yumusak">
+                              {il.adaySayisi} aday öğretmen
+                            </span>
                           </a>
                         )}
                       </td>
                     </tr>
+                    {acikMi && (
+                      <tr className="border-b border-cizgi bg-vurgu-zemin">
+                        <td colSpan={7} className="px-3 pb-4 pt-1">
+                          {hata && (
+                            <div className="mb-3">
+                              <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>
+                            </div>
+                          )}
+                          <AdayTablosu
+                            ilKodu={il.ilKodu}
+                            ilAdi={il.ilAdi}
+                            adaylar={adaylar}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
+              {gorunenIller.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className={`${SINIF_HUCRE} text-center text-metin-yumusak`}
+                  >
+                    Bu süzgece uyan il yok.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-      </Kart>
-
-      {/* --- Koordinatör atama --- */}
-      <Kart>
-        <div id="atama" />
-        <KartBasligi
-          baslik="İl koordinatörü ata"
-          aciklama="Danışman öğretmenler de atanabilir; atama engellenmez. Bu durumda öğretmenin danışmanlığı kapatılır ve öğrencileri devir kurallarına göre yeniden dağıtılır."
-          Ikon={UserPlus}
-        />
-
-        <form method="get" className="flex flex-wrap items-end gap-3">
-          <label className="block">
-            <span className={SINIF_ETIKET}>İl</span>
-            <select
-              name="il"
-              defaultValue={secilenIl ?? ""}
-              className="mt-1 rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
-            >
-              <option value="">Seçiniz</option>
-              {iller.map((il) => (
-                <option key={il.ilKodu} value={il.ilKodu}>
-                  {il.ilAdi}
-                  {il.koordinator ? "" : " — boş"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" className={SINIF_IKINCIL_BUTON}>
-            Adayları listele
-          </button>
-        </form>
-
-        {secilenIlBilgisi && (
-          <div className="mt-5">
-            {secilenIlBilgisi.koordinator && (
-              <div className="mb-4">
-                <BilgiKutusu cesit="uyari">
-                  {secilenIlBilgisi.ilAdi} ilinin koordinatörü{" "}
-                  {secilenIlBilgisi.koordinator.ad}{" "}
-                  {secilenIlBilgisi.koordinator.soyad}. Yeni atama yapabilmek
-                  için önce mevcut görevi kaldırın.
-                </BilgiKutusu>
-              </div>
-            )}
-
-            {adaylar.length === 0 ? (
-              <p className="text-metin-yumusak">
-                {secilenIlBilgisi.ilAdi} ilinde sisteme kayıtlı, koordinatör
-                olarak atanabilecek öğretmen bulunmuyor. Öğretmenin en az bir kez
-                giriş yapmış olması gerekir.
-              </p>
-            ) : (
-              /*
-                ADAYLAR ARTIK ÜSTTEKİYLE AYNI BİÇİMDE BİR TABLO (27 Ağustos 2026 ·
-                istek: "listele butonuna basınca alta öğretmen listesi çıksın
-                aynı bu şekilde liste çıksın altta oradan seçsin o ildekileri,
-                iki ayrı listeye gerek yok").
-
-                Önce yan yana dizilmiş kutulardan (`<ul>`) oluşuyordu: aynı
-                ekranda iki farklı liste dili konuşuluyordu ve adayın branşı,
-                okulu, iletişim bilgisi tek satıra sıkışmış bir cümleydi.
-                Sütunlaşınca göz aşağı doğru tarayabiliyor ve üstteki ilin
-                tablosunda göreceği bilgilerin aynısını burada da aynı yerde
-                buluyor.
-              */
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[52rem] border-collapse">
-                  <thead>
-                    <tr className="border-b border-cizgi text-left">
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET} w-12`}>#</th>
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
-                        Ad soyad
-                      </th>
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Branş</th>
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Okul</th>
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
-                        Telefon
-                      </th>
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
-                        E-posta
-                      </th>
-                      <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {adaylar.map((aday, sira) => (
-                      <tr
-                        key={aday.kullaniciId}
-                        className={`border-b border-cizgi last:border-0 ${
-                          aday.danismanMi ? "bg-uyari-zemin" : ""
-                        }`}
-                      >
-                        <td
-                          className={`${SINIF_HUCRE} tabular-nums text-metin-yumusak`}
-                        >
-                          {sira + 1}
-                        </td>
-                        <td className={`${SINIF_HUCRE} font-medium text-metin`}>
-                          {aday.ad} {aday.soyad}
-                          {/*
-                            DANIŞMANLIK UYARISI ADIN ALTINDA KALIYOR: satırın
-                            sarı zemini "burada bir bedel var" diyor, sayı ise
-                            bedelin ne kadar olduğunu — kaç öğrencinin yeniden
-                            dağıtılacağını — söylüyor. Atama engellenmiyor
-                            (domain-rules.md Bölüm 3); yalnızca sonucu atamadan
-                            ÖNCE okunuyor.
-                          */}
-                          {aday.danismanMi && (
-                            <span className="mt-1 block text-xs font-medium text-uyari-metin">
-                              Danışman öğretmen ·{" "}
-                              {aday.danismanliktakiOgrenciSayisi} öğrenci yeniden
-                              dağıtılacak
-                            </span>
-                          )}
-                        </td>
-                        <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                          {aday.brans || "—"}
-                        </td>
-                        <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
-                          {aday.kurumAdi || "—"}
-                        </td>
-                        <td className={`${SINIF_HUCRE} tabular-nums`}>
-                          {aday.telefon ? (
-                            <a
-                              href={`tel:${aday.telefon}`}
-                              className="text-vurgu-metin"
-                            >
-                              {aday.telefon}
-                            </a>
-                          ) : (
-                            <span className="text-metin-yumusak">—</span>
-                          )}
-                        </td>
-                        <td className={SINIF_HUCRE}>
-                          {aday.eposta ? (
-                            <a
-                              href={`mailto:${aday.eposta}`}
-                              className="break-all text-vurgu-metin"
-                            >
-                              {aday.eposta}
-                            </a>
-                          ) : (
-                            <span className="text-metin-yumusak">—</span>
-                          )}
-                        </td>
-                        <td className={SINIF_HUCRE}>
-                          {/*
-                            AÇIKLAMA ATAMANIN KENDİ FORMUNDA (27 Ağustos 2026 ·
-                            istek: "koordinatör atarken açıklama yazılabilecek
-                            bir alan").
-
-                            Her adayın kendi formu var — tek ortak metin kutusu
-                            olsaydı hangi adaya yazıldığı belirsizleşirdi.
-                            Zorunlu değil: notu olmayan atama geçerli bir
-                            atamadır. Yazılmazsa sonradan da eklenebiliyor
-                            (üstteki tablo · "Açıklama ekle").
-                          */}
-                          <form
-                            action={ilKoordinatoruAtaEylemi}
-                            className="space-y-2"
-                          >
-                            <input
-                              type="hidden"
-                              name="kullaniciId"
-                              value={aday.kullaniciId}
-                            />
-                            <input
-                              type="hidden"
-                              name="ilKodu"
-                              value={secilenIlBilgisi.ilKodu}
-                            />
-                            <textarea
-                              name="aciklama"
-                              rows={2}
-                              maxLength={ACIKLAMA_AZAMI}
-                              placeholder="Açıklama (isteğe bağlı)"
-                              className="w-full min-w-[14rem] rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
-                            />
-                            <button
-                              type="submit"
-                              disabled={secilenIlBilgisi.koordinator !== null}
-                              className={`${SINIF_BIRINCIL_BUTON} disabled:opacity-40`}
-                            >
-                              Koordinatör yap
-                            </button>
-                          </form>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
       </Kart>
 
       {/*
@@ -725,6 +644,174 @@ export default async function RolEnvanteriSayfasi({
         danışmansız" özeti yerinde duruyor, yani bulgu kaybolmuyor —
         kalkan yalnızca aynı ekrandaki ikinci tablo.
       */}
+    </div>
+  );
+}
+
+/**
+ * ADAYLAR SEÇİLEN İLİN HEMEN ALTINDA (27 Ekim 2026 · istek: "üstten ilin
+ * yanındaki koordinatör atamaya basıyorum aşağı gidiyor sayfa aşağıdan
+ * listeden seçiyorum"). Eskiden aday tablosu sayfanın en altında ayrı bir
+ * kartta ve ayrı bir il seçim kutusuyla açılıyordu; kişi bastığı satırı
+ * kaybediyordu. Artık tablo satırın altına açılıyor, ayrı il seçimi yok.
+ *
+ * Danışman öğretmenler de atanabilir; atama engellenmez. Öğretmenin
+ * danışmanlığı kapatılır ve öğrencileri devir kurallarına göre yeniden
+ * dağıtılır — satırın sarı zemini ve adın altındaki sayı bunu atamadan ÖNCE
+ * söyler (domain-rules.md Bölüm 3).
+ */
+function AdayTablosu({
+  ilKodu,
+  ilAdi,
+  adaylar,
+}: {
+  ilKodu: string;
+  ilAdi: string;
+  adaylar: KoordinatorAdayi[];
+}) {
+  if (adaylar.length === 0) {
+    return (
+      <p className="text-sm text-metin-yumusak">
+        {ilAdi} ilinde koordinatör olarak atanabilecek öğretmen bulunmuyor.
+        Öğretmenin en az bir kez giriş yapmış olması gerekir.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-md border border-cizgi bg-kart">
+      <p className="border-b border-cizgi px-3 py-2 text-sm font-medium text-metin">
+        {ilAdi} · {adaylar.length} aday öğretmen
+        <span className="ml-2 font-normal text-metin-yumusak">
+          Sarı satırlar danışman öğretmendir; atanırsa öğrencileri yeniden
+          dağıtılır.
+        </span>
+      </p>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[52rem] border-collapse">
+        <thead>
+          <tr className="border-b border-cizgi text-left">
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET} w-12`}>#</th>
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
+              Ad soyad
+            </th>
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Branş</th>
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>Okul</th>
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
+              Telefon
+            </th>
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>
+              E-posta
+            </th>
+            <th className={`${SINIF_HUCRE} ${SINIF_ETIKET}`}>İşlem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {adaylar.map((aday, sira) => (
+            <tr
+              key={aday.kullaniciId}
+              className={`border-b border-cizgi last:border-0 ${
+                aday.danismanMi ? "bg-uyari-zemin" : ""
+              }`}
+            >
+              <td
+                className={`${SINIF_HUCRE} tabular-nums text-metin-yumusak`}
+              >
+                {sira + 1}
+              </td>
+              <td className={`${SINIF_HUCRE} font-medium text-metin`}>
+                {aday.ad} {aday.soyad}
+                {/*
+                  DANIŞMANLIK UYARISI ADIN ALTINDA KALIYOR: satırın
+                  sarı zemini "burada bir bedel var" diyor, sayı ise
+                  bedelin ne kadar olduğunu — kaç öğrencinin yeniden
+                  dağıtılacağını — söylüyor. Atama engellenmiyor
+                  (domain-rules.md Bölüm 3); yalnızca sonucu atamadan
+                  ÖNCE okunuyor.
+                */}
+                {aday.danismanMi && (
+                  <span className="mt-1 block text-xs font-medium text-uyari-metin">
+                    Danışman öğretmen ·{" "}
+                    {aday.danismanliktakiOgrenciSayisi} öğrenci yeniden
+                    dağıtılacak
+                  </span>
+                )}
+              </td>
+              <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
+                {aday.brans || "—"}
+              </td>
+              <td className={`${SINIF_HUCRE} text-metin-yumusak`}>
+                {aday.kurumAdi || "—"}
+              </td>
+              <td className={`${SINIF_HUCRE} tabular-nums`}>
+                {aday.telefon ? (
+                  <a
+                    href={`tel:${aday.telefon}`}
+                    className="text-vurgu-metin"
+                  >
+                    {aday.telefon}
+                  </a>
+                ) : (
+                  <span className="text-metin-yumusak">—</span>
+                )}
+              </td>
+              <td className={SINIF_HUCRE}>
+                {aday.eposta ? (
+                  <a
+                    href={`mailto:${aday.eposta}`}
+                    className="break-all text-vurgu-metin"
+                  >
+                    {aday.eposta}
+                  </a>
+                ) : (
+                  <span className="text-metin-yumusak">—</span>
+                )}
+              </td>
+              <td className={SINIF_HUCRE}>
+                {/*
+                  AÇIKLAMA ATAMANIN KENDİ FORMUNDA (27 Ağustos 2026 ·
+                  istek: "koordinatör atarken açıklama yazılabilecek
+                  bir alan").
+
+                  Her adayın kendi formu var — tek ortak metin kutusu
+                  olsaydı hangi adaya yazıldığı belirsizleşirdi.
+                  Zorunlu değil: notu olmayan atama geçerli bir
+                  atamadır. Yazılmazsa sonradan da eklenebiliyor
+                  (üstteki tablo · "Açıklama ekle").
+                */}
+                <form
+                  action={ilKoordinatoruAtaEylemi}
+                  className="space-y-2"
+                >
+                  <input
+                    type="hidden"
+                    name="kullaniciId"
+                    value={aday.kullaniciId}
+                  />
+                  <input
+                    type="hidden"
+                    name="ilKodu"
+                    value={ilKodu}
+                  />
+                  <textarea
+                    name="aciklama"
+                    rows={2}
+                    maxLength={ACIKLAMA_AZAMI}
+                    placeholder="Açıklama (isteğe bağlı)"
+                    className="w-full min-w-[14rem] rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+                  />
+                  <button
+                    type="submit"
+                    className={SINIF_BIRINCIL_BUTON}
+                  >
+                    Koordinatör yap
+                  </button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
     </div>
   );
 }
