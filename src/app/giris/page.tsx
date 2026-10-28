@@ -166,7 +166,10 @@ export default async function GirisSayfasi({
      * kullanılmaz; `guvenliDonusYolu` uygulama dışına çıkan her şeyi eler.
      */
     nereye?: string;
-    /** Kayıt formundan dönüşte "kaydınız oluşturuldu" kutusu için. */
+    /**
+     * Kayıt formundan dönüşte "kaydınız oluşturuldu" (`tamam`), şifre
+     * sıfırlamadan dönüşte "şifreniz güncellendi" (`sifre`) kutusu için.
+     */
     kayit?: string;
   }>;
 }) {
@@ -204,6 +207,7 @@ export default async function GirisSayfasi({
       <SifreliGiris
         hata={hata}
         kayitTamam={kayit === "tamam"}
+        sifreGuncellendi={kayit === "sifre"}
         nereye={nereye}
       />
     );

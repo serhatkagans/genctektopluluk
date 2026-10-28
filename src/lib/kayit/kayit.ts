@@ -2,6 +2,7 @@ import type { AuthKimlik } from "../auth/tipler";
 import { prisma } from "../db";
 import { sifreOzetle } from "../dis-kimlik/sifre";
 import { kullaniciSagla } from "../kullanici/sagla";
+import { kapsamDisiOkulTuruMu } from "../okul/turler";
 import { erisimLogla } from "../yetki/log";
 import { type KayitKaydi, okulTuruUyarMi } from "./kurallar";
 
@@ -34,7 +35,13 @@ export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
       where: { kurumKodu: kayit.kurumKodu },
       select: { ilKodu: true, ilceKodu: true, aktif: true, okulTuru: true },
     });
-    if (!kurum || !kurum.aktif || kurum.ilKodu !== kayit.ilKodu) {
+    if (
+      !kurum ||
+      !kurum.aktif ||
+      kurum.ilKodu !== kayit.ilKodu ||
+      // Açık öğretim liseleri GençTek'in hedefi değil (bkz. okul/turler.ts).
+      kapsamDisiOkulTuruMu(kurum.okulTuru)
+    ) {
       return { durum: "BASARISIZ", mesaj: "Okulunuzu listeden seçin." };
     }
     if (kayit.okulTuru !== null && !okulTuruUyarMi(kayit.okulTuru, kurum.okulTuru)) {

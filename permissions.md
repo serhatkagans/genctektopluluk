@@ -54,6 +54,7 @@
 | EBA dışı giriş başvurusunu onaylama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 | KVKK (ilgili kişi) başvurusu yapma | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | KVKK başvurusunu yanıtlama | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Kullanıcı yönetimi (geçici şifre, kilit açma, pasife alma, kayıt silme) | ✗ | ✗ | ✗ | ✓ (başka proje yöneticisine ve kendisine değil) | ✗ | ✗ |
 
 **KVKK başvurusu yapmak bir HAKTIR, yetki değildir** (2 Eylül 2026 · Genelge 4/ç). Matristeki ilk satır bu yüzden altı sütunda da ✓: oturum açmış olmak yeterli ve kimse kimsenin başvurusunu engelleyemez. Yanıtlama satırı ise yalnızca merkezde (`kvkkBasvurulariniYanitlayabilirMi`) — başvuru **veri sorumlusuna** yapılır (KVKK m.13) ve veri sorumlusu YEĞİTEK'tir. İl koordinatörü kendi ilindeki kişinin başvurusunu bile görmez: açılsaydı kanunun tek muhatap saydığı yerde ikinci bir merci doğar, ilgili kişi ilden ile değişen cevaplar alırdı. Başvurunun ve yanıtın süresi kanunîdir (en geç 30 gün) ve sistem ayarına bağlanmamıştır.
 

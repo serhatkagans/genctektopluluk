@@ -1522,3 +1522,15 @@ export function faaliyetPaydasiYonetebilirMi(
 ): boolean {
   return ekYukleyebilirMi(kullanici, faaliyet);
 }
+
+/**
+ * KULLANICI YÖNETİMİ (28 Ekim 2026 · istek: "proje yöneticisi için yönetim
+ * panelinde kullanıcı yönetimi diye bölüm ekle, kullanıcı kaydı silme şifre
+ * yenileme gibi kısımlar olsun").
+ *
+ * Yalnızca merkez: hesap silme ve başkasına şifre verme, il kapsamıyla
+ * sınırlanabilecek bir iş değil — yanlış ellerde hesabı ele geçirme aracıdır.
+ */
+export function kullaniciYonetebilirMi(kullanici: OturumKullanicisi): boolean {
+  return projeYoneticisiMi(kullanici);
+}

@@ -7,6 +7,7 @@ import {
 } from "../dis-kimlik/kurallar";
 import {
   BILINEN_OKUL_TURLERI,
+  kapsamDisiOkulTuruMu,
   OKUL_TURU_DIGER,
   okulTuruSecenekleri,
 } from "../okul/turler";
@@ -55,6 +56,8 @@ export const KAYIT_OKUL_TURLERI: readonly string[] = okulTuruSecenekleri();
  * okul/turler.ts · okulTuruKosulu).
  */
 export function okulTuruUyarMi(secilen: string, okulunTuru: string): boolean {
+  // Açık öğretim liseleri kayıtta seçilemez (bkz. okul/turler.ts).
+  if (kapsamDisiOkulTuruMu(okulunTuru)) return false;
   if (secilen === OKUL_TURU_DIGER) {
     return !BILINEN_OKUL_TURLERI.includes(okulunTuru);
   }

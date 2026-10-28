@@ -1,4 +1,4 @@
-import { CheckCircle2, LogIn, UserPlus } from "lucide-react";
+import { CheckCircle2, KeyRound, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
 import {
@@ -18,10 +18,12 @@ import { sifreliGirisEylemi } from "./eylemler";
 export function SifreliGiris({
   hata,
   kayitTamam,
+  sifreGuncellendi = false,
   nereye,
 }: {
   hata?: string;
   kayitTamam: boolean;
+  sifreGuncellendi?: boolean;
   nereye: string | null;
 }) {
   return (
@@ -38,6 +40,15 @@ export function SifreliGiris({
               Kaydınız oluşturuldu. T.C. kimlik numaranız ve şifrenizle giriş
               yapabilirsiniz.
             </span>
+          </p>
+        </BilgiKutusu>
+      )}
+
+      {sifreGuncellendi && (
+        <BilgiKutusu cesit="olumlu" className="mt-6">
+          <p className="flex items-start gap-2">
+            <CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden />
+            <span>Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.</span>
           </p>
         </BilgiKutusu>
       )}
@@ -94,8 +105,22 @@ export function SifreliGiris({
         </Link>
       </div>
 
+      {/*
+        ŞİFREMİ UNUTTUM (28 Ekim 2026): bağlantı profildeki e-postaya gider.
+        E-postasına ulaşamayan kişiye proje yöneticisi Kullanıcı Yönetimi
+        ekranından geçici şifre verir.
+      */}
       <p className="mt-4 text-sm text-metin-yumusak">
-        Şifrenizi unuttuysanız proje yöneticisine başvurun.
+        <Link
+          href="/sifre-sifirlama?tur=kayit"
+          className="inline-flex items-center gap-1.5 font-medium text-vurgu-metin"
+        >
+          <KeyRound size={15} aria-hidden />
+          Şifremi unuttum
+        </Link>
+        <span className="mt-1 block">
+          E-postanıza ulaşamıyorsanız proje yöneticisine başvurun.
+        </span>
       </p>
     </KamuSayfaDuzeni>
   );

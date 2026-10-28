@@ -14,6 +14,7 @@ import {
   ShieldUser,
   UserCheck,
   UserCog,
+  UserRoundCog,
   Users,
   UsersRound,
   X,
@@ -59,6 +60,7 @@ import {
   hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
   koordinatorIlKodu,
+  kullaniciYonetebilirMi,
   kvkkBasvurulariniYanitlayabilirMi,
   ogrenciEnvanteriGorebilirMi,
   ogretmenEnvanteriGorebilirMi,
@@ -654,6 +656,20 @@ export default async function YonetimSayfasi({
               }
               Ikon={Megaphone}
               yol="/panel/duyurular"
+              ton="notr"
+            />
+          )}
+          {/*
+            KULLANICI YÖNETİMİ (28 Ekim 2026 · istek: "proje yöneticisi için
+            yönetim panelinde kullanıcı yönetimi diye bölüm ekle, kullanıcı
+            kaydı silme şifre yenileme gibi kısımlar olsun").
+          */}
+          {kullaniciYonetebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Kullanıcı Yönetimi"
+              aciklama="Hesap arama, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
+              Ikon={UserRoundCog}
+              yol="/panel/kullanici-yonetimi"
               ton="notr"
             />
           )}

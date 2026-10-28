@@ -17,6 +17,7 @@ import {
   kayitTipiMi,
   SINIF_SEVIYELERI,
 } from "@/lib/kayit/kurallar";
+import { KAPSAM_DISI_OKUL_KOSULU } from "@/lib/okul/turler";
 import { ortam } from "@/lib/ortam";
 import { kayitEylemi } from "./eylemler";
 
@@ -122,7 +123,8 @@ export default async function KayitSayfasi({
   // ---- 2. adım: asıl form -------------------------------------------------
   const ogrenciMi = secilenTip === "OGRENCI";
   const okullar = await prisma.kurum.findMany({
-    where: { ilKodu: secilenIl, aktif: true },
+    // Açık öğretim liseleri listede çıkmaz (bkz. lib/okul/turler.ts).
+    where: { ilKodu: secilenIl, aktif: true, ...KAPSAM_DISI_OKUL_KOSULU },
     select: { kurumKodu: true, ad: true, okulTuru: true },
     orderBy: { ad: "asc" },
   });

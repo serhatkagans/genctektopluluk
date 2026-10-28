@@ -1075,6 +1075,11 @@ model KayitKimlik {
   basarisizDeneme  Int       @default(0) @map("basarisiz_deneme")
   kilitBitisTarihi DateTime? @map("kilit_bitis_tarihi") @db.Timestamptz(6)
 
+  /// "Şifremi unuttum" (28 Ekim 2026): bağlantı profildeki e-postaya gider.
+  /// Dış kimlikte olduğu gibi jetonun kendisi değil ÖZETİ tutulur.
+  sifirlamaJetonuOzeti   String?   @map("sifirlama_jetonu_ozeti") @db.VarChar(200)
+  sifirlamaSonGecerlilik DateTime? @map("sifirlama_son_gecerlilik") @db.Timestamptz(6)
+
   sonGirisTarihi   DateTime? @map("son_giris_tarihi") @db.Timestamptz(6)
   olusturmaTarihi  DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
   guncellemeTarihi DateTime  @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)

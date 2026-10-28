@@ -60,9 +60,35 @@ export const BILINEN_OKUL_TURLERI: readonly string[] = [
   "Güzel Sanatlar Lisesi",
   "Spor Lisesi",
   "Bilim ve Sanat Merkezi",
-  "Mesleki Açık Öğretim Lisesi",
-  "Açık Öğretim Lisesi",
 ];
+
+/**
+ * KAPSAM DIŞI TÜRLER (28 Ekim 2026 · istek: "kayıtta ve kullanıcı yönetiminde
+ * açık lise grubu var, açık lise bizim hedefimiz değil o kısmı kaldıralım").
+ *
+ * Açık öğretim liseleri GençTek'in hedef kitlesi değil. Bu türdeki okullar
+ * kayıt formunun okul listesinde çıkmaz, tür seçeneklerinde görünmez ve
+ * "Diğer" koşuluna da girmez — "Diğer" yine yalnızca standart listede olmayan
+ * ama hedefteki türleri toplar.
+ *
+ * Ad kalıpla tanınıyor, sabit bir değerle değil: tür e-Okul'dan serbest metin
+ * gelir ("Açık Öğretim Lisesi", "Mesleki Açık Öğretim Lisesi", büyük harfle
+ * yazılmışı...). Veritabanındaki kurum satırları SİLİNMEZ; yalnızca ekranlardan
+ * ve kayıttan düşer.
+ */
+const KAPSAM_DISI_KALIP = /a[cç][iı]k\s*[öo][gğ]ret[iı]m/i;
+
+export function kapsamDisiOkulTuruMu(tur: string | null | undefined): boolean {
+  return !!tur && KAPSAM_DISI_KALIP.test(tur.toLocaleLowerCase("tr"));
+}
+
+/** Prisma `where` koşulu: kapsam dışı türdeki okulları eler. */
+export const KAPSAM_DISI_OKUL_KOSULU = {
+  NOT: [
+    { okulTuru: { contains: "Açık Öğretim", mode: "insensitive" as const } },
+    { okulTuru: { contains: "AÇIK ÖĞRETİM", mode: "insensitive" as const } },
+  ],
+};
 
 /**
  * Süzgeçte gösterilecek tür listesi: standart türler ile veridekiler
@@ -81,7 +107,7 @@ export function okulTuruSecenekleri(
   const tumu = new Set<string>(BILINEN_OKUL_TURLERI);
   for (const tur of veridekiler) {
     const temiz = tur?.trim();
-    if (temiz) tumu.add(temiz);
+    if (temiz && !kapsamDisiOkulTuruMu(temiz)) tumu.add(temiz);
   }
   tumu.delete(OKUL_TURU_DIGER);
 
@@ -104,10 +130,17 @@ export function okulTuruSecenekleri(
  */
 export function okulTuruKosulu(
   okulTuru: string | null | undefined,
-): { okulTuru?: string | { notIn: string[] } } {
+): {
+  okulTuru?: string | { notIn: string[] };
+  NOT?: typeof KAPSAM_DISI_OKUL_KOSULU.NOT;
+} {
   if (!okulTuru) return {};
   if (okulTuru === OKUL_TURU_DIGER) {
-    return { okulTuru: { notIn: [...BILINEN_OKUL_TURLERI] } };
+    // Açık öğretim "Diğer"e de girmez (bkz. KAPSAM_DISI_KALIP).
+    return {
+      okulTuru: { notIn: [...BILINEN_OKUL_TURLERI] },
+      ...KAPSAM_DISI_OKUL_KOSULU,
+    };
   }
   return { okulTuru };
 }

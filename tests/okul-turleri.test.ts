@@ -1,5 +1,7 @@
 import {
   BILINEN_OKUL_TURLERI,
+  KAPSAM_DISI_OKUL_KOSULU,
+  kapsamDisiOkulTuruMu,
   OKUL_TURU_DIGER,
   okulTuruKosulu,
   okulTuruSecenekleri,
@@ -82,6 +84,27 @@ describe("okulTuruKosulu", () => {
     // Düz değer olarak gönderilseydi hiçbir kayıt eşleşmezdi: veritabanında
     // "Diğer" diye bir okul türü yok.
     const kosul = okulTuruKosulu(OKUL_TURU_DIGER);
-    expect(kosul).toEqual({ okulTuru: { notIn: [...BILINEN_OKUL_TURLERI] } });
+    expect(kosul).toEqual({
+      okulTuru: { notIn: [...BILINEN_OKUL_TURLERI] },
+      ...KAPSAM_DISI_OKUL_KOSULU,
+    });
+  });
+});
+
+describe("açık öğretim kapsam dışı (28 Ekim 2026)", () => {
+  it("açık öğretim türlerini tanır", () => {
+    expect(kapsamDisiOkulTuruMu("Açık Öğretim Lisesi")).toBe(true);
+    expect(kapsamDisiOkulTuruMu("Mesleki Açık Öğretim Lisesi")).toBe(true);
+    expect(kapsamDisiOkulTuruMu("AÇIK ÖĞRETİM LİSESİ")).toBe(true);
+    expect(kapsamDisiOkulTuruMu("Anadolu Lisesi")).toBe(false);
+    expect(kapsamDisiOkulTuruMu(null)).toBe(false);
+  });
+
+  it("veride olsa da seçeneklerde çıkmaz", () => {
+    const secenekler = okulTuruSecenekleri([
+      "Açık Öğretim Lisesi",
+      "Mesleki Açık Öğretim Lisesi",
+    ]);
+    expect(secenekler.some(kapsamDisiOkulTuruMu)).toBe(false);
   });
 });
