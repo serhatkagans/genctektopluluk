@@ -58,6 +58,7 @@ export default async function KullaniciYonetimiSayfasi({
         OR: [
           { ogrenciProfil: { eposta } },
           { ogretmenProfil: { eposta } },
+          { kayitKimlik: { eposta } },
           { disKimlik: { eposta } },
         ],
       });
@@ -94,7 +95,7 @@ export default async function KullaniciYonetimiSayfasi({
         ogrenciProfil: { select: { eposta: true, telefon: true } },
         ogretmenProfil: { select: { eposta: true, telefon: true } },
         kayitKimlik: {
-          select: { sonGirisTarihi: true, kilitBitisTarihi: true },
+          select: { eposta: true, sonGirisTarihi: true, kilitBitisTarihi: true },
         },
         disKimlik: {
           select: { eposta: true, sonGirisTarihi: true, kilitBitisTarihi: true },
@@ -158,6 +159,7 @@ export default async function KullaniciYonetimiSayfasi({
           const eposta =
             kisi.ogrenciProfil?.eposta ??
             kisi.ogretmenProfil?.eposta ??
+            kisi.kayitKimlik?.eposta ??
             kisi.disKimlik?.eposta ??
             null;
           const telefon = kisi.ogrenciProfil?.telefon ?? kisi.ogretmenProfil?.telefon ?? null;

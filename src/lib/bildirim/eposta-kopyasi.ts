@@ -24,11 +24,15 @@ export async function bildirimAdresiGetir(
     select: {
       ogrenciProfil: { select: { eposta: true } },
       ogretmenProfil: { select: { eposta: true } },
+      kayitKimlik: { select: { eposta: true } },
     },
   });
 
   const adres =
-    kayit?.ogrenciProfil?.eposta ?? kayit?.ogretmenProfil?.eposta ?? null;
+    kayit?.ogrenciProfil?.eposta ??
+    kayit?.ogretmenProfil?.eposta ??
+    kayit?.kayitKimlik?.eposta ??
+    null;
 
   return adres?.trim() ? adres.trim() : null;
 }

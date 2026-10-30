@@ -1080,6 +1080,10 @@ model KayitKimlik {
   sifirlamaJetonuOzeti   String?   @map("sifirlama_jetonu_ozeti") @db.VarChar(200)
   sifirlamaSonGecerlilik DateTime? @map("sifirlama_son_gecerlilik") @db.Timestamptz(6)
 
+  /// Öğrenci/öğretmen profili OLMAYAN hesapların (proje yöneticisi gibi)
+  /// e-postası (30 Ekim 2026). Profili olanlarda profildeki adres önceliklidir.
+  eposta String? @db.VarChar(150)
+
   sonGirisTarihi   DateTime? @map("son_giris_tarihi") @db.Timestamptz(6)
   olusturmaTarihi  DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
   guncellemeTarihi DateTime  @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)

@@ -39,9 +39,14 @@ async function profilEpostasi(kullaniciId: number): Promise<string | null> {
     select: {
       ogrenciProfil: { select: { eposta: true } },
       ogretmenProfil: { select: { eposta: true } },
+      kayitKimlik: { select: { eposta: true } },
     },
   });
-  const adres = kisi?.ogrenciProfil?.eposta ?? kisi?.ogretmenProfil?.eposta;
+  // Profili olmayan hesaplar (proje yöneticisi) için kayıt kimliğindeki adres.
+  const adres =
+    kisi?.ogrenciProfil?.eposta ??
+    kisi?.ogretmenProfil?.eposta ??
+    kisi?.kayitKimlik?.eposta;
   return adres ? epostaNormalle(adres) : null;
 }
 
