@@ -13,6 +13,7 @@ import {
   destekGruplariniAyikla,
   disProfiliDogrula,
 } from "@/lib/dis-kimlik/profil-kurallar";
+import { epostaGecerliMi, epostaNormalle } from "@/lib/dis-kimlik/kurallar";
 import { saltOkunurAlanlariAyikla } from "@/lib/kullanici/salt-okunur";
 import { baglantilariDogrula } from "@/lib/ogrenci/iletisim-kurallar";
 import {
@@ -110,8 +111,29 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
     });
   }
 
+  /*
+   * E-POSTA ZORUNLU (30 Ekim 2026 · istek: "iletişim bölümünde silmeye izin
+   * verme mutlaka bir eposta adresi olsun"). Şifre sıfırlama bağlantısı bu
+   * adrese gider; boş bırakılırsa kişi şifresini unuttuğunda kendi başına
+   * sıfırlayamaz. Biçim de denetlenir: yazım hatalı adres boş adresle aynı
+   * sonucu verir.
+   */
+  const eposta = epostaNormalle(temizVeri.eposta ?? "");
+  if (!eposta) {
+    panele(
+      "iletisim-bilgilerim",
+      `hata=${encodeURIComponent("E-posta adresi zorunludur; şifre sıfırlama bağlantısı bu adrese gider.")}`,
+    );
+  }
+  if (!epostaGecerliMi(eposta)) {
+    panele(
+      "iletisim-bilgilerim",
+      `hata=${encodeURIComponent("Geçerli bir e-posta adresi yazın.")}`,
+    );
+  }
+
   const iletisim = {
-    eposta: temizVeri.eposta?.trim() || null,
+    eposta,
     telefon: temizVeri.telefon?.trim() || null,
   };
 

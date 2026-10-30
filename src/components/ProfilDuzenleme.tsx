@@ -249,10 +249,15 @@ export function IletisimDuzenleme({
     <form action={kaydetEylemi} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="text-sm font-medium text-metin">E-posta</span>
+          <span className="text-sm font-medium text-metin">
+            E-posta <span className="text-hata-metin">*</span>
+          </span>
+          {/* Zorunlu (30 Ekim 2026): şifre sıfırlama bağlantısı bu adrese gider. */}
           <input
             type="email"
             name="eposta"
+            required
+            maxLength={150}
             defaultValue={iletisim?.eposta ?? ""}
             className={SINIF_GIRDI}
           />
