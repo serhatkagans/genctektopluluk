@@ -212,6 +212,19 @@ export async function profilGuncelleEylemi(veri: FormData): Promise<void> {
     });
   }
 
+  /*
+   * VARSAYILAN ADRES PROFİLDEKİDİR (30 Ekim 2026 · istek: "sonradan eklediyse
+   * de varsayılan eposta adresi bu olsun"). Yönetimden kayıt kimliğine
+   * yazılmış adres de aynı değere çekilir: kişi adresini değiştirir ya da
+   * silerse eski adres geri planda kalıp şifre sıfırlama bağlantısını
+   * almaya devam etmesin. Kayıt kimliği yoksa (EBA, dış kullanıcı) bu satır
+   * hiçbir şey yapmaz.
+   */
+  await prisma.kayitKimlik.updateMany({
+    where: { kullaniciId: kullanici.id },
+    data: { eposta: iletisim.eposta },
+  });
+
   await erisimLogla({
     kullaniciId: kullanici.id,
     islem: "DEGISIKLIK",

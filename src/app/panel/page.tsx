@@ -327,6 +327,12 @@ export default async function PanelSayfasi({
          * Akış'a hiç uğramayan kullanıcı için görünmez bir alandı.
          */
         hakkinda: true,
+        /*
+         * Profili olmayan hesaba (proje yöneticisi) yönetimden yazılan
+         * e-posta (30 Ekim 2026). Profilde adres yoksa İletişim bilgilerim
+         * kutusu bunu gösterir; kişi kaydedince adres profile geçer.
+         */
+        kayitKimlik: { select: { eposta: true } },
         ogrenciProfil: true,
         ogretmenProfil: {
           select: {
@@ -608,6 +614,17 @@ export default async function PanelSayfasi({
     ? profilKaydi.ogrenciProfil
     : profilKaydi.ogretmenProfil;
   /*
+   * İLETİŞİM E-POSTASI TEK YERDEN GÖRÜNÜR (30 Ekim 2026 · istek: "profilde
+   * iletişim bilgileri alanında eğer eposta adresi girildiyse buraya direk
+   * gelmesi gerekiyor"). Şifre sıfırlama adresi önce profilden, yoksa kayıt
+   * kimliğinden okur (bkz. lib/kayit/sifirlama.ts); kutu da aynı sırayla
+   * dolar ki kişi sıfırlama e-postasının gideceği adresi burada görsün.
+   */
+  const iletisimDegerleri = {
+    eposta: kendiProfilim?.eposta || profilKaydi.kayitKimlik?.eposta || null,
+    telefon: kendiProfilim?.telefon ?? null,
+  };
+  /*
    * ROLE GÖRE ELEME YOK (22 Ağustos 2026 · istek: "eklenenler gözükmüyor,
    * eğer veri varsa gösterilir olsun tüm kullanıcı düzeylerinde"): özet artık
    * "bu rol bu alanı düzenleyebilir mi" diye sormuyor, "bu alan dolu mu" diye
@@ -622,8 +639,8 @@ export default async function PanelSayfasi({
   const adresiKisalt = (adres: string | null | undefined) =>
     adres ? adres.replace(/^https?:\/\//i, "").replace(/\/$/, "") : null;
   const iletisimOzeti = [
-    kendiProfilim?.eposta,
-    kendiProfilim?.telefon,
+    iletisimDegerleri.eposta,
+    iletisimDegerleri.telefon,
     kurumAdi,
     gorevUnvani,
     adresiKisalt(kendiProfilim?.githubUrl),
@@ -2243,11 +2260,7 @@ export default async function PanelSayfasi({
         baslangictaAcik={acilacakBolum === "iletisim-bilgilerim"}
       >
         <IletisimDuzenleme
-          iletisim={
-            ogrenciMi(kullanici)
-              ? profilKaydi.ogrenciProfil
-              : profilKaydi.ogretmenProfil
-          }
+          iletisim={iletisimDegerleri}
           baglantilar={
             ogrenciMi(kullanici)
               ? profilKaydi.ogrenciProfil
