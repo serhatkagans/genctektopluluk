@@ -1,4 +1,7 @@
-import { sifirlamaHostuSec } from "@/lib/dis-kimlik/sifirlama-adresi";
+import {
+  sifirlamaHostuSec,
+  sifirlamaSemasiSec,
+} from "@/lib/dis-kimlik/sifirlama-adresi";
 
 /**
  * Parola sıfırlama bağlantısının host seçimi.
@@ -69,5 +72,22 @@ describe("sıfırlama bağlantısı host seçimi", () => {
    */
   test("liste boşken gelen host olduğu gibi kullanılır", () => {
     expect(sifirlamaHostuSec("localhost:3000", [])).toBe("localhost:3000");
+  });
+});
+
+describe("sıfırlama bağlantısı şeması", () => {
+  test("canlı alan adı her zaman https", () => {
+    expect(sifirlamaSemasiSec("aiotechs.cloud")).toBe("https");
+    expect(sifirlamaSemasiSec("genctek.meb.gov.tr")).toBe("https");
+  });
+
+  test("yalnızca yerel geliştirme http", () => {
+    expect(sifirlamaSemasiSec("localhost:3000")).toBe("http");
+    expect(sifirlamaSemasiSec("127.0.0.1:3041")).toBe("http");
+    expect(sifirlamaSemasiSec("[::1]:3000")).toBe("http");
+  });
+
+  test("localhost'a benzeyen alan adı https kalır", () => {
+    expect(sifirlamaSemasiSec("localhost.saldirgan.com")).toBe("https");
   });
 });

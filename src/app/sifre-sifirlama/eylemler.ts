@@ -3,7 +3,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { sifirlamayiTamamla, sifirlamaIste } from "@/lib/dis-kimlik/sifirlama";
-import { sifirlamaHostuSec } from "@/lib/dis-kimlik/sifirlama-adresi";
+import {
+  sifirlamaHostuSec,
+  sifirlamaSemasiSec,
+} from "@/lib/dis-kimlik/sifirlama-adresi";
 import {
   kayitSifirlamaIste,
   kayitSifirlamayiTamamla,
@@ -16,8 +19,8 @@ import { IZINLI_HOST_LISTESI, uygulamaYolu } from "@/lib/ortam";
  * SIFIRLAMA BAĞLANTISININ YOLU İSTEKTEN ÜRETİLİR, ortam değişkeninden değil.
  * Ayrı bir "uygulama adresi" ayarı, alt dizin kurulumunda (TEMEL_YOL) ikinci
  * bir yanlış yapılandırma kaynağı olurdu: biri güncellenip diğeri unutulunca
- * e-postadaki bağlantı sessizce 404'e giderdi. Uygulama ters vekil arkasında
- * çalıştığı için şema `x-forwarded-proto`dan okunur.
+ * e-postadaki bağlantı sessizce 404'e giderdi. Şema ise istekten OKUNMAZ:
+ * yerel geliştirme dışında her zaman https'tir (bkz. sifirlamaSemasiSec).
  *
  * HOST İSE DOĞRULANIR. `Host` ve `X-Forwarded-Host` başlıklarını isteği yapan
  * belirler; ters vekil bu başlığı ezmiyorsa, saldırgan kurbanın e-postasına
@@ -28,8 +31,8 @@ import { IZINLI_HOST_LISTESI, uygulamaYolu } from "@/lib/ortam";
 async function istekKoku(): Promise<string> {
   const basliklar = await headers();
   const host = basliklar.get("x-forwarded-host") ?? basliklar.get("host") ?? "";
-  const sema = basliklar.get("x-forwarded-proto") ?? "https";
-  return `${sema}://${sifirlamaHostuSec(host, IZINLI_HOST_LISTESI)}`;
+  const secilen = sifirlamaHostuSec(host, IZINLI_HOST_LISTESI);
+  return `${sifirlamaSemasiSec(secilen)}://${secilen}`;
 }
 
 export async function sifirlamaIsteEylemi(veri: FormData): Promise<void> {

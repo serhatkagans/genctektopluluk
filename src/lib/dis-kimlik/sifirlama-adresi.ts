@@ -40,3 +40,17 @@ export function sifirlamaHostuSec(
    */
   return izinliler[0];
 }
+
+/**
+ * Sıfırlama bağlantısının şeması (30 Ekim 2026).
+ *
+ * `x-forwarded-proto` başlığına GÜVENİLMEZ: canlıda Apache bu başlığı
+ * yazmıyor, Next.js de kendi iç bağlantısına bakıp "http" dolduruyor. Sonuç,
+ * e-postadaki bağlantının http ile başlaması ve jetonun ilk açılışta
+ * şifresiz gitmesiydi. Yerel geliştirme (localhost, 127.0.0.1, [::1]) dışında
+ * bağlantı her zaman https'tir.
+ */
+export function sifirlamaSemasiSec(host: string): "http" | "https" {
+  const ad = host.trim().toLowerCase().replace(/:\d+$/, "");
+  return ["localhost", "127.0.0.1", "[::1]"].includes(ad) ? "http" : "https";
+}
