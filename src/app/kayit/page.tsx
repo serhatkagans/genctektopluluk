@@ -123,12 +123,20 @@ export default async function KayitSayfasi({
 
   // ---- 2. adım: asıl form -------------------------------------------------
   const ogrenciMi = secilenTip === "OGRENCI";
-  const okullar = await prisma.kurum.findMany({
-    // Açık öğretim liseleri listede çıkmaz (bkz. lib/okul/turler.ts).
-    where: { ilKodu: secilenIl, aktif: true, ...KAPSAM_DISI_OKUL_KOSULU },
-    select: { kurumKodu: true, ad: true, okulTuru: true },
-    orderBy: { ad: "asc" },
-  });
+  const [okullar, ilceler] = await Promise.all([
+    prisma.kurum.findMany({
+      // Açık öğretim liseleri listede çıkmaz (bkz. lib/okul/turler.ts).
+      where: { ilKodu: secilenIl, aktif: true, ...KAPSAM_DISI_OKUL_KOSULU },
+      select: { kurumKodu: true, ad: true, okulTuru: true, ilceKodu: true },
+      orderBy: { ad: "asc" },
+    }),
+    // İlçe seçimi (31 Ekim 2026): 973 ilçe yüklü, seçilen ilinkiler gelir.
+    prisma.ilce.findMany({
+      where: { ilKodu: secilenIl },
+      select: { ilceKodu: true, ad: true },
+      orderBy: { ad: "asc" },
+    }),
+  ]);
 
   return (
     <KamuSayfaDuzeni
@@ -261,6 +269,7 @@ export default async function KayitSayfasi({
           <div className="grid gap-4 sm:grid-cols-2">
             <KayitOkulSecimi
               okullar={okullar}
+              ilceler={ilceler}
               ilAdi={ilAdi}
               turSecilsin={ogrenciMi}
             />

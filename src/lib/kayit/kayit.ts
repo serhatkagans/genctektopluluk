@@ -25,11 +25,26 @@ export type KayitSonucu =
 export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
   /*
    * LİSTEDE OLMAYAN OKUL (23 Ekim 2026): kurum kodu boş gelir, kişi okulsuz
-   * açılır ve yazdığı ad `beyanOkulAdi`nda durur. İlçe bilinmediği için boş.
+   * açılır ve yazdığı ad `beyanOkulAdi`nda durur; ilçe formda seçilen ilçedir.
    * Okulsuz öğretmene danışman rolü verilmez (kullanici/sagla.ts); okul
    * referans tabloya eklenip kişi bağlandığında olağan akış devreye girer.
    */
+  /*
+   * İLÇE (31 Ekim 2026 · istek: kayıtta ilçe de sorulsun). Formdan gelen ilçe
+   * seçilen ile ait olmalı; listeden okul seçildiyse ve okulun ilçesi
+   * kayıtlıysa okulunki geçerlidir.
+   */
   let ilceKodu: string | null = null;
+  if (kayit.ilceKodu !== null) {
+    const ilce = await prisma.ilce.findUnique({
+      where: { ilceKodu: kayit.ilceKodu },
+      select: { ilKodu: true },
+    });
+    if (!ilce || ilce.ilKodu !== kayit.ilKodu) {
+      return { durum: "BASARISIZ", mesaj: "İlçenizi seçtiğiniz ilin listesinden seçin." };
+    }
+    ilceKodu = kayit.ilceKodu;
+  }
   if (kayit.kurumKodu !== null) {
     const kurum = await prisma.kurum.findUnique({
       where: { kurumKodu: kayit.kurumKodu },
@@ -50,7 +65,7 @@ export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
         mesaj: "Seçtiğiniz okul, seçtiğiniz okul türünde değil. Okul türünü kontrol edin.",
       };
     }
-    ilceKodu = kurum.ilceKodu;
+    ilceKodu = kurum.ilceKodu ?? ilceKodu;
   }
 
   const mevcut = await prisma.kullanici.findUnique({

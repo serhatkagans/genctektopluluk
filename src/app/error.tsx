@@ -7,6 +7,7 @@ import {
   hataKimligiUret,
   istemciHatasiBildir,
 } from "@/lib/istemci-hata-bildir";
+import { surumHatasiMi, surumIcinYenile } from "@/lib/surum-yenileme";
 
 /**
  * Beklenmeyen hata ekranı.
@@ -42,6 +43,9 @@ export default function HataEkrani({
   const [kimlik] = useState(() => hataKimligiUret(error));
 
   useEffect(() => {
+    // Güncelleme sonrası eski sürüm hatası: sayfa bir kez kendiliğinden
+    // yenilenir, bildirim yapılmaz (bkz. lib/surum-yenileme.ts).
+    if (surumHatasiMi(error) && surumIcinYenile()) return;
     console.error("İşlenmeyen hata:", error);
     istemciHatasiBildir(error, kimlik);
   }, [error, kimlik]);

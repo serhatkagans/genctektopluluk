@@ -37,6 +37,7 @@ export async function kayitEylemi(veri: FormData): Promise<void> {
     soyad: metin("soyad"),
     cinsiyet: metin("cinsiyet"),
     ilKodu: metin("ilKodu"),
+    ilceKodu: metin("ilceKodu"),
     kurumKodu: metin("kurumKodu"),
     beyanOkulAdi: metin("beyanOkulAdi"),
     okulTuru: metin("okulTuru"),

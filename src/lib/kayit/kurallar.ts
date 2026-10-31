@@ -112,6 +112,11 @@ export interface KayitGirdisi {
   soyad: string;
   cinsiyet: string;
   ilKodu: string;
+  /**
+   * İlçe kodu (31 Ekim 2026 · kayıt formunda soruluyor). İsteğe bağlı
+   * tutuldu: formda zorunlu, ama eski istemciden gelen kayıt düşmesin.
+   */
+  ilceKodu?: string;
   /** Kurum kodu ya da `OKUL_LISTEDE_YOK`. */
   kurumKodu: string;
   /** Okul listede yoksa kişinin yazdığı ad. */
@@ -135,6 +140,8 @@ export interface KayitKaydi {
   soyad: string;
   cinsiyet: "E" | "K";
   ilKodu: string;
+  /** Seçilen ilçe; varlığı ve ile aitliği kayıtta veritabanından denetlenir. */
+  ilceKodu: string | null;
   /** Okul listede yoksa null; o zaman `beyanOkulAdi` dolu. */
   kurumKodu: number | null;
   beyanOkulAdi: string | null;
@@ -267,6 +274,11 @@ export function kayitGirdisiniCoz(
     }
   }
 
+  const ilceKodu = (girdi.ilceKodu ?? "").trim() || null;
+  if (ilceKodu !== null && !/^\d{4}$/.test(ilceKodu)) {
+    return { olurMu: false, neden: "İlçenizi listeden seçin." };
+  }
+
   const okulKarari = okulSecimiCoz(girdi.kurumKodu, girdi.beyanOkulAdi);
   if (!okulKarari.olurMu) return okulKarari;
   const { kurumKodu, beyanOkulAdi } = okulKarari;
@@ -331,6 +343,7 @@ export function kayitGirdisiniCoz(
       soyad,
       cinsiyet: girdi.cinsiyet,
       ilKodu,
+      ilceKodu,
       kurumKodu,
       beyanOkulAdi,
       okulTuru,

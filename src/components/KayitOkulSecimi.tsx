@@ -21,27 +21,65 @@ import {
  */
 export function KayitOkulSecimi({
   okullar,
+  ilceler,
   ilAdi,
   turSecilsin,
 }: {
-  okullar: { kurumKodu: number; ad: string; okulTuru: string }[];
+  okullar: {
+    kurumKodu: number;
+    ad: string;
+    okulTuru: string;
+    ilceKodu: string | null;
+  }[];
+  /** Seçilen ilin ilçeleri (31 Ekim 2026). */
+  ilceler: { ilceKodu: string; ad: string }[];
   ilAdi: string;
   /** Yalnızca öğrencide okul türü sorulur. */
   turSecilsin: boolean;
 }) {
+  const [ilce, setIlce] = useState("");
   const [tur, setTur] = useState("");
   const [okul, setOkul] = useState("");
 
-  const gosterilenler =
-    turSecilsin && tur
-      ? okullar.filter((o) => okulTuruUyarMi(tur, o.okulTuru))
-      : okullar;
+  /*
+   * İlçe seçildiyse liste o ilçenin okullarına daralır; ilçesi kayıtlı
+   * olmayan okullar her ilçede görünür (okul listesi henüz eksik).
+   */
+  const gosterilenler = okullar.filter(
+    (o) =>
+      (!ilce || o.ilceKodu === null || o.ilceKodu === ilce) &&
+      (!turSecilsin || !tur || okulTuruUyarMi(tur, o.okulTuru)),
+  );
   const listedeYok = okul === OKUL_LISTEDE_YOK;
   // Öğrenci türü seçmeden okul seçemez; liste aksi hâlde süzülmemiş gelirdi.
   const okulKapali = turSecilsin && !tur;
 
   return (
     <>
+      {ilceler.length > 0 && (
+        <label className="block sm:col-span-2">
+          <span className="text-sm font-medium text-metin-yumusak">İlçe</span>
+          <select
+            name="ilceKodu"
+            required
+            value={ilce}
+            onChange={(olay) => {
+              setIlce(olay.target.value);
+              // "Okulum listede yok" seçimi ilçe/tür değişince kaybolmasın.
+              setOkul((o) => (o === OKUL_LISTEDE_YOK ? o : ""));
+            }}
+            className={SINIF_GIRDI}
+          >
+            <option value="">Seçiniz</option>
+            {ilceler.map((secenek) => (
+              <option key={secenek.ilceKodu} value={secenek.ilceKodu}>
+                {secenek.ad}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {turSecilsin && (
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium text-metin-yumusak">

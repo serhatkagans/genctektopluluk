@@ -168,3 +168,26 @@ describe("kayıt girdisi", () => {
     expect(kayitGirdisiniCoz(girdi(degisiklik), SIMDI).olurMu).toBe(false);
   });
 });
+
+describe("kayıt · ilçe ve hazırlık (31 Ekim 2026)", () => {
+  it("seçilen ilçe kayda geçer, boşsa null", () => {
+    const secili = kayitGirdisiniCoz(girdi({ ilceKodu: "3433" }), SIMDI);
+    expect(secili.olurMu && secili.kayit.ilceKodu).toBe("3433");
+    const bos = kayitGirdisiniCoz(girdi(), SIMDI);
+    expect(bos.olurMu && bos.kayit.ilceKodu).toBeNull();
+  });
+
+  it("biçimi bozuk ilçe reddedilir", () => {
+    expect(kayitGirdisiniCoz(girdi({ ilceKodu: "Kadıköy" }), SIMDI).olurMu).toBe(
+      false,
+    );
+  });
+
+  it("hazırlık sınıfı seçilebilir", () => {
+    const karar = kayitGirdisiniCoz(
+      girdi({ sinifSeviyesi: "Hazırlık", sube: "a" }),
+      SIMDI,
+    );
+    expect(karar.olurMu && karar.kayit.sinif).toBe("Hazırlık-A");
+  });
+});
