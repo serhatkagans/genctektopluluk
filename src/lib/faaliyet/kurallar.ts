@@ -18,6 +18,7 @@ import {
   ogrenciMi,
   projeYoneticisiMi,
 } from "../yetki/izinler";
+import { girdiTarihi } from "../tarih";
 import type { OturumKullanicisi } from "../yetki/tipler";
 
 /**
@@ -680,7 +681,10 @@ export function faaliyetSuresiGun(
   bitisTarihi: Date | null,
 ): number {
   if (bitisTarihi === null) return 1;
-  const gun = (t: Date) => Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+  // Gün Türkiye takvimine göre sayılır (31 Ekim 2026): sunucu UTC'de
+  // çalıştığı için yerel saat getirileri gece yarısına yakın etkinliği bir
+  // gün eksik sayıyordu.
+  const gun = (t: Date) => Date.parse(`${girdiTarihi(t)}T00:00:00Z`);
   const fark = gun(bitisTarihi) - gun(tarih);
   if (fark <= 0) return 1;
   return Math.round(fark / 86_400_000) + 1;
