@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import {
+  CIFT_KAYIT_ALANI,
+  ciftKayitSiniri,
+  kullaniciKilidiAl,
+} from "@/lib/cift-kayit";
 import { prisma } from "@/lib/db";
 import {
   BILDIRIM_KODLARI,
@@ -311,15 +316,38 @@ export async function kazanimEkleEylemi(veri: FormData): Promise<void> {
     simdi: new Date(),
   });
 
-  const kazanim = await prisma.kullaniciKazanim.create({
-    data: {
-      kullaniciId: kullanici.id,
-      ...karar.kayit,
-      ...(onayaGirsin ? onay.alanlar : {}),
-      baglantilar: { create: karar.baglantilar },
-    },
-    select: { id: true },
+  /*
+   * ÇİFT KAYIT ENGELİ (31 Ekim 2026 · istek: "çocuklar sertifika girerken 20
+   * kere eklemiş"). Aynı kişinin aynı türde aynı başlıklı kaydı son iki
+   * dakikada açıldıysa yenisi yazılmaz; kişi listesine "eklendi" iletisiyle
+   * döner. Kilit aynı anda gelen istekleri sıraya sokar (bkz. lib/cift-kayit.ts).
+   */
+  const sonuc = await prisma.$transaction(async (islem) => {
+    await kullaniciKilidiAl(islem, CIFT_KAYIT_ALANI.KAZANIM, kullanici.id);
+    const ayni = await islem.kullaniciKazanim.findFirst({
+      where: {
+        kullaniciId: kullanici.id,
+        tip: karar.kayit.tip,
+        baslik: karar.kayit.baslik,
+        olusturmaTarihi: { gte: ciftKayitSiniri() },
+      },
+      select: { id: true },
+    });
+    if (ayni) return null;
+    return islem.kullaniciKazanim.create({
+      data: {
+        kullaniciId: kullanici.id,
+        ...karar.kayit,
+        ...(onayaGirsin ? onay.alanlar : {}),
+        baglantilar: { create: karar.baglantilar },
+      },
+      select: { id: true },
+    });
   });
+  if (!sonuc) {
+    kayitlaraDon(capa, `tur=${karar.kayit.tip}&durum=kazanim-eklendi`);
+  }
+  const kazanim = sonuc;
 
   /* Kuyruk sessiz değil: kararı verecek merkez uyarılıyor. */
   if (onayaGirsin && onay.bildirimGerekliMi) {

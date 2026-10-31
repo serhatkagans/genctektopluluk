@@ -36,7 +36,7 @@ export function KullaniciIslemleri({
 
   return (
     <div className="space-y-3">
-      <form action={gonder} className="flex flex-wrap gap-2">
+      <form action={gonder} data-cift-gonderim="serbest" className="flex flex-wrap gap-2">
         <input type="hidden" name="kullaniciId" value={kullaniciId} />
         {sifreliMi && (
           <button
@@ -83,7 +83,7 @@ export function KullaniciIslemleri({
       </form>
 
       {silmeAcik && (
-        <form action={gonder} className="rounded-kutu border border-hata-cizgi/50 bg-hata-zemin p-3 text-sm text-hata-metin">
+        <form action={gonder} data-cift-gonderim="serbest" className="rounded-kutu border border-hata-cizgi/50 bg-hata-zemin p-3 text-sm text-hata-metin">
           <input type="hidden" name="kullaniciId" value={kullaniciId} />
           <input type="hidden" name="islem" value="sil" />
           <p>

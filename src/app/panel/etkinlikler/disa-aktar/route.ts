@@ -21,7 +21,12 @@ import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { faaliyetDisaAktarabilirMi } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import type { SorguParametreleri } from "../../ogrenciler/filtreler";
-import { faaliyetFiltreleriniCoz, faaliyetListeFiltresi } from "../filtreler";
+import {
+  faaliyetFiltreleriniCoz,
+  faaliyetListeFiltresi,
+  faaliyetSiralamasi,
+  ilAdlariniGetir,
+} from "../filtreler";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +78,7 @@ export async function GET(istek: Request) {
     kullanici,
     faaliyetFiltreleriniCoz(parametreler),
     simdi,
+    await ilAdlariniGetir(),
   );
 
   const [toplam, ustSinir] = await Promise.all([
@@ -93,7 +99,7 @@ export async function GET(istek: Request) {
 
   const faaliyetler = await prisma.faaliyet.findMany({
     where: nerede,
-    orderBy: [{ tarih: "asc" }],
+    orderBy: faaliyetSiralamasi(faaliyetFiltreleriniCoz(parametreler).sira),
     select: {
       id: true,
       ad: true,

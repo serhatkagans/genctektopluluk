@@ -54,7 +54,7 @@ export function DuyuruFormu({
   const [durum, gonder, bekliyor] = useActionState(eylem, DUYURU_BOS_DURUM);
 
   return (
-    <form action={gonder} className="space-y-4">
+    <form action={gonder} data-cift-gonderim="serbest" className="space-y-4">
       {durum.hata && <BilgiKutusu cesit="hata">{durum.hata}</BilgiKutusu>}
 
       <label className="block">

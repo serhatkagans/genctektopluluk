@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { CerezBildirimi } from "@/components/CerezBildirimi";
+import { CiftGonderimKalkani } from "@/components/CiftGonderimKalkani";
+import { GorselKucultucu } from "@/components/GorselKucultucu";
 import { aktifTema } from "@/lib/tema";
 import "./globals.css";
 
@@ -83,6 +86,13 @@ export default async function RootLayout({
           sayfanın önüne geçmemeli.
         */}
         <CerezBildirimi />
+        {/* Çift tıklamada ikinci kayıt açılmasın (bkz. bileşen başlığı).
+            useSearchParams okuduğu için Suspense içinde. */}
+        <Suspense fallback={null}>
+          <CiftGonderimKalkani />
+        </Suspense>
+        {/* Büyük görseller gönderilmeden önce tarayıcıda küçültülür. */}
+        <GorselKucultucu />
       </body>
     </html>
   );

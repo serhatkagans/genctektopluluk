@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { Kapsam, KatilimBicimi } from "@/generated/prisma/enums";
 import { KAPSAMLAR } from "@/lib/faaliyet/kurallar";
 import { KATILIM_BICIMLERI } from "@/lib/kazanim/kurallar";
+import { koordinatorIlKodu } from "@/lib/yetki/izinler";
 import { faaliyetKapsamFiltresi } from "@/lib/yetki/kapsam";
 import type { OturumKullanicisi } from "@/lib/yetki/tipler";
 import {
@@ -50,6 +51,12 @@ export interface FaaliyetFiltreleri {
   yalnizcaAcik: boolean;
   yalnizcaBenim: boolean;
   /**
+   * "Yalnızca ilimdeki etkinlikler" kutusu (31 Ekim 2026 · istek: "bir de
+   * checkbox olsa sadece ilimdeki etkinlikleri göster şeklinde"). Kişinin ili
+   * koordinatörde görev ilinden, diğerlerinde kayıtlı ilinden okunur.
+   */
+  yalnizcaIlim: boolean;
+  /**
    * Biten ama raporu yazılmamış etkinlikler.
    *
    * Raporlar sekmesi menüden kalktı (J3 · 6 Ağustos 2026) ve o ekranın asıl
@@ -89,6 +96,25 @@ export interface FaaliyetFiltreleri {
    * öyle kalıyor.
    */
   zaman: "hepsi" | "devam" | "tamamlanan";
+  /**
+   * TARİH SIRASI (31 Ekim 2026 · istek: "etkinlikleri tarihe göre yeniden
+   * eskiye, eskiden yeniye sıralama gibi bir şey ekleyebilir miyiz").
+   *
+   * Liste önceden yalnızca eskiden yeniye diziliyordu; ağustos etkinlikleri
+   * başta durduğu için yeni eklenen bir etkinlik 50 kartlık sayfanın ortasında
+   * kalıyor ve "öğrenci göremiyor" sanılıyordu. Varsayılan artık yeniden
+   * eskiye. Sekme gibi bu da süzgeç DEĞİLDİR: daraltmaz, yalnızca dizer.
+   */
+  sira: "yeni" | "eski";
+}
+
+/** Listenin ve dışa aktarmanın ortak dizilişi. */
+export function faaliyetSiralamasi(
+  sira: FaaliyetFiltreleri["sira"],
+): Prisma.FaaliyetOrderByWithRelationInput[] {
+  const yon = sira === "eski" ? "asc" : "desc";
+  // Aynı ana denk gelen etkinlikler sayfalar arasında yer değiştirmesin.
+  return [{ tarih: yon }, { id: yon }];
 }
 
 export function zamanGecerliMi(
@@ -153,12 +179,14 @@ export function faaliyetFiltreleriniCoz(
       : null,
     yalnizcaAcik: tekil(parametreler.acik) === "1",
     yalnizcaBenim: tekil(parametreler.benim) === "1",
+    yalnizcaIlim: tekil(parametreler.ilim) === "1",
     yalnizcaRaporsuz: tekil(parametreler.raporsuz) === "1",
     yalnizcaOnayBekleyen: tekil(parametreler.onay) === "bekleyen",
     zaman: (() => {
       const deger = tekil(parametreler.zaman) ?? "hepsi";
       return zamanGecerliMi(deger) ? deger : "hepsi";
     })(),
+    sira: tekil(parametreler.sira) === "eski" ? "eski" : "yeni",
   };
 }
 
@@ -167,18 +195,57 @@ export function faaliyetFiltresiVarMi(filtreler: FaaliyetFiltreleri): boolean {
    * `zaman` SEKMEDİR, filtre değil: "Filtreleri temizle" bağlantısını
    * tetiklememeli ve varsayılan "hepsi" zaten daraltma yapmıyor.
    */
-  const { zaman, ...suzgecler } = filtreler;
+  const { zaman, sira, ...suzgecler } = filtreler;
   void zaman;
+  void sira;
 
   return Object.values(suzgecler).some(
     (deger) => deger !== null && deger !== false,
   );
 }
 
+/** Kişinin "ilim" sayılan ili: koordinatörde görev ili, diğerlerinde kayıtlı il. */
+export function kisininIlKodu(kullanici: OturumKullanicisi): string | null {
+  return koordinatorIlKodu(kullanici) ?? kullanici.ilKodu;
+}
+
+/**
+ * Bir ile ait etkinlik koşulu.
+ *
+ * Etkinliğin ili ÜÇ YERDEN gelebiliyor: il kapsamlıda `ilKodu`, okul
+ * kapsamlıda okulun ili, takvimden aktarılan ULUSAL etkinlikte ise yalnızca
+ * birim adı ("İzmir İl Koordinatörlüğü"; il kodu boş — 24 Ekim 2026'da herkes
+ * görsün diye ulusala çevrildiler). Üçüncüsü il adı bilindiğinde eklenir;
+ * önceden il süzgeci bu etkinliklerin hiçbirini yakalamıyordu.
+ */
+function ilKosulu(
+  ilKodu: string,
+  ilAdlari: ReadonlyMap<string, string>,
+): Prisma.FaaliyetWhereInput {
+  const ad = ilAdlari.get(ilKodu);
+  return {
+    OR: [
+      { ilKodu },
+      { kurum: { ilKodu } },
+      ...(ad
+        ? [
+            {
+              ilKodu: null,
+              kurumKodu: null,
+              duzenleyenBirim: { startsWith: `${ad} İl ` },
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
 export function faaliyetListeFiltresi(
   kullanici: OturumKullanicisi,
   filtreler: FaaliyetFiltreleri,
   simdi: Date,
+  /** İl kodu → il adı; verilmezse birim adından il eşleşmesi yapılmaz. */
+  ilAdlari: ReadonlyMap<string, string> = new Map(),
 ): Prisma.FaaliyetWhereInput {
   const kosullar: Prisma.FaaliyetWhereInput[] = [
     faaliyetKapsamFiltresi(kullanici),
@@ -191,12 +258,12 @@ export function faaliyetListeFiltresi(
 
   if (filtreler.kapsam) kosullar.push({ kapsam: filtreler.kapsam });
   if (filtreler.ilKodu) {
-    kosullar.push({
-      OR: [
-        { ilKodu: filtreler.ilKodu },
-        { kurum: { ilKodu: filtreler.ilKodu } },
-      ],
-    });
+    kosullar.push(ilKosulu(filtreler.ilKodu, ilAdlari));
+  }
+  if (filtreler.yalnizcaIlim) {
+    const ilim = kisininIlKodu(kullanici);
+    // İli bilinmeyen kişide kutu basılmıyor; adresten gelirse yok sayılır.
+    if (ilim) kosullar.push(ilKosulu(ilim, ilAdlari));
   }
   if (filtreler.arama) {
     kosullar.push({
@@ -253,4 +320,11 @@ export function faaliyetListeFiltresi(
   }
 
   return { AND: kosullar };
+}
+
+/** Süzgecin birim adı eşleşmesi için il adları (81 satır, ucuz). */
+export async function ilAdlariniGetir(): Promise<Map<string, string>> {
+  const { prisma } = await import("@/lib/db");
+  const iller = await prisma.il.findMany({ select: { ilKodu: true, ad: true } });
+  return new Map(iller.map((il) => [il.ilKodu, il.ad]));
 }

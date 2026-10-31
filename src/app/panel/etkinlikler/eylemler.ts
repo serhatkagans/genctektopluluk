@@ -15,7 +15,13 @@ import {
   ilKoordinatorlerineBildir,
   projeYoneticilerineBildir,
 } from "@/lib/bildirim/gonder";
+import {
+  CIFT_KAYIT_ALANI,
+  ciftKayitSiniri,
+  kullaniciKilidiAl,
+} from "@/lib/cift-kayit";
 import { prisma } from "@/lib/db";
+import { depolama } from "@/lib/depolama";
 import { ekKaydet, ekSinirlariniGetir } from "@/lib/faaliyet/ek-kaydet";
 import {
   faaliyetKapsamiCikar,
@@ -65,6 +71,7 @@ import {
   koordinatorIlKodu,
   mezunMu,
   ogrenciMi,
+  projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import {
   ogrenciKapsamFiltresi,
@@ -291,38 +298,66 @@ export async function faaliyetOlusturEylemi(veri: FormData): Promise<void> {
 
   const onayDurumu = onayDurumuBelirle(kullanici, kapsam);
 
-  const faaliyet = await prisma.faaliyet.create({
-    data: {
-      ad,
-      aciklama,
-      tarih,
-      bitisTarihi: faaliyetBitisi,
-      katilimBicimi,
-      hedefKitle,
-      kapsam,
-      etkinlikKategorisi,
-      temelEtkinlikProgramiId: program?.id ?? null,
-      kurumKodu: yer.kurumKodu,
-      ilKodu: yer.ilKodu,
-      ilceKodu: gecerliIlce?.ilceKodu ?? null,
-      kontenjan,
-      duzenleyenKullaniciId: kullanici.id,
-      duzenleyenBirim: duzenleyenBirimBelirle(kullanici, kapsam, {
-        okulAdi: okul?.ad,
-        ilAdi: il?.ad,
-      }),
-      onayDurumu,
-      basvuruBaslangic,
-      basvuruBitis,
-      calismaGruplari: {
-        create: gecerliGruplar.map((grup) => ({ calismaGrubuId: grup.id })),
+  /*
+   * ÇİFT KAYIT ENGELİ (31 Ekim 2026 · istek: "takılınca bir daha tıklamışım,
+   * 3 kere eklemiş"). Aynı kişi aynı adla aynı tarihe son iki dakikada
+   * etkinlik açtıysa yenisi açılmaz, kişi o kayda götürülür. Kilit, aynı
+   * anda gelen iki isteğin ikisinin de "yok" görmesini engeller
+   * (bkz. lib/cift-kayit.ts).
+   */
+  const sonuc = await prisma.$transaction(async (islem) => {
+    await kullaniciKilidiAl(islem, CIFT_KAYIT_ALANI.FAALIYET, kullanici.id);
+    const ayni = await islem.faaliyet.findFirst({
+      where: {
+        duzenleyenKullaniciId: kullanici.id,
+        ad,
+        tarih,
+        kapsam,
+        durum: "AKTIF",
+        olusturmaTarihi: { gte: ciftKayitSiniri() },
       },
-      paydaslar: {
-        create: gecerliPaydaslar.map((paydas) => ({ paydasId: paydas.id })),
+      select: { id: true },
+    });
+    if (ayni) return { faaliyet: ayni, tekrarMi: true };
+
+    const yeni = await islem.faaliyet.create({
+      data: {
+        ad,
+        aciklama,
+        tarih,
+        bitisTarihi: faaliyetBitisi,
+        katilimBicimi,
+        hedefKitle,
+        kapsam,
+        etkinlikKategorisi,
+        temelEtkinlikProgramiId: program?.id ?? null,
+        kurumKodu: yer.kurumKodu,
+        ilKodu: yer.ilKodu,
+        ilceKodu: gecerliIlce?.ilceKodu ?? null,
+        kontenjan,
+        duzenleyenKullaniciId: kullanici.id,
+        duzenleyenBirim: duzenleyenBirimBelirle(kullanici, kapsam, {
+          okulAdi: okul?.ad,
+          ilAdi: il?.ad,
+        }),
+        onayDurumu,
+        basvuruBaslangic,
+        basvuruBitis,
+        calismaGruplari: {
+          create: gecerliGruplar.map((grup) => ({ calismaGrubuId: grup.id })),
+        },
+        paydaslar: {
+          create: gecerliPaydaslar.map((paydas) => ({ paydasId: paydas.id })),
+        },
       },
-    },
-    select: { id: true },
+      select: { id: true },
+    });
+    return { faaliyet: yeni, tekrarMi: false };
   });
+  const { faaliyet } = sonuc;
+  if (sonuc.tekrarMi) {
+    redirect(`/panel/etkinlikler/${faaliyet.id}?durum=olusturuldu`);
+  }
 
   /*
    * Tanıtıcı görsel isteğe bağlıdır. Görsel kabul edilmezse faaliyet geri
@@ -551,6 +586,135 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
     hataylaDon(yol, kontenjanKarari.neden ?? "Kontenjan güncellenemedi.");
   }
 
+  /*
+   * İÇERİK ALANLARI (31 Ekim 2026 · istek: "hepsini değiştirilebilir yap").
+   * Önceden yalnızca tarih ve kontenjan değişiyordu; adında yazım hatası olan
+   * etkinlik silinip yeniden açılmak zorundaydı. Açılıştaki kuralların
+   * aynısı: ad ve açıklama zorunlu, katılım biçimi ve hedef kitle isteğe bağlı.
+   */
+  const ad = metin(veri, "ad");
+  const aciklama = metin(veri, "aciklama");
+  if (!ad || !aciklama) {
+    hataylaDon(yol, "Etkinlik adı ve açıklaması zorunludur.");
+  }
+  const katilimBicimiHam = metin(veri, "katilimBicimi");
+  const katilimBicimi = katilimBicimiGecerliMi(katilimBicimiHam)
+    ? katilimBicimiHam
+    : null;
+  const hedefKitle = metin(veri, "hedefKitle").slice(0, 200) || null;
+  const grupIdleri = veri
+    .getAll("grupId")
+    .map((deger) => Number.parseInt(String(deger), 10))
+    .filter((deger) => Number.isFinite(deger));
+  const gecerliGruplar = await prisma.calismaGrubu.findMany({
+    where: { id: { in: grupIdleri }, aktif: true },
+    select: { id: true },
+  });
+
+  /*
+   * KAPSAM VE İL (31 Ekim 2026 · istekler: "ili de düzenleyemiyorum yanlış
+   * seçtiysem", "hepsini değiştirilebilir yap").
+   *
+   * Yalnızca etkinliği açan ya da proje yöneticisi değiştirebilir (iptal
+   * yetkisiyle aynı kapı) ve yeni kapsam kişinin AÇABİLECEĞİ kapsamlardan
+   * olmalı — düzenleme, açılışta verilmeyen bir yetkiyi vermesin. Yer bilgisi
+   * açılıştaki kuraldan türer (faaliyetYeriBelirle).
+   *
+   * Başvurusu olan etkinlikte yer DEĞİŞMEZ: il dışı başvuruların kaynak il
+   * onayı etkinliğin yerine göre verildi; yer değişirse o kararlar boşa düşer.
+   * İl değişince ilçe temizlenir, karttaki birim adında eski il adı varsa
+   * yenisiyle değiştirilir.
+   */
+  const yeniKapsam = (metin(veri, "kapsam") || faaliyet.kapsam) as Kapsam;
+  let yerGuncellemesi: {
+    kapsam: Kapsam;
+    ilKodu: string | null;
+    kurumKodu: number | null;
+    ilceKodu?: null;
+    duzenleyenBirim: string;
+  } | null = null;
+  let kapsamOnayaDusuyor = false;
+  const yerSoruldu =
+    faaliyetIptalEdebilirMi(kullanici, kapsam) &&
+    kapsamSecenekleri(kullanici).includes(faaliyet.kapsam) &&
+    veri.has("kapsam");
+  if (yerSoruldu) {
+    if (!kapsamSecenekleri(kullanici).includes(yeniKapsam)) {
+      throw new YetkiHatasi("Bu kapsamda etkinlik açma yetkiniz yok.");
+    }
+    let yer: FaaliyetYeri;
+    try {
+      yer = faaliyetYeriBelirle(
+        kullanici,
+        yeniKapsam,
+        metin(veri, "ilKodu") || faaliyet.ilKodu,
+      );
+    } catch (hata) {
+      if (hata instanceof FaaliyetKuralHatasi) hataylaDon(yol, hata.message);
+      throw hata;
+    }
+    const yerDegisti =
+      yeniKapsam !== faaliyet.kapsam ||
+      yer.ilKodu !== faaliyet.ilKodu ||
+      yer.kurumKodu !== faaliyet.kurumKodu;
+    if (yerDegisti) {
+      if (faaliyet.basvurular.length > 0) {
+        hataylaDon(
+          yol,
+          "Başvurusu olan etkinliğin kapsamı ve ili değiştirilemez.",
+        );
+      }
+      const [yeniIl, eskiIl] = await Promise.all([
+        yer.ilKodu
+          ? prisma.il.findUnique({
+              where: { ilKodu: yer.ilKodu },
+              select: { ad: true },
+            })
+          : null,
+        faaliyet.ilKodu
+          ? prisma.il.findUnique({
+              where: { ilKodu: faaliyet.ilKodu },
+              select: { ad: true },
+            })
+          : null,
+      ]);
+      if (yer.ilKodu && !yeniIl) hataylaDon(yol, "Seçilen il bulunamadı.");
+
+      let duzenleyenBirim = faaliyet.duzenleyenBirim;
+      if (
+        eskiIl &&
+        yeniIl &&
+        eskiIl.ad !== yeniIl.ad &&
+        duzenleyenBirim.includes(eskiIl.ad)
+      ) {
+        duzenleyenBirim = duzenleyenBirim.replace(eskiIl.ad, yeniIl.ad);
+      } else if (
+        faaliyet.duzenleyenKullaniciId === kullanici.id &&
+        yeniKapsam !== faaliyet.kapsam
+      ) {
+        // Etkinliği açan kişi kapsamı değiştirdi: birim, açılıştaki kuralla
+        // yeniden yazılır ("MEB YEĞİTEK · İzmir" ↔ "MEB YEĞİTEK").
+        duzenleyenBirim = duzenleyenBirimBelirle(kullanici, yeniKapsam, {
+          okulAdi: faaliyet.kurum?.ad,
+          ilAdi: yeniIl?.ad ?? eskiIl?.ad,
+        });
+      }
+
+      yerGuncellemesi = {
+        kapsam: yeniKapsam,
+        ilKodu: yer.ilKodu,
+        kurumKodu: yer.kurumKodu,
+        ...(yer.ilKodu !== faaliyet.ilKodu ? { ilceKodu: null } : {}),
+        duzenleyenBirim,
+      };
+      // Yeni kapsam açana göre onaya tabiyse, yayındaki etkinlik onaya döner.
+      kapsamOnayaDusuyor =
+        yeniKapsam !== faaliyet.kapsam &&
+        faaliyet.onayDurumu !== "BEKLIYOR" &&
+        onayDurumuBelirle(kullanici, yeniKapsam) === "BEKLIYOR";
+    }
+  }
+
   const tarihDegistiMi =
     tarih.getTime() !== faaliyet.tarih.getTime() ||
     basvuruBaslangic.getTime() !== faaliyet.basvuruBaslangic.getTime() ||
@@ -560,20 +724,31 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
     (faaliyetBitisi?.getTime() ?? null) !==
       (faaliyet.bitisTarihi?.getTime() ?? null);
 
-  const onayDusuyorMu = yenidenOnayGerekiyorMu({
-    onayDurumu: faaliyet.onayDurumu,
-    tarihDegistiMi,
-    kontenjanAzaldiMi: yeniKontenjan < faaliyet.kontenjan,
-  });
+  const onayDusuyorMu =
+    kapsamOnayaDusuyor ||
+    yenidenOnayGerekiyorMu({
+      onayDurumu: faaliyet.onayDurumu,
+      tarihDegistiMi,
+      kontenjanAzaldiMi: yeniKontenjan < faaliyet.kontenjan,
+    });
 
   await prisma.faaliyet.update({
     where: { id: faaliyet.id },
     data: {
+      ad,
+      aciklama,
+      katilimBicimi,
+      hedefKitle,
+      calismaGruplari: {
+        deleteMany: {},
+        create: gecerliGruplar.map((grup) => ({ calismaGrubuId: grup.id })),
+      },
       tarih,
       bitisTarihi: faaliyetBitisi,
       basvuruBaslangic,
       basvuruBitis,
       kontenjan: yeniKontenjan,
+      ...(yerGuncellemesi ?? {}),
       ...(onayDusuyorMu
         ? {
             onayDurumu: "BEKLIYOR" as const,
@@ -676,7 +851,13 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "FAALIYET",
     hedefId: faaliyet.id,
-    detay: `Etkinlik düzenlendi: ${faaliyet.ad}${
+    detay: `Etkinlik düzenlendi: ${ad}${
+      ad !== faaliyet.ad ? ` (eski adı: ${faaliyet.ad})` : ""
+    }${
+      yerGuncellemesi
+        ? ` · yer ${faaliyet.kapsam}/${faaliyet.ilKodu ?? "—"} → ${yerGuncellemesi.kapsam}/${yerGuncellemesi.ilKodu ?? "—"}`
+        : ""
+    }${
       onayDusuyorMu ? " · kritik alan değişti, onay yeniden bekleniyor" : ""
     }`,
   });
@@ -769,6 +950,78 @@ export async function faaliyetIptalEylemi(veri: FormData): Promise<void> {
   revalidatePath("/panel/etkinlikler");
   revalidatePath(yol);
   redirect(`${yol}?durum=iptal-edildi&kapanan=${etkilenenler.length}`);
+}
+
+/**
+ * Faaliyeti KALICI OLARAK siler (31 Ekim 2026 · istek: "etkinliği iptal
+ * edebiliyorum ama silemiyorum" — takılan formda art arda üç kez açılmış
+ * kopyalar).
+ *
+ * İptalden farkı: kayıt listeden de kalkar. Bu yüzden yalnızca İZ BIRAKMAMIŞ
+ * etkinlik silinir — başvurusu, belgesi ya da raporu olan etkinlikte
+ * öğrencinin geçmişi silinmiş olurdu; onlar iptal edilir. Yetki iptalle
+ * aynı: açan kullanıcı ya da proje yöneticisi.
+ */
+export async function faaliyetSilEylemi(veri: FormData): Promise<void> {
+  const faaliyetId = sayi(veri, "faaliyetId");
+  if (faaliyetId === null) throw new BulunamadiHatasi();
+
+  const { kullanici, faaliyet, kapsam, yol } =
+    await duzenlenebilirFaaliyetGetir(faaliyetId);
+
+  if (!faaliyetIptalEdebilirMi(kullanici, kapsam)) {
+    throw new YetkiHatasi(
+      "Etkinliği yalnızca açan kullanıcı veya proje yöneticisi silebilir.",
+    );
+  }
+
+  const ekler = await prisma.$transaction(async (islem) => {
+    await faaliyetSatiriniKilitle(islem, faaliyet.id);
+    const [basvuru, belge, rapor] = await Promise.all([
+      islem.basvuru.count({ where: { faaliyetId: faaliyet.id } }),
+      islem.faaliyetBelgesi.count({ where: { faaliyetId: faaliyet.id } }),
+      islem.faaliyetRaporu.count({ where: { faaliyetId: faaliyet.id } }),
+    ]);
+    if (basvuru + belge + rapor > 0) return null;
+
+    const dosyalar = await islem.faaliyetEk.findMany({
+      where: { faaliyetId: faaliyet.id },
+      select: { depolamaYolu: true },
+    });
+    // Kapak bağı önce kopar: kapak eki de bu faaliyete ait ve silinecek.
+    await islem.faaliyet.update({
+      where: { id: faaliyet.id },
+      data: { kapakEkId: null },
+    });
+    await islem.faaliyet.delete({ where: { id: faaliyet.id } });
+    return dosyalar;
+  });
+
+  if (ekler === null) {
+    hataylaDon(
+      yol,
+      "Başvurusu, belgesi ya da raporu olan etkinlik silinemez; bunun yerine iptal edebilirsiniz.",
+    );
+  }
+
+  // Dosyalar kayıt silindikten SONRA kaldırılır; biri kalkmazsa silme geri
+  // alınmaz, yalnızca diskte sahipsiz bir dosya kalır.
+  for (const ek of ekler) {
+    await depolama()
+      .sil(ek.depolamaYolu)
+      .catch(() => undefined);
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "SILME",
+    hedefTip: "FAALIYET",
+    hedefId: faaliyet.id,
+    detay: `Etkinlik silindi: ${faaliyet.ad} (#${faaliyet.id})`,
+  });
+
+  revalidatePath("/panel/etkinlikler");
+  redirect("/panel/etkinlikler?durum=silindi");
 }
 
 // ---------------------------------------------------------------------------

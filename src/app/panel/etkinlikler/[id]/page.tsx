@@ -67,10 +67,15 @@ import {
   faaliyetSuresiYaz,
   KATILIMCI_TIPI_ETIKETLERI,
   katilimciTipi,
+  KAPSAM_ETIKETLERI,
+  kapsamSecenekleri,
   kontenjanAltSiniri,
   kontenjanDurumu,
 } from "@/lib/faaliyet/kurallar";
-import { KATILIM_BICIMI_ETIKETLERI } from "@/lib/kazanim/kurallar";
+import {
+  KATILIM_BICIMI_ETIKETLERI,
+  KATILIM_BICIMLERI,
+} from "@/lib/kazanim/kurallar";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
 import {
   girdiTarihi,
@@ -109,6 +114,7 @@ import {
   faaliyetDuzenleEylemi,
   faaliyetIptalEylemi,
   faaliyetOnayEylemi,
+  faaliyetSilEylemi,
   yoklamaKaydetEylemi,
 } from "../eylemler";
 import { kaynakIlKarariEylemi } from "../il-disi-eylemler";
@@ -303,6 +309,36 @@ export default async function FaaliyetDetaySayfasi({
   const devroldu = yetkiDevrolduMu(kullanici, kapsamBilgisi);
   const ekYonetebilir = ekYukleyebilirMi(kullanici, kapsamBilgisi);
   const iptalEdebilir = faaliyetIptalEdebilirMi(kullanici, kapsamBilgisi);
+  /*
+   * KAPSAM VE İL DÜZELTMESİ (31 Ekim 2026 · istekler: "ili de
+   * düzenleyemiyorum", "hepsini değiştirilebilir yap"). Etkinliği açan ya da
+   * proje yöneticisi, açabildiği kapsamlar arasında değiştirir; başvurusu
+   * olan etkinlikte yer değişmez (kural: faaliyetDuzenleEylemi).
+   */
+  const kapsamlar = kapsamSecenekleri(kullanici);
+  const yerDegistirebilir =
+    iptalEdebilir &&
+    kapsamlar.includes(faaliyet.kapsam) &&
+    faaliyet.basvurular.length === 0;
+  const ilSorulur = yerDegistirebilir && projeYoneticisiMi(kullanici);
+  const [iller, tumGruplar] = ekYonetebilir
+    ? await Promise.all([
+        ilSorulur
+          ? prisma.il.findMany({
+              orderBy: { ad: "asc" },
+              select: { ilKodu: true, ad: true },
+            })
+          : [],
+        prisma.calismaGrubu.findMany({
+          where: { aktif: true },
+          orderBy: { siraNo: "asc" },
+          select: { id: true, ad: true },
+        }),
+      ])
+    : [[], []];
+  const seciliGruplar = new Set(
+    faaliyet.calismaGruplari.map((bag) => bag.calismaGrubu.id),
+  );
   /*
    * İptal edilen faaliyet YENİ içerik almaz ama mevcut içerik yerinde kalır ve
    * silinebilir: iptal, moderasyon yetkisini kaldırmaz.
@@ -892,13 +928,34 @@ export default async function FaaliyetDetaySayfasi({
       {ekYonetebilir && faaliyet.durum === "AKTIF" && (
         <KatlanabilirKart
           baslik="Etkinliği düzenle"
-          aciklama="Tarih ve kontenjan değiştirilebilir. Kontenjan, seçilmiş öğrenci sayısının altına düşürülemez."
+          aciklama="Etkinliğin bütün bilgileri değiştirilebilir. Başvurusu olan etkinlikte kapsam ve il değişmez; kontenjan, seçilmiş öğrenci sayısının altına düşürülemez."
           Ikon={PencilLine}
           duzenlenebilir
           capa="etkinligi-duzenle"
         >
           <form action={faaliyetDuzenleEylemi} className="space-y-4">
             <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Etkinlik adı</span>
+              <input
+                type="text"
+                name="ad"
+                required
+                maxLength={250}
+                defaultValue={faaliyet.ad}
+                className={SINIF_GIRDI}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-metin">Açıklama</span>
+              <textarea
+                name="aciklama"
+                required
+                rows={5}
+                defaultValue={faaliyet.aciklama}
+                className={SINIF_GIRDI}
+              />
+            </label>
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="block">
                 <span className="text-sm font-medium text-metin">
@@ -955,6 +1012,104 @@ export default async function FaaliyetDetaySayfasi({
                 />
               </label>
             </div>
+
+            {yerDegistirebilir && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-medium text-metin">Kapsam</span>
+                  <select
+                    name="kapsam"
+                    defaultValue={faaliyet.kapsam}
+                    className={SINIF_GIRDI}
+                  >
+                    {kapsamlar.map((secenek) => (
+                      <option key={secenek} value={secenek}>
+                        {KAPSAM_ETIKETLERI[secenek]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {ilSorulur && (
+                  <label className="block">
+                    <span className="text-sm font-medium text-metin">
+                      İl{" "}
+                      <span className="text-metin-yumusak">
+                        (il geneli etkinlikte zorunlu)
+                      </span>
+                    </span>
+                    <select
+                      name="ilKodu"
+                      defaultValue={faaliyet.ilKodu ?? ""}
+                      className={SINIF_GIRDI}
+                    >
+                      <option value="">Seçiniz</option>
+                      {iller.map((secenek) => (
+                        <option key={secenek.ilKodu} value={secenek.ilKodu}>
+                          {secenek.ad}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Katılım biçimi{" "}
+                  <span className="text-metin-yumusak">(isteğe bağlı)</span>
+                </span>
+                <select
+                  name="katilimBicimi"
+                  defaultValue={faaliyet.katilimBicimi ?? ""}
+                  className={SINIF_GIRDI}
+                >
+                  <option value="">Belirtilmedi</option>
+                  {KATILIM_BICIMLERI.map((bicim) => (
+                    <option key={bicim} value={bicim}>
+                      {KATILIM_BICIMI_ETIKETLERI[bicim]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-metin">
+                  Hedef kitle{" "}
+                  <span className="text-metin-yumusak">(isteğe bağlı)</span>
+                </span>
+                <input
+                  type="text"
+                  name="hedefKitle"
+                  maxLength={200}
+                  defaultValue={faaliyet.hedefKitle ?? ""}
+                  className={SINIF_GIRDI}
+                />
+              </label>
+            </div>
+
+            <fieldset>
+              <legend className="text-sm font-medium text-metin">
+                İlgili çalışma grupları
+              </legend>
+              <div className="mt-1 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {tumGruplar.map((grup) => (
+                  <label
+                    key={grup.id}
+                    className="flex items-center gap-2 rounded-md border border-cizgi px-3 py-2 text-sm text-metin"
+                  >
+                    <input
+                      type="checkbox"
+                      name="grupId"
+                      value={grup.id}
+                      defaultChecked={seciliGruplar.has(grup.id)}
+                      className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+                    />
+                    {grup.ad}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <label className="block sm:max-w-xs">
               <span className="text-sm font-medium text-metin">Kontenjan</span>
@@ -1025,6 +1180,47 @@ export default async function FaaliyetDetaySayfasi({
               </form>
             </div>
           )}
+        </KatlanabilirKart>
+      )}
+
+      {/*
+        ETKİNLİĞİ SİL (31 Ekim 2026 · istek: "etkinliği iptal edebiliyorum ama
+        silemiyorum"). İptal edilmiş etkinlikte de görünür: yanlışlıkla açılan
+        kopya önce iptal edilmiş olabilir. Yalnızca başvurusu olmayan
+        etkinlikte basılır; belge ve rapor kontrolü sunucuda
+        (bkz. faaliyetSilEylemi).
+      */}
+      {iptalEdebilir && faaliyet.basvurular.length === 0 && (
+        <KatlanabilirKart
+          baslik="Etkinliği sil"
+          aciklama="Yanlışlıkla ya da birden fazla kez açılmış etkinliği kalıcı olarak kaldırır."
+          Ikon={Trash2}
+          capa="etkinligi-sil"
+        >
+          <p className="text-sm text-metin-yumusak">
+            Etkinlik, görselleri ve yorumlarıyla birlikte kalıcı olarak silinir
+            ve listelerden kalkar. Bu işlem geri alınamaz. Başvurusu, belgesi
+            ya da raporu olan etkinlik silinemez; onu iptal edebilirsiniz.
+          </p>
+          <form action={faaliyetSilEylemi} className="mt-3">
+            <input type="hidden" name="faaliyetId" value={faaliyet.id} />
+            <label className="mb-3 flex items-center gap-2 text-sm text-metin">
+              <input
+                type="checkbox"
+                name="onay"
+                required
+                className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+              />
+              Bu etkinliği kalıcı olarak silmek istiyorum.
+            </label>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-md border border-hata-cizgi bg-hata-zemin px-4 py-2 text-sm font-semibold text-hata-metin transition hover:opacity-90"
+            >
+              <Trash2 size={16} aria-hidden />
+              Etkinliği sil
+            </button>
+          </form>
         </KatlanabilirKart>
       )}
 

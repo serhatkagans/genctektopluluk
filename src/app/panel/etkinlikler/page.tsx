@@ -91,6 +91,9 @@ import {
   faaliyetFiltreleriniCoz,
   faaliyetFiltresiVarMi,
   faaliyetListeFiltresi,
+  faaliyetSiralamasi,
+  ilAdlariniGetir,
+  kisininIlKodu,
   type FaaliyetFiltreleri,
 } from "./filtreler";
 import { kaynakIlKarariEylemi } from "./il-disi-eylemler";
@@ -700,7 +703,8 @@ export default async function FaaliyetlerSayfasi({
   const filtreVar = faaliyetFiltresiVarMi(filtreler);
 
   const simdi = new Date();
-  const nerede = faaliyetListeFiltresi(kullanici, filtreler, simdi);
+  const ilAdlari = await ilAdlariniGetir();
+  const nerede = faaliyetListeFiltresi(kullanici, filtreler, simdi, ilAdlari);
 
   /*
    * Kişinin SIRADAKİ kendi etkinliği — ölçüt rol değil kişisel bağdır
@@ -776,7 +780,7 @@ export default async function FaaliyetlerSayfasi({
       prisma.faaliyet.count({ where: raporsuzKosulu }),
       prisma.faaliyet.findMany({
         where: nerede,
-        orderBy: [{ tarih: "asc" }],
+        orderBy: faaliyetSiralamasi(filtreler.sira),
         skip: (sayfaNo - 1) * SAYFA_BOYUTU,
         take: SAYFA_BOYUTU,
         select: {
@@ -926,6 +930,13 @@ export default async function FaaliyetlerSayfasi({
   const sekmeSorgusu = (zaman: FaaliyetFiltreleri["zaman"]) => {
     const sorgu = new URLSearchParams(sorguMetni(parametreler, ["zaman", "sayfa"]));
     if (zaman !== "hepsi") sorgu.set("zaman", zaman);
+    return sorgu.toString();
+  };
+
+  /** Sıralama bağlantısı: süzgeçleri ve sekmeyi korur, sayfayı düşürür. */
+  const siraSorgusu = (sira: FaaliyetFiltreleri["sira"]) => {
+    const sorgu = new URLSearchParams(sorguMetni(parametreler, ["sira", "sayfa"]));
+    if (sira !== "yeni") sorgu.set("sira", sira);
     return sorgu.toString();
   };
 
@@ -1122,6 +1133,11 @@ export default async function FaaliyetlerSayfasi({
         }
       />
 
+      {/* Etkinlik silindikten sonra buraya dönülüyor (bkz. faaliyetSilEylemi). */}
+      {tekil(parametreler.durum) === "silindi" && (
+        <BilgiKutusu cesit="olumlu">Etkinlik silindi.</BilgiKutusu>
+      )}
+
       {/*
         YAKLAŞAN ETKİNLİĞİM (31 Ağustos 2026 · istek: "profilde Yaklaşan
         etkinliğim … bu kartı etkinlikler bölümüne kart olarak taşıyalım").
@@ -1235,6 +1251,10 @@ export default async function FaaliyetlerSayfasi({
         method="get"
         className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
       >
+        {/* Süzgeç değişince seçili tarih sırası korunsun. */}
+        {filtreler.sira !== "yeni" && (
+          <input type="hidden" name="sira" value={filtreler.sira} />
+        )}
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-baslik">
             <Filter size={16} className="text-vurgu-metin" aria-hidden />
@@ -1377,6 +1397,18 @@ export default async function FaaliyetlerSayfasi({
             />
             Başvurusu açık olanlar
           </label>
+          {kisininIlKodu(kullanici) && (
+            <label className="flex items-center gap-2 text-sm text-metin">
+              <input
+                type="checkbox"
+                name="ilim"
+                value="1"
+                defaultChecked={filtreler.yalnizcaIlim}
+                className="h-4 w-4 rounded border-cizgi accent-[var(--renk-birincil)]"
+              />
+              Yalnızca ilimdeki etkinlikler
+            </label>
+          )}
           {acabilir && (
             <label className="flex items-center gap-2 text-sm text-metin">
               <input
@@ -1479,6 +1511,29 @@ export default async function FaaliyetlerSayfasi({
             {etiket}
           </Link>
         ))}
+        {/* Tarih sırası (31 Ekim 2026): sekmelerin yanında, sağa yaslı. */}
+        <span className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-metin-yumusak">Tarih:</span>
+          {(
+            [
+              ["yeni", "Yeniden eskiye"],
+              ["eski", "Eskiden yeniye"],
+            ] as const
+          ).map(([deger, etiket]) => (
+            <Link
+              key={deger}
+              href={`/panel/etkinlikler?${siraSorgusu(deger)}`}
+              aria-current={filtreler.sira === deger ? "true" : undefined}
+              className={
+                filtreler.sira === deger
+                  ? "rounded-kart bg-vurgu-zemin px-3 py-2 text-sm font-medium text-vurgu-metin"
+                  : "rounded-kart border border-cizgi px-3 py-2 text-sm text-metin-yumusak"
+              }
+            >
+              {etiket}
+            </Link>
+          ))}
+        </span>
       </nav>
 
       {faaliyetler.length === 0 ? (

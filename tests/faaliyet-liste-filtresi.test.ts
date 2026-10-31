@@ -243,3 +243,59 @@ describe("etkinlik liste filtreleri · il, arama ve katılım biçimi", () => {
     );
   });
 });
+
+describe("etkinlik liste filtreleri · ilimdeki etkinlikler ve sıra (31 Ekim 2026)", () => {
+  const IL_ADLARI = new Map([["35", "İzmir"]]);
+
+  it("ilim=1 okunur, filtre sayılır; sıra filtre sayılmaz", () => {
+    expect(faaliyetFiltreleriniCoz({ ilim: "1" }).yalnizcaIlim).toBe(true);
+    expect(faaliyetFiltresiVarMi(faaliyetFiltreleriniCoz({ ilim: "1" }))).toBe(
+      true,
+    );
+    expect(faaliyetFiltreleriniCoz(BOS_PARAMETRE).sira).toBe("yeni");
+    expect(faaliyetFiltreleriniCoz({ sira: "eski" }).sira).toBe("eski");
+    expect(faaliyetFiltresiVarMi(faaliyetFiltreleriniCoz({ sira: "eski" }))).toBe(
+      false,
+    );
+  });
+
+  it("öğrencinin iline göre daraltır ve ulusala çevrilmiş takvim etkinliğini birim adından yakalar", () => {
+    const filtre = faaliyetListeFiltresi(
+      ogrenciYap({ ilKodu: "35" }),
+      faaliyetFiltreleriniCoz({ ilim: "1" }),
+      new Date(),
+      IL_ADLARI,
+    );
+    expect(filtre.AND).toContainEqual({
+      OR: [
+        { ilKodu: "35" },
+        { kurum: { ilKodu: "35" } },
+        {
+          ilKodu: null,
+          kurumKodu: null,
+          duzenleyenBirim: { startsWith: "İzmir İl " },
+        },
+      ],
+    });
+  });
+
+  it("koordinatörde görev ili kullanılır", () => {
+    const filtre = faaliyetListeFiltresi(
+      koordinatorYap({ ilKodu: "35" }),
+      faaliyetFiltreleriniCoz({ ilim: "1" }),
+      new Date(),
+    );
+    expect(filtre.AND).toContainEqual({
+      OR: [{ ilKodu: "35" }, { kurum: { ilKodu: "35" } }],
+    });
+  });
+
+  it("ili bilinmeyen kişide koşul eklenmez", () => {
+    const filtre = faaliyetListeFiltresi(
+      ogrenciYap({ ilKodu: null }),
+      faaliyetFiltreleriniCoz({ ilim: "1" }),
+      new Date(),
+    );
+    expect(filtre.AND).toHaveLength(1);
+  });
+});

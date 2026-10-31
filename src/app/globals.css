@@ -553,3 +553,52 @@ h4 {
     content: none !important;
   }
 }
+
+/*
+ * ÇİFT GÖNDERİM KALKANI (31 Ekim 2026 · bkz. components/CiftGonderimKalkani.tsx).
+ * Gönderimi süren formun düğmeleri soluklaşır ve tıklanmaz; kişi isteğin
+ * işlendiğini görür, ikinci kaydı açmaz.
+ */
+form[data-gonderiliyor] button[type="submit"],
+form[data-gonderiliyor] input[type="submit"] {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: progress;
+}
+form[data-gonderiliyor] {
+  cursor: progress;
+}
+
+/*
+ * Basılan düğmede "Kaydediliyor…" yazısı ve dönen halka (31 Ekim 2026).
+ * Asıl metin font-size 0 ile gizlenir, yazı ::after ile basılır; düğmenin
+ * genişliği yazıya göre ayarlanır.
+ */
+button[data-gonderilen] {
+  font-size: 0 !important;
+  gap: 0.5rem;
+}
+button[data-gonderilen] > svg {
+  display: none;
+}
+button[data-gonderilen]::before {
+  content: "";
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: gonderim-donus 0.8s linear infinite;
+  vertical-align: -0.15rem;
+}
+button[data-gonderilen]::after {
+  content: "Kaydediliyor…";
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+@keyframes gonderim-donus {
+  to {
+    transform: rotate(360deg);
+  }
+}
