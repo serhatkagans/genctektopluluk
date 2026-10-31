@@ -8,6 +8,7 @@ import {
   OKUL_LISTEDE_YOK,
   okulTuruUyarMi,
   SINIF_SEVIYELERI,
+  sinifEtiketi,
 } from "@/lib/kayit/kurallar";
 
 type Ilce = { ilceKodu: string; ad: string };
@@ -164,7 +165,7 @@ export function GenelBilgilerDuzenleme({
               <option value="">Seçiniz</option>
               {SINIF_SEVIYELERI.map((seviye) => (
                 <option key={seviye} value={seviye}>
-                  {seviye}. sınıf
+                  {sinifEtiketi(seviye)}
                 </option>
               ))}
             </select>

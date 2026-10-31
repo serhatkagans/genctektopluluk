@@ -1,3 +1,4 @@
+import { sinifEtiketi } from "@/lib/kayit/kurallar";
 import {
   BadgeCheck,
   CalendarRange,
@@ -1388,7 +1389,7 @@ export default async function OgrencilerSayfasi({
                     {ogrenci.ad} {ogrenci.soyad}
                   </Link>
                   <p className="text-sm text-metin-yumusak">
-                    {ogrenci.sinif ? `${ogrenci.sinif}. sınıf` : "—"}
+                    {ogrenci.sinif ? sinifEtiketi(ogrenci.sinif) : "—"}
                   </p>
                 </div>
                 <form action={ogrenciyiDanismanligaAlEylemi}>

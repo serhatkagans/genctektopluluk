@@ -16,6 +16,7 @@ import {
   KAYIT_TIPLERI,
   kayitTipiMi,
   SINIF_SEVIYELERI,
+  sinifEtiketi,
 } from "@/lib/kayit/kurallar";
 import { KAPSAM_DISI_OKUL_KOSULU } from "@/lib/okul/turler";
 import { ortam } from "@/lib/ortam";
@@ -279,7 +280,7 @@ export default async function KayitSayfasi({
                     <option value="">Seçiniz</option>
                     {SINIF_SEVIYELERI.map((seviye) => (
                       <option key={seviye} value={seviye}>
-                        {seviye}. sınıf
+                        {sinifEtiketi(seviye)}
                       </option>
                     ))}
                   </select>

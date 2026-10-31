@@ -64,8 +64,21 @@ export function okulTuruUyarMi(secilen: string, okulunTuru: string): boolean {
   return secilen === okulunTuru;
 }
 
-/** Lise seviyeleri; GençTek lise öğrencilerine açık. */
-export const SINIF_SEVIYELERI = ["9", "10", "11", "12"] as const;
+/**
+ * Lise seviyeleri; GençTek lise öğrencilerine açık.
+ *
+ * HAZIRLIK EKLENDİ (31 Ekim 2026 · istek: "formda hazırlık sınıfı yok
+ * öğrencilerimiz seçemediler"). Değer e-Okul'daki gibi "Hazırlık" yazılır;
+ * öğrenci süzgecindeki "Haz" ön eki onu zaten yakalıyor
+ * (bkz. ogrenciler/filtreler.ts · SINIF_SECENEKLERI). Şubeyle "Hazırlık-A"
+ * 10 karakter, `kullanici.sinif` sınırına sığar.
+ */
+export const SINIF_SEVIYELERI = ["Hazırlık", "9", "10", "11", "12"] as const;
+
+/** Seçenekte ve listede yazılan ad: "Hazırlık", "9. sınıf". */
+export function sinifEtiketi(sinif: string): string {
+  return /^\d/.test(sinif) ? `${sinif}. sınıf` : sinif;
+}
 
 /**
  * T.C. kimlik numarası biçim ve sağlama kontrolü.

@@ -7,6 +7,7 @@ import {
   mockKimlikBul,
 } from "../src/lib/auth/mock-kullanicilar";
 import { CALISMA_GRUBU_TANITIMLARI } from "./veri/calisma-grubu-tanitimlari";
+import { TUM_ILCELER } from "./veri/ilceler";
 import { ILLER, ORNEK_ILCELER, ORNEK_KURUMLAR } from "./veri/iller";
 
 /**
@@ -495,11 +496,24 @@ async function referansVerileriYukle() {
     });
   }
 
+  /*
+   * BÜTÜN İLÇELER (31 Ekim 2026): örnek dört ilçe yerine Türkiye'nin 973
+   * ilçesi. Var olanlar yalnızca ad/il bakımından güncellenir, yoksa eklenir;
+   * hiçbir ilçe silinmez (bağlı okul ve kullanıcılar korunur).
+   */
+  const varOlanIlceler = new Set(
+    (await prisma.ilce.findMany({ select: { ilceKodu: true } })).map(
+      (ilce) => ilce.ilceKodu,
+    ),
+  );
+  await prisma.ilce.createMany({
+    data: TUM_ILCELER.filter((ilce) => !varOlanIlceler.has(ilce.ilceKodu)),
+    skipDuplicates: true,
+  });
   for (const ilce of ORNEK_ILCELER) {
-    await prisma.ilce.upsert({
+    await prisma.ilce.update({
       where: { ilceKodu: ilce.ilceKodu },
-      update: { ad: ilce.ad, ilKodu: ilce.ilKodu },
-      create: ilce,
+      data: { ad: ilce.ad, ilKodu: ilce.ilKodu },
     });
   }
 
@@ -512,7 +526,7 @@ async function referansVerileriYukle() {
   }
 
   console.log(
-    `  ${ILLER.length} il, ${ORNEK_ILCELER.length} ilçe, ${ORNEK_KURUMLAR.length} kurum`,
+    `  ${ILLER.length} il, ${TUM_ILCELER.length} ilçe, ${ORNEK_KURUMLAR.length} kurum`,
   );
 }
 
