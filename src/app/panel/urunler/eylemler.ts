@@ -10,8 +10,14 @@ import {
   projeYoneticilerineBildir,
 } from "@/lib/bildirim/gonder";
 import {
+  kazanimEkiKaydet,
+  kazanimEkSinirlariniGetir,
+} from "@/lib/kazanim/ek";
+import { kazanimKabulEdilirMi } from "@/lib/kazanim/kurallar";
+import {
   urunMarketKarariGecerliMi,
   urunPaylasimOnayAlanlari,
+  urunVitrindeMi,
 } from "@/lib/market/kurallar";
 import { urunMarketOnayiVerebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -207,4 +213,182 @@ export async function urunMarketKarariEylemi(veri: FormData): Promise<void> {
    * sayfaya göndermek olurdu.
    */
   redirect(`${KOK}?durum=urun-karari`);
+}
+
+/**
+ * Proje yöneticisinin vitrindeki bir ürünü DÜZENLEMESİ (2 Kasım 2026 · istek:
+ * "proje yöneticisi için vitrinde onaylanmış yayınlanmış ürünleri kaldırma
+ * olsun, düzenleme yetkisi de olsun").
+ *
+ * Sahibinin düzenlemesiyle (profil/kazanim-eylemleri.ts · kazanimGuncelleEylemi)
+ * aynı kural katmanından geçer; ayrıldığı noktalar:
+ *   · Kayıt sahibine SABİTLENMEZ — yetki rolden gelir.
+ *   · Yalnızca PAYLAŞILMIŞ ürün düzenlenir: sahibinin kendine sakladığı kayda
+ *     merkezin dokunması için bir sebep yok.
+ *   · Paylaşım tercihi ve onay durumu DEĞİŞMEZ: düzeltmeyi kararı veren kişi
+ *     yapıyor, ürünü yeniden kuyruğa sokmak anlamsız olurdu.
+ */
+export async function urunYoneticiGuncelleEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!urunMarketOnayiVerebilirMi(kullanici)) {
+    throw new YetkiHatasi("Vitrindeki ürünleri düzenleyemezsiniz.");
+  }
+
+  const id = Number.parseInt(String(veri.get("kazanimId") ?? ""), 10);
+  if (!Number.isFinite(id)) throw new BulunamadiHatasi();
+
+  const mevcut = await prisma.kullaniciKazanim.findFirst({
+    where: { id, tip: "URUN", markettePaylasilsin: true },
+    select: { id: true, tip: true, tarih: true, kullaniciId: true },
+  });
+  if (!mevcut) throw new BulunamadiHatasi();
+
+  const duzenleYolu = `${KOK}/${mevcut.id}/duzenle`;
+
+  const karar = kazanimKabulEdilirMi(
+    {
+      tip: mevcut.tip,
+      baslik: String(veri.get("baslik") ?? ""),
+      aciklama: String(veri.get("aciklama") ?? ""),
+      tarih: mevcut.tarih,
+      baglantiUrl: String(veri.get("baglantiUrl") ?? ""),
+      derece: "",
+      duzenleyen: "",
+      katilimBicimi: "",
+      hedefKitle: "",
+      gelistirenEkip: String(veri.get("gelistirenEkip") ?? ""),
+      markettePaylasilsin: true,
+      baglantilar: veri.getAll("baglantiAdres").map((adres, sira) => ({
+        adres: String(adres),
+        etiket: String(veri.getAll("baglantiEtiket")[sira] ?? ""),
+      })),
+    },
+    { mevcutKayit: true },
+  );
+  if (!karar.olurMu) {
+    redirect(`${duzenleYolu}?hata=${encodeURIComponent(karar.neden)}`);
+  }
+
+  await prisma.$transaction([
+    prisma.kazanimBaglanti.deleteMany({ where: { kazanimId: mevcut.id } }),
+    prisma.kullaniciKazanim.update({
+      where: { id: mevcut.id },
+      data: {
+        baslik: karar.kayit.baslik,
+        aciklama: karar.kayit.aciklama,
+        gelistirenEkip: karar.kayit.gelistirenEkip,
+        baglantiUrl: karar.kayit.baglantiUrl,
+        baglantilar: { create: karar.baglantilar },
+      },
+    }),
+  ]);
+
+  /* Yeni görsel seçildiyse kapak onunla değişir; boşsa mevcut kapak kalır. */
+  let kapakUyarisi: string | undefined;
+  const gorsel = veri.get("urunGorseli");
+  if (gorsel instanceof File && gorsel.size > 0) {
+    const sonuc = await kazanimEkiKaydet({
+      kazanimId: mevcut.id,
+      dosya: gorsel,
+      sinirlar: await kazanimEkSinirlariniGetir(),
+      kapakMi: true,
+    });
+    if (!sonuc.olurMu) kapakUyarisi = `${gorsel.name}: ${sonuc.neden}`;
+  }
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: mevcut.kullaniciId,
+    detay: `Vitrindeki ürün proje yöneticisince düzenlendi: ${karar.kayit.baslik}`,
+  });
+
+  revalidatePath(KOK);
+  revalidatePath(`${KOK}/${mevcut.id}`);
+  revalidatePath("/panel");
+  if (kapakUyarisi) {
+    redirect(
+      `${duzenleYolu}?hata=${encodeURIComponent(
+        `Ürün güncellendi ancak görsel yüklenemedi — ${kapakUyarisi}`,
+      )}`,
+    );
+  }
+  redirect(`${KOK}/${mevcut.id}?durum=urun-guncellendi`);
+}
+
+/**
+ * Proje yöneticisinin yayımdaki bir ürünü VİTRİNDEN KALDIRMASI (2 Kasım 2026).
+ *
+ * Ürün SİLİNMEZ: sahibinin beyanıdır ve profilinde kalır. Kaldırma bir
+ * merkez kararıdır ve ret ile aynı alana yazılır — sahibi ürününde "markette
+ * yayımlanmadı" görür, düzenleyip yeniden gönderebilir. Gerekçe isteğe bağlı;
+ * boşsa sahibine standart bir cümle gider.
+ */
+export async function urunVitrindenKaldirEylemi(
+  veri: FormData,
+): Promise<void> {
+  const kullanici = await oturumKullanicisiZorunlu();
+  if (!urunMarketOnayiVerebilirMi(kullanici)) {
+    throw new YetkiHatasi("Ürünü vitrinden kaldıramazsınız.");
+  }
+
+  const urunId = Number.parseInt(String(veri.get("urunId") ?? ""), 10);
+  if (!Number.isFinite(urunId)) throw new BulunamadiHatasi();
+
+  const urun = await prisma.kullaniciKazanim.findFirst({
+    where: { id: urunId, tip: "URUN" },
+    select: {
+      id: true,
+      baslik: true,
+      kullaniciId: true,
+      markettePaylasilsin: true,
+      marketOnayDurumu: true,
+    },
+  });
+  if (!urun) throw new BulunamadiHatasi();
+  if (!urunVitrindeMi(urun)) {
+    redirect(
+      `${KOK}/${urun.id}?hata=${encodeURIComponent("Bu ürün zaten vitrinde değil.")}`,
+    );
+  }
+
+  const gerekce =
+    String(veri.get("gerekce") ?? "").trim().slice(0, 500) ||
+    "Proje yöneticisi ürünü vitrinden kaldırdı.";
+
+  await prisma.kullaniciKazanim.update({
+    where: { id: urun.id },
+    data: {
+      marketOnayDurumu: "REDDEDILDI",
+      marketKararVerenKullaniciId: kullanici.id,
+      marketKararTarihi: new Date(),
+      marketRetGerekcesi: gerekce,
+    },
+  });
+
+  await bildirimGonder({
+    kullaniciId: urun.kullaniciId,
+    kod: BILDIRIM_KODLARI.URUN_MARKET_KARARI,
+    degiskenler: {
+      urunAdi: urun.baslik,
+      sonuc: "vitrinden kaldırıldı",
+      gerekce,
+    },
+  });
+
+  await erisimLogla({
+    kullaniciId: kullanici.id,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: urun.kullaniciId,
+    detay: `Ürün vitrinden kaldırıldı: ${urun.baslik}`,
+  });
+
+  revalidatePath(KOK);
+  revalidatePath(`${KOK}/${urun.id}`);
+  revalidatePath("/panel");
+  redirect(`${KOK}?durum=urun-kaldirildi`);
 }

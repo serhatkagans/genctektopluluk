@@ -86,6 +86,7 @@ import {
 import {
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
+  faaliyeteKatilabilirMi,
   ekYukleyebilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
@@ -491,7 +492,21 @@ export default async function FaaliyetDetaySayfasi({
     kendiAdinaBasvurabilir &&
     (pencere === "ACIK" ||
       (kendiBasvurum !== null && kendiBasvurum.durum !== "GERI_CEKILDI"));
-  const basvuruKarari = kendiAdinaBasvurabilir
+  /*
+   * BAŞKA İLİN / OKULUN ETKİNLİĞİ GÖRÜNÜR AMA BAŞVURULMAZ (2 Kasım 2026).
+   * Aynı kapı sunucu eyleminde de var (basvuruYapEylemi); burada yalnızca
+   * düğme yerine nedeni yazılıyor.
+   */
+  const katilimKapsamdaMi = faaliyeteKatilabilirMi(kullanici, faaliyet);
+  const basvuruKarari = !katilimKapsamdaMi
+    ? {
+        olurMu: false,
+        neden:
+          faaliyet.kapsam === "OKUL"
+            ? "Bu okul içi bir etkinlik; yalnızca o okulun öğrencileri ve öğretmenleri başvurabilir."
+            : "Bu il etkinliği; yalnızca o ildeki kullanıcılar başvurabilir.",
+      }
+    : kendiAdinaBasvurabilir
     ? basvuruYapilabilirMi({
         pencere,
         onayDurumu: faaliyet.onayDurumu,

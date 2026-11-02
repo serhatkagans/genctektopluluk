@@ -551,6 +551,35 @@ export function faaliyetGorunurMu(
 }
 
 /**
+ * Kişi bu faaliyete KATILIMCI OLARAK başvurabilir mi — kapsam bakımından
+ * (2 Kasım 2026 · istek: "tüm etkinlikleri herkes görebilsin ama diğer
+ * illere başvuramasın").
+ *
+ * Okul içi faaliyete yalnızca o okul, il faaliyetine yalnızca o il; ulusal ve
+ * uluslararası çağrıya herkes. Pencere, onay, kontenjan gibi öbür koşullar
+ * kurallar.ts · basvuruYapilabilirMi'de. SQL karşılığı kapsam.ts ·
+ * faaliyetKatilimFiltresi.
+ */
+export function faaliyeteKatilabilirMi(
+  kisi: { kurumKodu: number | null; ilKodu: string | null },
+  faaliyet: {
+    kapsam: Kapsam;
+    kurumKodu: number | null;
+    ilKodu: string | null;
+  },
+): boolean {
+  switch (faaliyet.kapsam) {
+    case "OKUL":
+      return faaliyet.kurumKodu !== null && faaliyet.kurumKodu === kisi.kurumKodu;
+    case "IL":
+      return faaliyet.ilKodu !== null && faaliyet.ilKodu === kisi.ilKodu;
+    case "ULUSAL":
+    case "ULUSLARARASI":
+      return true;
+  }
+}
+
+/**
  * Faaliyeti açan kullanıcı görevden ayrıldığında değerlendirme ve moderasyon
  * yetkisi boşta kalmaz; faaliyetin iline bakan il koordinatörüne düşer
  * (references/domain-rules.md Bölüm 11). Proje yöneticisi zaten her durumda

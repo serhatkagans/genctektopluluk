@@ -2,6 +2,7 @@ import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { baglantiGecerliMi } from "@/lib/kazanim/kurallar";
 import { urunGorunurMu } from "@/lib/market/kurallar";
+import { urunMarketOnayiVerebilirMi } from "@/lib/yetki/izinler";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ export async function GET(
         marketOnayDurumu: baglanti.kazanim.marketOnayDurumu,
       },
       kullanici.id,
+      urunMarketOnayiVerebilirMi(kullanici),
     )
   ) {
     return new Response("Bulunamadı", { status: 404 });

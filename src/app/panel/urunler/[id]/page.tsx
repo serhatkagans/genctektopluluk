@@ -4,15 +4,18 @@ import {
   ExternalLink,
   Pencil,
   Store,
+  Trash2,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  BilgiKutusu,
   Kart,
   KirintiYolu,
   SayfaBasligi,
   SINIF_BIRINCIL_BUTON,
+  SINIF_GIRDI,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
@@ -23,12 +26,17 @@ import {
   sayiYaz,
   urunGorunurMu,
   urunVitrinDurumu,
+  urunVitrindeMi,
 } from "@/lib/market/kurallar";
 import { gorselMi, kapakEkiSec } from "@/lib/kazanim/kapak";
 import { uygulamaYolu } from "@/lib/ortam";
 import { tarihYaz } from "@/lib/tarih";
+import { urunMarketOnayiVerebilirMi } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
-import { paylasimiDegistirEylemi } from "../eylemler";
+import {
+  paylasimiDegistirEylemi,
+  urunVitrindenKaldirEylemi,
+} from "../eylemler";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +53,15 @@ export const dynamic = "force-dynamic";
  */
 export default async function UrunDetaySayfasi({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ durum?: string; hata?: string }>;
 }) {
   const { id: hamId } = await params;
+  const { durum, hata } = await searchParams;
   const kullanici = await oturumKullanicisiZorunlu();
+  const kararVerenMi = urunMarketOnayiVerebilirMi(kullanici);
 
   const id = Number.parseInt(hamId, 10);
   if (!Number.isInteger(id)) notFound();
@@ -99,14 +111,18 @@ export default async function UrunDetaySayfasi({
         marketOnayDurumu: urun.marketOnayDurumu,
       },
       kullanici.id,
+      kararVerenMi,
     )
   ) {
     notFound();
   }
 
   const kendisiMi = urun.kullaniciId === kullanici.id;
+  const sahipAdi = `${urun.kullanici.ad} ${urun.kullanici.soyad}`;
+  const vitrindeMi = urunVitrindeMi(urun);
 
-  if (sayacArtmaliMi(urun.kullaniciId, kullanici.id)) {
+  // Onay için bakan yöneticinin görüşü vitrin sayısı değil.
+  if (vitrindeMi && sayacArtmaliMi(urun.kullaniciId, kullanici.id)) {
     await prisma.kullaniciKazanim.update({
       where: { id: urun.id },
       data: { goruntulenmeSayisi: { increment: 1 } },
@@ -166,6 +182,78 @@ export default async function UrunDetaySayfasi({
            bir navigasyon basardı. */
         geri={null}
       />
+
+      {durum === "urun-guncellendi" && (
+        <BilgiKutusu cesit="olumlu">Ürün güncellendi.</BilgiKutusu>
+      )}
+      {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      {/*
+        PROJE YÖNETİCİSİ ARAÇLARI (2 Kasım 2026 · istek: "vitrinde onaylanmış
+        yayınlanmış ürünleri kaldırma olsun, düzenleme yetkisi de olsun").
+        Kendi ürününde sahibinin kartı yeterli; burada başkasının ürünü.
+      */}
+      {kararVerenMi && !kendisiMi && (
+        <Kart className="space-y-3">
+          <p className="text-sm text-metin">
+            {vitrindeMi ? (
+              <>
+                Bu ürün <strong>vitrinde yayında</strong>. Ekleyen:{" "}
+                <strong>{sahipAdi}</strong>.
+              </>
+            ) : urun.marketOnayDurumu === "BEKLIYOR" ? (
+              <>
+                Bu ürün <strong>onayınızı bekliyor</strong>. Ekleyen:{" "}
+                <strong>{sahipAdi}</strong>. Kararı vitrin sayfasındaki
+                kuyruktan verebilirsiniz.
+              </>
+            ) : (
+              <>
+                Bu ürün <strong>vitrinde yayımlanmıyor</strong>. Ekleyen:{" "}
+                <strong>{sahipAdi}</strong>.
+              </>
+            )}
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <Link
+              href={`/panel/urunler/${urun.id}/duzenle`}
+              className={SINIF_IKINCIL_BUTON}
+            >
+              <Pencil size={15} aria-hidden />
+              Düzenle
+            </Link>
+            {vitrindeMi && (
+              <form
+                action={urunVitrindenKaldirEylemi}
+                className="flex grow flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="urunId" value={urun.id} />
+                <label className="block grow">
+                  <span className="text-sm font-medium text-metin">
+                    Kaldırma gerekçesi{" "}
+                    <span className="text-metin-yumusak">
+                      (isteğe bağlı, sahibine iletilir)
+                    </span>
+                  </span>
+                  <input
+                    type="text"
+                    name="gerekce"
+                    maxLength={500}
+                    className={SINIF_GIRDI}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-hata-cizgi px-3 py-2 text-sm font-medium text-hata-metin transition hover:bg-hata-zemin"
+                >
+                  <Trash2 size={15} aria-hidden />
+                  Vitrinden kaldır
+                </button>
+              </form>
+            )}
+          </div>
+        </Kart>
+      )}
 
       {/*
         ÜRÜN GÖRSELİ · KAPAK. Başlığın hemen altında, tek başına: vitrin
@@ -269,7 +357,8 @@ export default async function UrunDetaySayfasi({
               ? "Ekleyen öğrenci"
               : kume === "OGRETMEN"
                 ? "Ekleyen öğretmen"
-                : "Ekosistem ürünü"}
+                : "Ekleyen"}
+            : {sahipAdi}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Eye size={14} aria-hidden />

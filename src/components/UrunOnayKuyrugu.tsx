@@ -90,11 +90,25 @@ export function UrunOnayKuyrugu({
                   .filter(Boolean)
                   .join(" · ")}
               </p>
+              {/*
+                AÇIKLAMA KESİLMEDEN (2 Kasım 2026 · istek: "vitrine bir şeyler
+                giriliyor ama ne olduğu belli değil, onaylayacak kişi ne
+                olduğunu göremiyor"). Dört satırda kesiliyordu; karar
+                verilecek metin yarım okunmamalı.
+              */}
               {urun.aciklama && (
-                <p className="mt-3 line-clamp-4 whitespace-pre-line text-metin">
+                <p className="mt-3 whitespace-pre-line text-metin">
                   {urun.aciklama}
                 </p>
               )}
+              <p className="mt-2">
+                <Link
+                  href={`/panel/urunler/${urun.id}`}
+                  className="text-sm font-medium text-vurgu-metin underline underline-offset-2"
+                >
+                  Görselleri ve bağlantılarıyla ürün sayfasını aç
+                </Link>
+              </p>
 
               {/*
                 ONAY VE RET AYNI FORMDA, iki düğmeyle: gerekçe alanı ikisinde de

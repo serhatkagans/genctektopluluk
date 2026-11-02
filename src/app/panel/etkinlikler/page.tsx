@@ -74,6 +74,7 @@ import {
   basvuruYapabilirMi,
   danismanMi,
   faaliyetDisaAktarabilirMi,
+  faaliyeteKatilabilirMi,
   belgeUretenRoldeMi,
   disKullaniciMi,
   etkinlikRaporlariGorebilirMi,
@@ -152,6 +153,8 @@ interface EtkinlikKarti {
   kontenjan: KontenjanDurumu;
   pencere: PencereDurumu;
   benimBasvurum: BasvuruDurumu | null;
+  /** Kişinin il/okulu bu etkinliğe başvurmaya uygun mu (2 Kasım 2026). */
+  katilabilirMi: boolean;
   raporBekliyor: boolean;
   benimActigim: boolean;
   /** Seçilmiş katılımcı sayısı (Aşama 6c). */
@@ -657,8 +660,10 @@ function KartListesi({ kartlar }: { kartlar: EtkinlikKarti[] }) {
                     etkinlikte basılır — başvurmuş kişiye "Başvur" demek,
                     ikinci bir başvuru yapabileceğini ima ederdi.
                   */}
+                  {/* Başka ilin/okulun etkinliği görünür ama başvurulmaz. */}
                   {kart.durum === "AKTIF" &&
                     kart.pencere === "ACIK" &&
+                    kart.katilabilirMi &&
                     !kart.benimBasvurum && (
                       <Link
                         href={`/panel/etkinlikler/${kart.id}`}
@@ -789,6 +794,8 @@ export default async function FaaliyetlerSayfasi({
           aciklama: true,
           tarih: true,
           kapsam: true,
+          ilKodu: true,
+          kurumKodu: true,
           etkinlikKategorisi: true,
           temelEtkinlikProgrami: { select: { ad: true } },
           kontenjan: true,
@@ -963,6 +970,7 @@ export default async function FaaliyetlerSayfasi({
     kontenjan: kontenjanDurumu(faaliyet.basvurular, faaliyet.kontenjan),
     pencere: basvuruPenceresi(faaliyet, simdi),
     benimBasvurum: basvuruDurumum.get(faaliyet.id) ?? null,
+    katilabilirMi: faaliyeteKatilabilirMi(kullanici, faaliyet),
     raporBekliyor:
       raporYazabilir &&
       faaliyet.rapor === null &&

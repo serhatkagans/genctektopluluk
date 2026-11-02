@@ -145,6 +145,7 @@ import {
   ogrenciMi,
   referansTutabilirMi,
   projeYoneticisiMi,
+  faaliyeteKatilabilirMi,
 } from "@/lib/yetki/izinler";
 import {
   faaliyetKapsamFiltresi,
@@ -765,6 +766,8 @@ export default async function PanelSayfasi({
       ad: true,
       tarih: true,
       kapsam: true,
+      ilKodu: true,
+      kurumKodu: true,
       durum: true,
       onayDurumu: true,
       duzenleyenBirim: true,
@@ -781,8 +784,10 @@ export default async function PanelSayfasi({
     ? seritteGosterilecekler(
         takvimFaaliyetleri.filter(
           (faaliyet) =>
-            faaliyet.onayDurumu === "ONAY_GEREKMEZ" ||
-            faaliyet.onayDurumu === "ONAYLANDI",
+            (faaliyet.onayDurumu === "ONAY_GEREKMEZ" ||
+              faaliyet.onayDurumu === "ONAYLANDI") &&
+            // Başka ilin etkinliği görünür ama şeride (başvuru çağrısı) girmez.
+            faaliyeteKatilabilirMi(kullanici, faaliyet),
         ),
         simdi,
       )

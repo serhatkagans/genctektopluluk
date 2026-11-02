@@ -1023,6 +1023,7 @@ function KazanimAlanlari({
   izinliBelgeTipleri,
   belgeSinirlari,
   belgeAlaniVarMi,
+  paylasimKutusuVarMi = true,
 }: {
   tanim: KazanimTipiTanimi;
   /** Düzenlenen kayıt; yeni kayıt formunda yok. */
@@ -1030,6 +1031,8 @@ function KazanimAlanlari({
   izinliBelgeTipleri: string[];
   belgeSinirlari: BelgeSinirlari;
   belgeAlaniVarMi: boolean;
+  /** Proje yöneticisi başkasının ürününü düzenlerken paylaşım kutusu yok. */
+  paylasimKutusuVarMi?: boolean;
 }) {
   /*
    * ESKİ SERBEST METİN LİSTEYE EKLENİR (bkz. DUZENLEYEN_SECENEKLERI): alan 22
@@ -1228,6 +1231,7 @@ function KazanimAlanlari({
             </span>
           </label>
 
+          {paylasimKutusuVarMi && (
           <label className="flex items-start gap-2 sm:col-span-2">
             <input
               type="checkbox"
@@ -1263,6 +1267,7 @@ function KazanimAlanlari({
               </Link>
             </span>
           </label>
+          )}
 
           <fieldset className="sm:col-span-2">
             <legend className="text-sm font-medium text-metin">
@@ -1696,12 +1701,14 @@ export function KayitDuzenlemeFormu({
   izinliBelgeTipleri,
   belgeSinirlari,
   guncelleEylemi,
+  paylasimKutusuVarMi = true,
 }: {
   kazanim: KazanimSatiri;
   tanim: KazanimTipiTanimi;
   izinliBelgeTipleri: string[];
   belgeSinirlari: BelgeSinirlari;
   guncelleEylemi: Eylem;
+  paylasimKutusuVarMi?: boolean;
 }) {
   return (
     <form action={guncelleEylemi} className="space-y-4">
@@ -1718,6 +1725,7 @@ export function KayitDuzenlemeFormu({
         izinliBelgeTipleri={izinliBelgeTipleri}
         belgeSinirlari={belgeSinirlari}
         belgeAlaniVarMi={false}
+        paylasimKutusuVarMi={paylasimKutusuVarMi}
       />
 
       <button type="submit" className={SINIF_BIRINCIL_BUTON}>

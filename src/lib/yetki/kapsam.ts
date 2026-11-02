@@ -627,23 +627,19 @@ export function faaliyetKapsamFiltresi(
         ]
       : [];
 
+  /*
+   * YAYINDAKİ HER FAALİYET HERKESE GÖRÜNÜR (2 Kasım 2026 · istek: "tüm
+   * etkinlikleri herkes görebilsin ama diğer illere başvuramasın; Düzce
+   * açtığında Ankara görebilsin ama başvuramasın").
+   *
+   * Eskiden okul/il kapsamlı faaliyet yalnızca o okulda/ildekilere
+   * görünüyordu. Artık görünürlük kapsamdan bağımsız; kapsam yalnızca KİMİN
+   * BAŞVURABİLECEĞİNİ söylüyor (bkz. faaliyetKatilimFiltresi ve
+   * izinler.ts · faaliyeteKatilabilirMi — başvuru eylemi bunu sunucuda
+   * ayrıca denetler).
+   */
   const yayindaOlanlar: Prisma.FaaliyetWhereInput = {
     onayDurumu: { in: ["ONAY_GEREKMEZ", "ONAYLANDI"] },
-    OR: [
-      /* Ulusal ve uluslararası çağrılar herkese görünür. */
-      { kapsam: "ULUSAL" },
-      { kapsam: "ULUSLARARASI" },
-      ...(kullanici.kurumKodu !== null
-        ? [{ kapsam: "OKUL" as const, kurumKodu: kullanici.kurumKodu }]
-        : []),
-      ...(kullanici.ilKodu !== null
-        ? [{ kapsam: "IL" as const, ilKodu: kullanici.ilKodu }]
-        : []),
-      // İl koordinatörü kendi ilinin okul içi faaliyetlerini de görür.
-      ...(koordinatorIli !== null
-        ? [{ kapsam: "OKUL" as const, kurum: { ilKodu: koordinatorIli } }]
-        : []),
-    ],
   };
 
   // Kişinin kendi açtığı faaliyetler onay durumundan bağımsız görünür.
@@ -830,4 +826,30 @@ export function raporlanabilirFaaliyetFiltresi(
 
   // Danışman öğretmen yalnızca KENDİ açtığı faaliyetin raporunu yazar.
   return { duzenleyenKullaniciId: kullanici.id };
+}
+
+/**
+ * Kişinin BAŞVURABİLECEĞİ faaliyetler (2 Kasım 2026).
+ *
+ * Görünürlük genişleyince (bkz. faaliyetKapsamFiltresi) eski kapsam kuralı
+ * başvuru kuralına dönüştü: okul içi faaliyete o okul, il faaliyetine o il,
+ * ulusal/uluslararası faaliyete herkes başvurur. Bellek içi karşılığı
+ * izinler.ts · faaliyeteKatilabilirMi; ikisi aynı kuralı söylemeli.
+ */
+export function faaliyetKatilimFiltresi(kullanici: {
+  kurumKodu: number | null;
+  ilKodu: string | null;
+}): Prisma.FaaliyetWhereInput {
+  return {
+    OR: [
+      { kapsam: "ULUSAL" },
+      { kapsam: "ULUSLARARASI" },
+      ...(kullanici.kurumKodu !== null
+        ? [{ kapsam: "OKUL" as const, kurumKodu: kullanici.kurumKodu }]
+        : []),
+      ...(kullanici.ilKodu !== null
+        ? [{ kapsam: "IL" as const, ilKodu: kullanici.ilKodu }]
+        : []),
+    ],
+  };
 }

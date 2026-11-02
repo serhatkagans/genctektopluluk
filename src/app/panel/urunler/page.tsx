@@ -192,6 +192,11 @@ export default async function MarketSayfasi({
           Ürün karara bağlandı; sahibine bildirim gönderildi.
         </BilgiKutusu>
       )}
+      {durum === "urun-kaldirildi" && (
+        <BilgiKutusu cesit="olumlu">
+          Ürün vitrinden kaldırıldı; sahibine bildirim gönderildi.
+        </BilgiKutusu>
+      )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       {/*
@@ -365,13 +370,20 @@ export default async function MarketSayfasi({
                   Ürün çoğunlukla ekip işi; rozet ürünün kimin olduğunu değil,
                   vitrine kimin eklediğini söylüyor.
                 */
+                /*
+                  2 Kasım 2026 · istek: "vitrin önizlemede ekleyenin ismi
+                  çıksın". Üst şerit geliştiren ekibi gösterdiğinde ekleyen
+                  kişinin adı kartta hiç görünmüyordu; rozet artık ikisini
+                  birden söylüyor.
+                */
                 rozetler={
                   <Rozet cesit="vurgu">
                     {urun.sahipKumesi === "OGRENCI"
                       ? "Ekleyen öğrenci"
                       : urun.sahipKumesi === "OGRETMEN"
                         ? "Ekleyen öğretmen"
-                        : "Ekosistem ürünü"}
+                        : "Ekleyen"}
+                    : {urun.kullanici.ad} {urun.kullanici.soyad}
                   </Rozet>
                 }
                 altBilgi={

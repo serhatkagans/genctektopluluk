@@ -333,12 +333,22 @@ export function urunGorunurMu(
     "sahipKullaniciId" | "markettePaylasilsin" | "marketOnayDurumu"
   >,
   oturumKullaniciId: number,
+  /** Bakan kişi market kararını veriyor mu (proje yöneticisi)? */
+  kararVerenMi = false,
 ): boolean {
   /*
    * ONAY BEKLEYEN ÜRÜN DE YALNIZCA SAHİBİNE AÇIK (26 Ağustos 2026): karar
    * verilmeden ürünün bağlantısını paylaşan biri, onaydan geçmemiş bir
    * sayfayı dolaşıma sokabilirdi.
+   *
+   * KARARI VEREN İSTİSNA (2 Kasım 2026 · istek: "vitrine bir şeyler giriliyor
+   * ama ne olduğu belli değil, onaylayacak kişi ne olduğunu göremiyor").
+   * Kuyruktaki başlık ürün sayfasına gidiyordu ama bu kapı proje
+   * yöneticisini de 404'e düşürüyordu; karar kesik bir açıklamaya bakılarak
+   * veriliyordu. Paylaşılmak istenen (bekleyen, reddedilen, kaldırılan) her
+   * ürün artık karar verene açık; sahibinin paylaşmadığı ürün yine değil.
    */
+  if (kararVerenMi && urun.markettePaylasilsin) return true;
   return urunVitrindeMi(urun) || urun.sahipKullaniciId === oturumKullaniciId;
 }
 

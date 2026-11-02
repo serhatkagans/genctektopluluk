@@ -13,6 +13,7 @@ import {
   faaliyetAcabilirMi,
   faaliyetDisaAktarabilirMi,
   faaliyetGorunurMu,
+  faaliyeteKatilabilirMi,
   faaliyetIptalEdebilirMi,
   faaliyetOnayGerekiyorMu,
   calismaGrubuYoneticisiAtayabilirMi,
@@ -1255,5 +1256,25 @@ describe("öğrenci listesi · görev/rol süzgeci", () => {
     expect(
       koşullar.some((parca) => parca !== null && "mentorluk" in parca),
     ).toBe(false);
+  });
+});
+
+describe("faaliyete katılım kapsamı (2 Kasım 2026)", () => {
+  const kisi = { kurumKodu: 750001, ilKodu: "81" };
+  it("kendi ilinin etkinliğine başvurur, başka ilinkine başvuramaz", () => {
+    expect(
+      faaliyeteKatilabilirMi(kisi, { kapsam: "IL", ilKodu: "81", kurumKodu: null }),
+    ).toBe(true);
+    expect(
+      faaliyeteKatilabilirMi(kisi, { kapsam: "IL", ilKodu: "06", kurumKodu: null }),
+    ).toBe(false);
+  });
+  it("okul içi etkinliğe yalnızca o okul, ulusala herkes", () => {
+    expect(
+      faaliyeteKatilabilirMi(kisi, { kapsam: "OKUL", ilKodu: null, kurumKodu: 750002 }),
+    ).toBe(false);
+    expect(
+      faaliyeteKatilabilirMi(kisi, { kapsam: "ULUSAL", ilKodu: null, kurumKodu: null }),
+    ).toBe(true);
   });
 });

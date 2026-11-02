@@ -62,6 +62,7 @@ import {
   baskasiAdinaBasvurabilirMi,
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
+  faaliyeteKatilabilirMi,
   danismanMi,
   disKullaniciMi,
   ekYukleyebilirMi,
@@ -1151,6 +1152,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
   let adinaBasvuranKullaniciId: number | null = null;
   let katilimciAdSoyad = `${kullanici.ad} ${kullanici.soyad}`;
   let katilimciIlKodu = kullanici.ilKodu;
+  let katilimciKurumKodu = kullanici.kurumKodu;
 
   if (vekaletenMi) {
     if (!baskasiAdinaBasvurabilirMi(kullanici)) {
@@ -1171,6 +1173,7 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
         ad: true,
         soyad: true,
         ilKodu: true,
+        kurumKodu: true,
         roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
       },
     });
@@ -1191,10 +1194,31 @@ export async function basvuruYapEylemi(veri: FormData): Promise<void> {
     adinaBasvuranKullaniciId = kullanici.id;
     katilimciAdSoyad = `${ogrenci.ad} ${ogrenci.soyad}`;
     katilimciIlKodu = ogrenci.ilKodu;
+    katilimciKurumKodu = ogrenci.kurumKodu;
   } else if (!basvuruYapabilirMi(kullanici)) {
     // Kendi adına başvuru: proje yöneticisi dışında herkes yapabilir.
     throw new YetkiHatasi(
       "Etkinliği düzenleyen merkez, kendi etkinliğine katılımcı olarak başvuramaz.",
+    );
+  }
+
+  /*
+   * BAŞKA İLİN / OKULUN ETKİNLİĞİNE BAŞVURU YOK (2 Kasım 2026 · istek: "tüm
+   * etkinlikleri herkes görebilsin ama diğer illere başvuramasın"). Faaliyet
+   * artık herkese görünüyor; kapı burada, sunucuda. Vekaleten başvuruda
+   * bakılan, başvurulan ÖĞRENCİNİN ili/okulu.
+   */
+  if (
+    !faaliyeteKatilabilirMi(
+      { kurumKodu: katilimciKurumKodu, ilKodu: katilimciIlKodu },
+      faaliyet,
+    )
+  ) {
+    hataylaDon(
+      yol,
+      faaliyet.kapsam === "OKUL"
+        ? "Bu okul içi bir etkinlik; yalnızca o okulun öğrencileri ve öğretmenleri başvurabilir."
+        : "Bu il etkinliği; yalnızca o ildeki kullanıcılar başvurabilir.",
     );
   }
 

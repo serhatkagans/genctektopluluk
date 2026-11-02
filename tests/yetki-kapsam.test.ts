@@ -9,6 +9,7 @@ import {
   paydasKapsamFiltresi,
   paydasListeFiltresi,
   ulusalBasvuranFiltresi,
+  faaliyetKatilimFiltresi,
 } from "@/lib/yetki/kapsam";
 import { KOORDINATOR_ONAYINA_TABI_ROLLER } from "@/lib/yetki/izinler";
 import {
@@ -176,16 +177,25 @@ describe("faaliyet kapsam filtresi", () => {
     expect(faaliyetKapsamFiltresi(projeYoneticisiYap())).toEqual({});
   });
 
-  it("öğrenciye yalnızca yayında olan faaliyetler ve kendi kapsamı listelenir", () => {
+  it("öğrenciye yayındaki bütün faaliyetler listelenir, kapsamdan bağımsız", () => {
+    // 2 Kasım 2026: başka ilin etkinliği görünür; kapsam yalnızca başvuruyu sınırlar.
     const filtre = faaliyetKapsamFiltresi(
       ogrenciYap({ kurumKodu: 750001, ilKodu: "34" }),
     );
     const metin = metne(filtre);
     expect(metin).toContain("ONAYLANDI");
     expect(metin).toContain("ONAY_GEREKMEZ");
+    expect(metin).not.toContain('"kapsam"');
+    expect(metin).not.toContain("BEKLIYOR");
+  });
+
+  it("başvuru filtresi kişinin okulu, ili ve ulusal çağrılarla sınırlıdır", () => {
+    const metin = metne(
+      faaliyetKatilimFiltresi({ kurumKodu: 750001, ilKodu: "34" }),
+    );
     expect(metin).toContain("750001");
     expect(metin).toContain('"ilKodu":"34"');
-    expect(metin).not.toContain("BEKLIYOR");
+    expect(metin).toContain("ULUSAL");
   });
 
   it("kişinin kendi açtığı faaliyetler onay durumundan bağımsız görünür", () => {

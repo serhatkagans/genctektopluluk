@@ -23,6 +23,7 @@ import {
   ogrenciKapsamFiltresi,
   ogretmenKapsamFiltresi,
   paydasKapsamFiltresi,
+  faaliyetKatilimFiltresi,
 } from "@/lib/yetki/kapsam";
 import {
   danismanYap,
@@ -226,13 +227,15 @@ describe("kapsam filtreleri", () => {
     expect(filtre).toContain("PAYDAS_TEMSILCISI");
   });
 
-  it("etkinlik takvimi görünür ama okul kapsamı kapalıdır", () => {
-    // Dar başlangıçta bırakılan tek görünürlük: ulusal ve kendi ilindeki
-    // etkinlikler. Kurum kodu olmadığı için okul içi faaliyetler kapalı.
+  it("etkinlik takvimi görünür; başvuruda okul kapsamı kapalıdır", () => {
+    // 2 Kasım 2026: yayındaki her etkinlik görünür. Başvuru filtresinde
+    // kurum kodu olmadığı için okul içi faaliyetler kapalı.
     const filtre = metne(faaliyetKapsamFiltresi(mezunYap({ ilKodu: "34" })));
-    expect(filtre).toContain("ULUSAL");
-    expect(filtre).toContain('"kapsam":"IL"');
-    expect(filtre).not.toContain('"kapsam":"OKUL"');
+    expect(filtre).toContain("ONAYLANDI");
+    const katilim = metne(faaliyetKatilimFiltresi(mezunYap({ ilKodu: "34" })));
+    expect(katilim).toContain("ULUSAL");
+    expect(katilim).toContain('"kapsam":"IL"');
+    expect(katilim).not.toContain('"kapsam":"OKUL"');
   });
 });
 

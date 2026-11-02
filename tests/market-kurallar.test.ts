@@ -326,3 +326,17 @@ describe("urunPaylasimOnayAlanlari", () => {
     expect(bildirimGerekliMi).toBe(false);
   });
 });
+
+describe("karar veren onay bekleyen ürünü görür (2 Kasım 2026)", () => {
+  it("bekleyen ürün yöneticiye açık, paylaşılmayan değil", () => {
+    expect(
+      urunGorunurMu({ sahipKullaniciId: 1, markettePaylasilsin: true, marketOnayDurumu: "BEKLIYOR" }, 2, true),
+    ).toBe(true);
+    expect(
+      urunGorunurMu({ sahipKullaniciId: 1, markettePaylasilsin: true, marketOnayDurumu: "BEKLIYOR" }, 2),
+    ).toBe(false);
+    expect(
+      urunGorunurMu({ sahipKullaniciId: 1, markettePaylasilsin: false, marketOnayDurumu: "ONAY_GEREKMEZ" }, 2, true),
+    ).toBe(false);
+  });
+});
