@@ -65,27 +65,15 @@ export default async function SifreSifirlamaSayfasi({
           </p>
         </BilgiKutusu>
         {/*
-          2 Kasım 2026 · istek: "diğer kişilere mail gitmiyormuş". Hotmail/
-          Outlook sunucumuzun IP'sini engelliyor; kayıtta yazılan adres yanlış
-          ya da boşsa da hiçbir şey gitmiyor. Kişi beklemesin, yöneticiye
-          yönelsin.
+          2 Kasım 2026 · istek: "diğer kişilere mail gitmiyormuş". Kayıtta
+          yazılan adres yanlış ya da boşsa hiçbir şey gitmiyor; kişi beklemesin,
+          yöneticiye yönelsin.
         */}
         <BilgiKutusu cesit="uyari" className="mt-6">
-          <p>
-            <strong>Birkaç dakika içinde e-posta gelmezse</strong> proje
-            yöneticisine başvurun; size geçici bir şifre verebilir. Şu
-            durumlarda e-posta gelmeyebilir:
-          </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>
-              E-posta adresiniz <strong>hotmail, outlook ya da live</strong>{" "}
-              uzantılıysa,
-            </li>
-            <li>
-              Kayıt olurken e-posta adresinizi yazmadıysanız ya da yanlış
-              yazdıysanız.
-            </li>
-          </ul>
+          <strong>Birkaç dakika içinde e-posta gelmezse</strong> proje
+          yöneticisine başvurun; size geçici bir şifre verebilir. Kayıt olurken
+          e-posta adresinizi yazmadıysanız ya da yanlış yazdıysanız e-posta
+          gelmez.
         </BilgiKutusu>
         <p className="mt-4 text-sm">
           <Link href="/giris" className="font-medium text-vurgu-metin">
