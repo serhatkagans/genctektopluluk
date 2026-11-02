@@ -56,7 +56,7 @@ export default async function SifreSifirlamaSayfasi({
           <p className="flex items-start gap-2">
             <MailCheck size={18} className="mt-0.5 shrink-0" aria-hidden />
             <span>
-              Bilgileriniz kayıtla eşleşiyorsa, kayıtlı e-posta adresinize şifre
+              T.C. kimlik numaranız kayıtlıysa, kayıtlı e-posta adresinize şifre
               sıfırlama bağlantısı gönderildi. Bağlantı{" "}
               {SIFIRLAMA_GECERLILIK_DAKIKA} dakika geçerlidir ve bir kez
               kullanılabilir. Gelen kutunuzda yoksa gereksiz (spam) klasörüne
@@ -64,10 +64,29 @@ export default async function SifreSifirlamaSayfasi({
             </span>
           </p>
         </BilgiKutusu>
-        <p className="mt-6 text-sm text-metin-yumusak">
-          E-posta gelmediyse proje yöneticisine başvurun; size geçici bir şifre
-          verebilir.
-        </p>
+        {/*
+          2 Kasım 2026 · istek: "diğer kişilere mail gitmiyormuş". Hotmail/
+          Outlook sunucumuzun IP'sini engelliyor; kayıtta yazılan adres yanlış
+          ya da boşsa da hiçbir şey gitmiyor. Kişi beklemesin, yöneticiye
+          yönelsin.
+        */}
+        <BilgiKutusu cesit="uyari" className="mt-6">
+          <p>
+            <strong>Birkaç dakika içinde e-posta gelmezse</strong> proje
+            yöneticisine başvurun; size geçici bir şifre verebilir. Şu
+            durumlarda e-posta gelmeyebilir:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>
+              E-posta adresiniz <strong>hotmail, outlook ya da live</strong>{" "}
+              uzantılıysa,
+            </li>
+            <li>
+              Kayıt olurken e-posta adresinizi yazmadıysanız ya da yanlış
+              yazdıysanız.
+            </li>
+          </ul>
+        </BilgiKutusu>
         <p className="mt-4 text-sm">
           <Link href="/giris" className="font-medium text-vurgu-metin">
             Giriş ekranına dön
@@ -114,9 +133,8 @@ export default async function SifreSifirlamaSayfasi({
         genislik="max-w-xl"
       >
         <p className="mt-6 text-sm text-metin-yumusak">
-          T.C. kimlik numaranızı ve kayıt olurken yazdığınız e-posta adresini
-          girin. Bilgiler eşleşirse şifrenizi yenilemeniz için o adrese bir
-          bağlantı göndereceğiz.
+          T.C. kimlik numaranızı girin. Şifrenizi yenilemeniz için kayıt
+          olurken yazdığınız e-posta adresine bir bağlantı göndereceğiz.
         </p>
 
         <form action={kayitSifirlamaIsteEylemi} className="mt-6 space-y-4">
@@ -131,18 +149,6 @@ export default async function SifreSifirlamaSayfasi({
               pattern="[0-9 ]{11,14}"
               maxLength={14}
               autoComplete="username"
-              className={SINIF_GIRDI}
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-metin-yumusak">
-              E-posta adresiniz
-            </span>
-            <input
-              type="email"
-              name="eposta"
-              required
-              autoComplete="email"
               className={SINIF_GIRDI}
             />
           </label>

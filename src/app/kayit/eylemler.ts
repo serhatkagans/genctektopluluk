@@ -23,11 +23,15 @@ const kayitSiniri = paylasilanHizSiniri({
 /**
  * Kayıt formu eylemi.
  *
- * Hata dönüşünde yalnızca il ve tip adres çubuğuna taşınır: şifre, T.C.
- * kimlik numarası ve ad tarayıcı geçmişine düşmemeli. Kişi formu yeniden
- * doldurur.
+ * HATA ARTIK YÖNLENDİRMEYLE DEĞİL, DÖNÜŞ DEĞERİYLE (2 Kasım 2026 · istek:
+ * "full doldurmama rağmen bu hatayı aldım"). Eskiden her hata sayfayı
+ * yeniden açıyor ve kişi bütün formu baştan dolduruyordu. Şimdi form
+ * (components/KayitFormu.tsx) mesajı yerinde gösteriyor, girilenler duruyor.
+ * Şifre ve kimlik numarası yine adres çubuğuna düşmüyor.
  */
-export async function kayitEylemi(veri: FormData): Promise<void> {
+export async function kayitEylemi(
+  veri: FormData,
+): Promise<{ hata: string } | undefined> {
   const metin = (alan: string) => String(veri.get(alan) ?? "");
 
   const girdi = {
@@ -50,10 +54,6 @@ export async function kayitEylemi(veri: FormData): Promise<void> {
     sifreTekrar: metin("sifreTekrar"),
   };
 
-  const temelYol = `/kayit?tip=${encodeURIComponent(girdi.tip)}&il=${encodeURIComponent(girdi.ilKodu)}`;
-  const hataYolu = (mesaj: string) =>
-    `${temelYol}&hata=${encodeURIComponent(mesaj)}`;
-
   if (ortam.AUTH_PROVIDER !== "kayit") {
     redirect(`/giris?hata=${encodeURIComponent("Kayıt kapalı.")}`);
   }
@@ -63,21 +63,19 @@ export async function kayitEylemi(veri: FormData): Promise<void> {
       basliklardanAnahtar(await headers(), ortam.GUVENILEN_VEKIL_SAYISI),
     )
   ) {
-    redirect(
-      hataYolu(
-        `Kısa sürede çok fazla kayıt denemesi yapıldı. ${PENCERE_DAKIKA} dakika sonra tekrar deneyin.`,
-      ),
-    );
+    return {
+      hata: `Kısa sürede çok fazla kayıt denemesi yapıldı. ${PENCERE_DAKIKA} dakika sonra tekrar deneyin.`,
+    };
   }
 
   const karar = kayitGirdisiniCoz(girdi, new Date());
   if (!karar.olurMu) {
-    redirect(hataYolu(karar.neden));
+    return { hata: karar.neden };
   }
 
   const sonuc = await kayitOl(karar.kayit);
   if (sonuc.durum === "BASARISIZ") {
-    redirect(hataYolu(sonuc.mesaj));
+    return { hata: sonuc.mesaj };
   }
 
   redirect("/giris?kayit=tamam");

@@ -20,13 +20,15 @@ import { tcKimlikNoNormalle } from "./kurallar";
  * (28 Ekim 2026 · istek: "kullanıcılar şifrelerini unutunca sıfırlama için
  * bir şey yok, kendileri nasıl şifrelerini yenileyecekler").
  *
- * Akış dış kullanıcı sıfırlamasının aynısıdır (dis-kimlik/sifirlama.ts):
- * kişi T.C. kimlik numarasını ve e-postasını yazar, ikisi eşleşirse bağlantı
- * PROFİLDEKİ e-postaya gider. Yazılan adrese değil: adres yalnızca eşleşme
- * sınaması için sorulur, ileti hep kayıtlı adrese gider.
+ * Kişi YALNIZCA T.C. kimlik numarasını yazar; bağlantı PROFİLDEKİ e-postaya
+ * gider (2 Kasım 2026 · istek: "diğer kişilere mail gitmiyormuş"). Önceden
+ * e-posta da soruluyor ve kayıttakiyle birebir tutmazsa sessizce hiçbir şey
+ * gönderilmiyordu; öğrenciler kayıtta hangi adresi yazdığını hatırlamadığı
+ * için isteklerin çoğu boşa gidiyordu. Numara yabancı birinin elinde olsa da
+ * ileti yine hesabın KENDİ adresine gider; yabancı bağlantıyı göremez.
  *
- * HER DURUMDA AYNI SONUÇ. Numara kayıtlı olsa da olmasa da, e-posta tutsa da
- * tutmasa da ekran "gönderildi" der; aksi hâlde ekran "bu T.C. numarası
+ * HER DURUMDA AYNI SONUÇ. Numara kayıtlı olsa da olmasa da ekran
+ * "gönderildi" der; aksi hâlde ekran "bu T.C. numarası
  * sistemde var mı" sorusunu cevaplayan bir araca dönerdi.
  *
  * Bağlantıda T.C. numarası DEĞİL kullanıcı numarası taşınır: adres çubuğu,
@@ -52,13 +54,11 @@ async function profilEpostasi(kullaniciId: number): Promise<string | null> {
 
 export async function kayitSifirlamaIste(
   tcGirdisi: string,
-  epostaGirdisi: string,
   baglantiKur: (kullaniciId: number, jeton: string) => string,
   simdi: Date = new Date(),
 ): Promise<void> {
   const tcKimlikNo = tcKimlikNoNormalle(tcGirdisi);
-  const eposta = epostaNormalle(epostaGirdisi);
-  if (!tcKimlikNo || !eposta) return;
+  if (!tcKimlikNo) return;
 
   const kimlik = await prisma.kayitKimlik.findFirst({
     where: { kullanici: { authProviderId: tcKimlikNo } },
@@ -71,7 +71,7 @@ export async function kayitSifirlamaIste(
   if (!kimlik || !kimlik.kullanici.aktif) return;
 
   const kayitliAdres = await profilEpostasi(kimlik.kullaniciId);
-  if (!kayitliAdres || kayitliAdres !== eposta) return;
+  if (!kayitliAdres) return;
 
   // Az önce verilmiş, hâlâ geçerli bir bağlantı varsa yenisi üretilmez.
   if (!sifirlamaYenidenIstenebilirMi(kimlik.sifirlamaSonGecerlilik, simdi)) {

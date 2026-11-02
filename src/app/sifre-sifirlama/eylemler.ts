@@ -75,15 +75,14 @@ export async function sifirlamaTamamlaEylemi(veri: FormData): Promise<void> {
 
 /*
  * ÖĞRENCİ VE ÖĞRETMEN (kayıt formuyla açılmış hesaplar · 28 Ekim 2026).
- * Kişi T.C. numarasını ve e-postasını yazar; bağlantı profildeki e-postaya
+ * Kişi yalnızca T.C. numarasını yazar; bağlantı profildeki e-postaya
  * gider (bkz. lib/kayit/sifirlama.ts). Bağlantıda T.C. numarası taşınmaz.
  */
 export async function kayitSifirlamaIsteEylemi(veri: FormData): Promise<void> {
   const tcKimlikNo = String(veri.get("tcKimlikNo") ?? "");
-  const eposta = String(veri.get("eposta") ?? "");
   const kok = await istekKoku();
 
-  await kayitSifirlamaIste(tcKimlikNo, eposta, (kullaniciId, jeton) => {
+  await kayitSifirlamaIste(tcKimlikNo, (kullaniciId, jeton) => {
     const sorgu = `?k=${kullaniciId}&jeton=${encodeURIComponent(jeton)}`;
     return `${kok}${uygulamaYolu("/sifre-sifirlama")}${sorgu}`;
   });

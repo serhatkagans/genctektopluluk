@@ -185,9 +185,26 @@ export function sinifCoz(
    * Şube İSTEĞE BAĞLI: bazı okullarda şube yok ya da öğrenci bilmiyor.
    * `kullanici.sinif` 10 karakter; "12-A" biçimi e-Okul'dakiyle aynı.
    */
-  const sube = subeHam.trim().toLocaleUpperCase("tr-TR");
+  /*
+   * HOŞGÖRÜLÜ OKUMA (2 Kasım 2026 · istek: "full doldurmama rağmen bu hatayı
+   * aldım"). Öğrenciler şube kutusuna e-Okul'daki gibi "9-A", "12 B",
+   * "A şubesi" yazıyordu ve kayıt "şube bir ya da iki harf olmalı" diye
+   * reddediliyordu. Boşluk, tire, eğik çizgi, "şube" kelimesi ve baştaki
+   * sınıf numarası atılır; geriye kalan harf(ler) şubedir.
+   */
+  let sube = subeHam
+    .toLocaleUpperCase("tr-TR")
+    .replace(/ŞUBES[İI]|ŞUBE|SINIF|HAZIRLIK/g, "")
+    .replace(/[\s\-/.,]/g, "");
+  if (/^\d/.test(seviye) && sube.startsWith(seviye)) {
+    sube = sube.slice(seviye.length);
+  }
   if (sube && !/^[A-ZÇĞİÖŞÜ]{1,2}$/.test(sube)) {
-    return { olurMu: false, neden: "Şube bir ya da iki harf olmalı (ör. A)." };
+    return {
+      olurMu: false,
+      neden:
+        "Şube kutusuna yalnızca şube harfini yazın (ör. A). Sınıfı yukarıdaki listeden seçin; şubeyi bilmiyorsanız boş bırakabilirsiniz.",
+    };
   }
   return { olurMu: true, sinif: sube ? `${seviye}-${sube}` : seviye };
 }

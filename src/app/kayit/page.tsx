@@ -1,8 +1,8 @@
-import { GraduationCap, School, UserPlus } from "lucide-react";
-import Link from "next/link";
+import { GraduationCap, School } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ILLER } from "../../../prisma/veri/iller";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
+import { KayitFormu } from "@/components/KayitFormu";
 import { KayitOkulSecimi } from "@/components/KayitOkulSecimi";
 import {
   BilgiKutusu,
@@ -153,12 +153,13 @@ export default async function KayitSayfasi({
 
       {okullar.length === 0 && (
         <BilgiKutusu cesit="uyari" className="mt-6">
-          {ilAdi} ilinde kayıtlı okul bulunamadı. Okul listesinden &quot;Okulum
-          listede yok&quot; seçeneğini seçip okulunuzun adını yazabilirsiniz.
+          {ilAdi} için okul listesi henüz boş — bu bir hata değil. Okul
+          kutusunda &quot;Okulum listede yok&quot; seçeneğini seçip okulunuzun
+          adını yazmanız yeterli.
         </BilgiKutusu>
       )}
 
-      <form action={kayitEylemi} className="mt-6 space-y-8">
+      <KayitFormu eylem={kayitEylemi} sifreAltSiniri={SIFRE_ALT_SINIRI}>
         <input type="hidden" name="tip" value={secilenTip} />
         <input type="hidden" name="ilKodu" value={secilenIl} />
 
@@ -300,10 +301,14 @@ export default async function KayitSayfasi({
                   </span>
                   <input
                     name="sube"
-                    maxLength={2}
+                    maxLength={10}
                     placeholder="A"
+                    autoCapitalize="characters"
                     className={SINIF_GIRDI}
                   />
+                  <span className="mt-1 block text-xs text-metin-yumusak">
+                    Yalnızca harf: A, B, C…
+                  </span>
                 </label>
               </>
             ) : (
@@ -355,22 +360,13 @@ export default async function KayitSayfasi({
               />
             </label>
           </div>
-          <p className="mt-2 text-xs text-metin-yumusak">
+          <p className="mt-2 text-sm font-medium text-metin">
             En az {SIFRE_ALT_SINIRI} karakter; adınızı, soyadınızı ya da T.C.
             kimlik numaranızı içeremez.
           </p>
         </Kart>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-            <UserPlus size={16} aria-hidden />
-            Kayıt ol
-          </button>
-          <Link href="/giris" className="text-sm font-medium text-vurgu-metin">
-            Zaten hesabım var
-          </Link>
-        </div>
-      </form>
+      </KayitFormu>
     </KamuSayfaDuzeni>
   );
 }
