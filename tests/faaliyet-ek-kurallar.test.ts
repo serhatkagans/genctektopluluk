@@ -1,5 +1,8 @@
 import {
   type EkSinirlari,
+  FAALIYET_MAKS_EK,
+  KAZANIM_MAKS_EK,
+  ekAdediUygunMu,
   ekKabulEdilirMi,
   ekTuruBelirle,
   yorumKabulEdilirMi,
@@ -113,5 +116,20 @@ describe("yorum kabulü", () => {
 
   it("2000 karakteri aşan yorum reddedilir", () => {
     expect(yorumKabulEdilirMi("a".repeat(2001)).olurMu).toBe(false);
+  });
+});
+
+describe("ek adedi tavanı (6 Kasım 2026 · disk doldurmaya karşı)", () => {
+  it("tavanın altında kabul eder, tavanda reddeder", () => {
+    expect(ekAdediUygunMu(0, FAALIYET_MAKS_EK).olurMu).toBe(true);
+    expect(ekAdediUygunMu(FAALIYET_MAKS_EK - 1, FAALIYET_MAKS_EK).olurMu).toBe(true);
+    const karar = ekAdediUygunMu(FAALIYET_MAKS_EK, FAALIYET_MAKS_EK);
+    expect(karar.olurMu).toBe(false);
+    expect(karar.neden).toContain(String(FAALIYET_MAKS_EK));
+  });
+
+  it("kazanım tavanı etkinlikten dar", () => {
+    expect(KAZANIM_MAKS_EK).toBeLessThan(FAALIYET_MAKS_EK);
+    expect(ekAdediUygunMu(KAZANIM_MAKS_EK, KAZANIM_MAKS_EK).olurMu).toBe(false);
   });
 });

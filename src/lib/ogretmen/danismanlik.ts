@@ -1,6 +1,8 @@
 import { danismanliktanAyrildi, yeniDanismanBildirimiYap } from "../danisman/atama";
 import { prisma } from "../db";
 import { erisimLogla } from "../yetki/log";
+import { YetkiHatasi } from "../yetki/tipler";
+import { danismanlikAlabilirMi } from "./danismanlik-kurallar";
 
 /**
  * "GençTek danışman öğretmeni olarak görev almak istiyorum" işaretinin
@@ -40,8 +42,22 @@ export async function danismanlikDurumunuDegistir(
     select: {
       kurumKodu: true,
       roller: { where: { bitisTarihi: null }, select: { rolKodu: true, id: true } },
+      ogrenciProfil: { select: { kullaniciId: true } },
     },
   });
+
+  // Öğrenci, dış kullanıcı ve proje yöneticisi görevi alamaz (bkz.
+  // danismanlik-kurallar.ts). Bırakma serbest: yanlışlıkla verilmiş bir rol
+  // böylece kendi ekranından da düşürülebilir.
+  if (
+    gorevAlmakIstiyor &&
+    !danismanlikAlabilirMi({
+      aktifRoller: kullanici.roller.map((rol) => rol.rolKodu),
+      ogrenciProfiliVarMi: kullanici.ogrenciProfil !== null,
+    })
+  ) {
+    throw new YetkiHatasi("Danışman öğretmen görevini yalnızca öğretmenler alabilir.");
+  }
 
   const ilKoordinatoruMu = kullanici.roller.some(
     (rol) => rol.rolKodu === "IL_KOORDINATOR",

@@ -53,6 +53,22 @@ export async function sifreOzetle(sifre: string): Promise<string> {
   return `scrypt$${N}$${R}$${P}$${b64(tuz)}$${b64(ozet)}`;
 }
 
+/*
+ * SAHTE DOĞRULAMA (6 Kasım 2026 · güvenlik incelemesi). Hesap yokken giriş
+ * scrypt'e hiç girmeden dönüyordu; hesap varken ~50-100 ms sürüyordu. Mesaj
+ * aynı olsa da yanıt süresi "bu T.C./e-posta kayıtlı mı" sorusunu
+ * cevaplıyordu. "Kayıt yok" dalı artık aynı maliyette bir doğrulama yapar.
+ *
+ * Özet süreç başına bir kez, ilk ihtiyaçta üretilir; içindeki şifre rastgele
+ * ve hiçbir yerde saklanmaz, hiçbir girdi onunla eşleşemez.
+ */
+let sahteOzet: Promise<string> | null = null;
+
+export async function sahteSifreDogrulamasi(sifre: string): Promise<void> {
+  sahteOzet ??= sifreOzetle(randomBytes(24).toString("hex"));
+  await sifreDogrula(sifre, await sahteOzet);
+}
+
 /**
  * Şifreyi özetle karşılaştırır.
  *

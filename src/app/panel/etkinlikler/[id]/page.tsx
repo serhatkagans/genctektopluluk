@@ -91,6 +91,7 @@ import {
   faaliyetIptalEdebilirMi,
   faaliyetOnaylayabilirMi,
   faaliyetBelgesiUretebilirMi,
+  faaliyetIcerigiGorunurMu,
   faaliyetRaporuYazabilirMi,
   ilKoordinatoruMu,
   projeYoneticisiMi,
@@ -397,9 +398,18 @@ export default async function FaaliyetDetaySayfasi({
     : new Set<number>();
   const bekleyenKaynakIlSayisi = kaynakIlKarariVerebildikleri.size;
 
+  /*
+   * İçerik (ekler, görseller, yorumlar) dış kullanıcıya yalnızca ulusal ve
+   * kendi ilindeki etkinlikte açık (bkz. faaliyetIcerigiGorunurMu). Kapalıysa
+   * sorgular hiç çalışmaz; bölümler boş görünür.
+   */
+  const icerikAcik = faaliyetIcerigiGorunurMu(kullanici, kapsamBilgisi);
+
   // Silinen ek dosyası listelenmez; kaydı log için veritabanında durur.
   const ekler = await prisma.faaliyetEk.findMany({
-    where: { faaliyetId: faaliyet.id, silindiMi: false },
+    where: icerikAcik
+      ? { faaliyetId: faaliyet.id, silindiMi: false }
+      : { id: { in: [] } },
     orderBy: { yuklenmeTarihi: "asc" },
     select: {
       id: true,
@@ -425,7 +435,7 @@ export default async function FaaliyetDetaySayfasi({
    * olarak gösterilir, içeriği taşınmaz.
    */
   const yorumlar = await prisma.yorum.findMany({
-    where: { faaliyetId: faaliyet.id },
+    where: icerikAcik ? { faaliyetId: faaliyet.id } : { id: { in: [] } },
     orderBy: { olusturmaTarihi: "asc" },
     select: {
       id: true,

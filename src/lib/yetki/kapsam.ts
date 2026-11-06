@@ -55,61 +55,33 @@ export function ogrenciKapsamFiltresi(
   }
 
   /*
-   * Danışman öğretmen: KENDİ OKULUNDAKİ öğrencilerden
-   *   · danışmanlığını üstlendikleri VE
-   *   · hiç danışmanı olmayanlar (10 Ağustos 2026 · istek: "öğrencilerim
-   *     sayfasında danışmanı olmasa da okulunda öğrenci varsa listede
-   *     görünsün").
+   * Danışman öğretmen: YALNIZCA danışmanı olduğu öğrenciler (6 Kasım 2026 ·
+   * güvenlik incelemesi; kural: "sadece danışmanı olduğu kişileri görmesi
+   * gerek").
    *
-   * NİYE DANIŞMANSIZLAR DA: öğretmen zaten onları danışmanlığına alabiliyor
-   * ("Okulumdaki danışmansız öğrenciler" kartı) — alabildiği ama listeleyip
-   * inceleyemediği bir öğrenci, kararı körlemesine vermek demekti. Tekil
-   * bırakma da öğrenciyi danışmansız bıraktığı için (bkz. tekOgrenciyiBirak)
-   * bırakılan öğrencinin okulunda görünmeye devam etmesi şart: aksi halde
-   * bırakan öğretmenin ekranından tamamen kaybolur ve okulda kimse farkına
-   * varmazdı.
+   * KALKAN KOL — "okulundaki danışmansız öğrenciler" (10 Ağustos 2026). Kayıt
+   * formunda öğretmen seçen herkes anında danışman oluyor ve okulunu kendisi
+   * seçiyor/değiştirebiliyor (tasarım kararı). O kol açıkken bu, herhangi
+   * birinin istediği okulu yazıp oradaki danışmansız, çoğu reşit olmayan
+   * öğrencilerin profilini, iletişim bilgisini ve CV'sini açabilmesi
+   * demekti. Kolun gerekçesi öğretmenin öğrenciyi kendisinin üstlenmesiydi;
+   * 23 Ekim 2026'dan beri atamayı proje yöneticisi yapıyor
+   * (ATAMAYI_YALNIZCA_YONETICI_YAPAR), o gerekçe de kalmadı.
    *
-   * BAŞKA DANIŞMANIN ÖĞRENCİSİ HÂLÂ GÖRÜNMEZ: aynı okuldaki bir meslektaşın
-   * öğrencisi bu listede yok ve olmamalı — danışmanlık kişiye özel bir bağdır,
-   * "okulun tamamını gör" yetkisi il koordinatöründe.
-   */
-  /*
-   * ATANMIŞ ÖĞRENCİ OKULDAN BAĞIMSIZ GÖRÜNÜR (23 Ekim 2026). Atamayı artık
-   * proje yöneticisi yapıyor ve okul adları elle yazıldığı için aynı okul iki
-   * kişide farklı kayıtta durabiliyor ("büyük küçük harf bir iki harf değişik
-   * falan"). Yöneticinin bağladığı öğrenci, öğretmenin okul koduyla
-   * eşleşmediği için listeden düşseydi atama kâğıt üzerinde kalırdı.
-   * Danışmansız öğrenciler ise yine yalnızca öğretmenin KENDİ okulunda.
+   * ATANMIŞ ÖĞRENCİ OKULDAN BAĞIMSIZ GÖRÜNÜR (23 Ekim 2026). Okul adları elle
+   * yazıldığı için aynı okul iki kişide farklı kayıtta durabiliyor;
+   * yöneticinin bağladığı öğrenci okul kodu eşleşmediği için listeden
+   * düşseydi atama kâğıt üzerinde kalırdı. Okulsuz danışman da aynı kuralla
+   * görür.
+   *
+   * BAŞKA DANIŞMANIN ÖĞRENCİSİ GÖRÜNMEZ; "okulun tamamını gör" yetkisi il
+   * koordinatöründe.
    */
   const atanmisOgrenci: Prisma.KullaniciWhereInput = {
     ogrenciAtamalari: {
       some: { danismanKullaniciId: kullanici.id, bitisTarihi: null },
     },
   };
-  const kurumKodu = danismanKurumKodu(kullanici);
-  if (kurumKodu !== null) {
-    return {
-      AND: [
-        AKTIF_OGRENCI,
-        {
-          OR: [
-            atanmisOgrenci,
-            {
-              kurumKodu,
-              ogrenciAtamalari: { none: { bitisTarihi: null } },
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  /*
-   * OKULSUZ DANIŞMAN (23 Ekim 2026 · migration 20261023150000): okulu listede
-   * olmayan öğretmen de danışman olabiliyor. Okulu bilinmediği için
-   * "okulumdaki danışmansızlar" kolu yok; yalnızca kendisine atanmış
-   * öğrencileri görür.
-   */
   if (danismanMi(kullanici)) {
     return { AND: [AKTIF_OGRENCI, atanmisOgrenci] };
   }

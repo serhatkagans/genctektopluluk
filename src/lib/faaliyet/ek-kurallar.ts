@@ -82,3 +82,35 @@ export function yorumKabulEdilirMi(icerik: string): {
   }
   return { olurMu: true };
 }
+
+/*
+ * ADET VE HIZ SINIRLARI (6 Kasım 2026 · güvenlik incelemesi).
+ *
+ * Yalnızca dosya başına boyut sınırı vardı. Yetkili bir hesap (öğrenci de,
+ * kendi kazanımına) betikle binlerce dosya yükleyip sunucu diskini
+ * doldurabiliyordu; disk başka uygulamalarla ortak. Kayıt başına adet tavanı
+ * ve kullanıcı başına saatlik yükleme sınırı bu yolu kapatıyor.
+ *
+ * Değerler gerçek kullanımın rahat üstünde: bir etkinliğe tipik olarak on beş
+ * kadar fotoğraf yükleniyor.
+ */
+export const FAALIYET_MAKS_EK = 50;
+export const KAZANIM_MAKS_EK = 20;
+export const YUKLEME_PENCERE_DAKIKA = 60;
+export const YUKLEME_SINIRI = 100;
+
+/** Kayda bir ek daha eklenebilir mi? */
+export function ekAdediUygunMu(
+  mevcutAdet: number,
+  tavan: number,
+): { olurMu: boolean; neden?: string } {
+  if (mevcutAdet >= tavan) {
+    return {
+      olurMu: false,
+      neden: `Bu kayda en fazla ${tavan} dosya eklenebilir. Yenisini eklemek için önce eskilerden birini silin.`,
+    };
+  }
+  return { olurMu: true };
+}
+
+export const YUKLEME_SINIRI_MESAJI = `Kısa sürede çok fazla dosya yüklendi. Bir süre sonra tekrar deneyin (saatte en fazla ${YUKLEME_SINIRI} dosya).`;

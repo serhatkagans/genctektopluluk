@@ -50,23 +50,31 @@ describe("öğrenci kapsam filtresi", () => {
   });
 
   /*
-   * 10 AĞUSTOS 2026 · istek: "öğrencilerim sayfasında danışmanı olmasa da
-   * okulunda öğrenci varsa listede görünsün."
+   * 6 KASIM 2026 · güvenlik incelemesi; kural: "sadece danışmanı olduğu
+   * kişileri görmesi gerek".
    *
-   * Kural iki dallı: kendi öğrencileri VE okulundaki danışmansızlar. Kurum
-   * kodu tek başına hâlâ yetmiyor — başka danışmanın öğrencisi görünmemeli ve
-   * testin asıl koruduğu şey bu.
+   * "Okulundaki danışmansızlar" kolu (10 Ağustos 2026) kalktı: kayıtta
+   * öğretmen seçen herkes danışman oluyor ve okulunu kendisi seçiyor; kol
+   * açıkken istenen okulun danışmansız öğrencileri açılabiliyordu. Okul kodu
+   * filtrede HİÇ geçmemeli — testin asıl koruduğu şey bu.
    */
-  it("danışman kendi öğrencilerini ve okulundaki danışmansızları görür", () => {
+  it("danışman yalnızca danışmanı olduğu öğrencileri görür", () => {
     const filtre = ogrenciKapsamFiltresi(
       danismanYap({ id: 200, kurumKodu: 750001 }),
     );
+    expect(filtre).toEqual({
+      AND: [
+        { roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } } },
+        {
+          ogrenciAtamalari: {
+            some: { danismanKullaniciId: 200, bitisTarihi: null },
+          },
+        },
+      ],
+    });
     const metin = metne(filtre);
-    expect(metin).toContain("750001");
-    expect(metin).toContain("danismanKullaniciId");
-    expect(metin).toContain('"bitisTarihi":null');
-    // Danışmansız dalı: hiç açık ataması olmayan öğrenci.
-    expect(metin).toContain('"none"');
+    expect(metin).not.toContain("750001");
+    expect(metin).not.toContain('"none"');
   });
 
   it("öğrenci yalnızca kendisini görür", () => {

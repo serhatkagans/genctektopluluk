@@ -93,6 +93,8 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
       ilKodu: true,
       ilceKodu: true,
       kurumKodu: true,
+      // Okul temsilcisi kapısı okulun ilini sorar (kaldırmayla aynı kaynak).
+      kurum: { select: { ilKodu: true } },
       egitimOgretimYili: true,
       /*
        * "Bu benim öğrencim mi" — Okul Temsilcisi yetkisi buna bağlı
@@ -179,11 +181,16 @@ export async function gorevRoluAtaEylemi(veri: FormData): Promise<void> {
      * ilindeki okula temsilci atayabiliyor (bkz. okulTemsilcisiAtayabilirMi).
      * Dördüncü değer geçilmezse o kapı hiç açılmaz.
      */
+    /*
+     * İL, ÖĞRENCİNİN DEĞİL OKULUN KAYDINDAN (6 Kasım 2026 · güvenlik
+     * incelemesi). Kaldırma okulun ilini soruyordu, atama öğrencininkini; iki
+     * kayıt ayrışırsa koordinatör başka ildeki bir okula temsilci atayabilirdi.
+     */
     !okulTemsilcisiAtayabilirMi(
       kullanici,
       ogrenci.kurumKodu,
       kendiOgrencisi,
-      ogrenci.ilKodu,
+      ogrenci.kurum?.ilKodu ?? null,
     )
   ) {
     throw new YetkiHatasi(

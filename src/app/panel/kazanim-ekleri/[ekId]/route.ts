@@ -1,6 +1,7 @@
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { depolama } from "@/lib/depolama";
+import { urunVitrindeMi } from "@/lib/market/kurallar";
 import {
   ogrenciKapsamFiltresi,
   ogretmenKapsamFiltresi,
@@ -47,7 +48,12 @@ export async function GET(
       depolamaYolu: true,
       mimeTipi: true,
       kazanim: {
-        select: { kullaniciId: true, tip: true, markettePaylasilsin: true },
+        select: {
+          kullaniciId: true,
+          tip: true,
+          markettePaylasilsin: true,
+          marketOnayDurumu: true,
+        },
       },
     },
   });
@@ -72,9 +78,14 @@ export async function GET(
    * Muafiyet DARDIR — yalnızca tip=URUN ve yalnızca paylaşım açıkken. Diğer
    * kazanım tiplerinin (sertifika, ürün olmayan kayıtlar) ekleri eskisi gibi
    * kapsam filtresine tabidir; sertifikanın görseli kimseye açılmaz.
+   *
+   * VİTRİN KURALIYLA AYNI (6 Kasım 2026 · güvenlik incelemesi): yalnızca
+   * "paylaşılsın" kutusu soruluyordu; onay bekleyen ya da REDDEDİLEN ürünün
+   * dosyaları da herkese iniyordu. Artık vitrinde görünmeyen ürünün dosyası da
+   * görünmez. Onay verecek proje yöneticisi kapsam filtresinden zaten geçer.
    */
   const markettePaylasilanUrun =
-    ek.kazanim.tip === "URUN" && ek.kazanim.markettePaylasilsin;
+    ek.kazanim.tip === "URUN" && urunVitrindeMi(ek.kazanim);
 
   if (sahipId !== kullanici.id && !markettePaylasilanUrun) {
     const gorunur = await prisma.kullanici.findFirst({

@@ -1,6 +1,13 @@
 import { prisma } from "../db";
 import { depolama } from "../depolama";
-import { ekKabulEdilirMi, type EkSinirlari } from "../faaliyet/ek-kurallar";
+import {
+  KAZANIM_MAKS_EK,
+  YUKLEME_SINIRI_MESAJI,
+  ekAdediUygunMu,
+  ekKabulEdilirMi,
+  type EkSinirlari,
+} from "../faaliyet/ek-kurallar";
+import { yuklemeSiniriniAstiMi } from "../faaliyet/yukleme-siniri";
 import { ekSinirlariniGetir } from "../faaliyet/ek-kaydet";
 import { dosyaImzasiUyuyorMu } from "../guvenlik/dosya-imzasi";
 import { gorselMi } from "./kapak";
@@ -43,6 +50,18 @@ export async function kazanimEkiKaydet(girdi: {
     girdi.sinirlar,
   );
   if (!karar.olurMu) return { olurMu: false, neden: karar.neden };
+
+  // Adet ve hız sınırı — disk doldurmaya karşı (bkz. faaliyet/ek-kurallar.ts).
+  const kazanim = await prisma.kullaniciKazanim.findUnique({
+    where: { id: girdi.kazanimId },
+    select: { kullaniciId: true, _count: { select: { ekler: true } } },
+  });
+  if (!kazanim) return { olurMu: false, neden: "Kayıt bulunamadı." };
+  const adet = ekAdediUygunMu(kazanim._count.ekler, KAZANIM_MAKS_EK);
+  if (!adet.olurMu) return { olurMu: false, neden: adet.neden };
+  if (await yuklemeSiniriniAstiMi(kazanim.kullaniciId)) {
+    return { olurMu: false, neden: YUKLEME_SINIRI_MESAJI };
+  }
 
   /*
    * Kapak yalnızca GÖRSEL olabilir. Alan `accept="image/*"` ile basılıyor ama

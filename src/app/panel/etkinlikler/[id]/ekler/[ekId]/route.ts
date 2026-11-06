@@ -1,7 +1,8 @@
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { depolama } from "@/lib/depolama";
-import { gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import { faaliyetIcerigiGorunurMu } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,11 @@ export async function GET(
     Number.parseInt(id, 10),
   );
   if (!faaliyet) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
+  // Etkinlik görünse de içeriği dış kullanıcıya her yerde açık değil (bkz.
+  // faaliyetIcerigiGorunurMu).
+  if (!faaliyetIcerigiGorunurMu(kullanici, faaliyetKapsamiCikar(faaliyet))) {
     return new Response("Bulunamadı", { status: 404 });
   }
 

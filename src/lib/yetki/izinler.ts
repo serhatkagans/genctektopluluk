@@ -551,6 +551,27 @@ export function faaliyetGorunurMu(
 }
 
 /**
+ * Faaliyetin İÇERİĞİ (ekler, görseller, yorumlar) kişiye açık mı?
+ *
+ * 2 Kasım 2026'da etkinlik kaydının kendisi herkese açıldı (bkz. kapsam.ts ·
+ * faaliyetKapsamFiltresi). İçerik o kararla birlikte sessizce açılmıştı: mezun
+ * ya da paydaş, başka ildeki bir okul içi etkinliğin katılımcı fotoğraflarını
+ * (çoğu reşit olmayan öğrenciler) indirebiliyordu (6 Kasım 2026 · güvenlik
+ * incelemesi).
+ *
+ * Dış kullanıcıda içerik eski görünürlük kuralına bağlı: ulusal ve kendi ili
+ * (yetki matrisi: "Ulusal + kendi ili"); kendi açtığı etkinliğin içeriği her
+ * zaman açık. Okul ve il kullanıcıları için 2 Kasım kararı aynen geçerli.
+ */
+export function faaliyetIcerigiGorunurMu(
+  kullanici: OturumKullanicisi,
+  faaliyet: FaaliyetKapsami,
+): boolean {
+  if (!disKullaniciMi(kullanici)) return true;
+  return faaliyetGorunurMu(kullanici, faaliyet);
+}
+
+/**
  * Kişi bu faaliyete KATILIMCI OLARAK başvurabilir mi — kapsam bakımından
  * (2 Kasım 2026 · istek: "tüm etkinlikleri herkes görebilsin ama diğer
  * illere başvuramasın").

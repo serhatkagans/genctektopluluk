@@ -1,4 +1,9 @@
-import { hataKaydet, hataKaydiHazirla } from "@/lib/hata-kaydi";
+import { stat } from "node:fs/promises";
+import {
+  hataGunlukDosyasi,
+  hataKaydet,
+  hataKaydiHazirla,
+} from "@/lib/hata-kaydi";
 import {
   hizSiniriOlustur,
   istekAnahtari,
@@ -107,6 +112,24 @@ async function siniraTakildiMi(istek: Request): Promise<boolean> {
   return surecSiniri.takildiMi("hepsi");
 }
 
+/*
+ * AYLIK DOSYA TAVANI (6 Kasım 2026 · güvenlik incelemesi). Hız sınırları
+ * dakikalık; üç kopya sınırda tutulsa bile ayda gigabaytlarca kimliksiz kayıt
+ * birikebilir ve disk başka uygulamalarla ortak. Ayın dosyası tavanı aşınca
+ * İSTEMCİDEN gelen kayıt düşer; sunucu hataları (hataKaydet doğrudan) bundan
+ * etkilenmez.
+ */
+const AYLIK_DOSYA_TAVANI = 200 * 1024 * 1024;
+
+async function aylikTavanDoluMu(): Promise<boolean> {
+  try {
+    return (await stat(hataGunlukDosyasi())).size >= AYLIK_DOSYA_TAVANI;
+  } catch {
+    // Dosya henüz yok: ayın ilk kaydı.
+    return false;
+  }
+}
+
 function metin(deger: unknown, sinir: number): string | null {
   if (typeof deger !== "string") return null;
   const kirpilmis = deger.trim();
@@ -143,6 +166,7 @@ export async function POST(istek: Request) {
   if (!mesaj) return new Response(null, { status: 204 });
 
   if (await siniraTakildiMi(istek)) return new Response(null, { status: 204 });
+  if (await aylikTavanDoluMu()) return new Response(null, { status: 204 });
 
   /*
    * Kayıt, sunucu tarafıyla AYNI işlevden geçiriliyor: `hataKaydiHazirla`

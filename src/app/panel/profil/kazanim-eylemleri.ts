@@ -9,6 +9,7 @@ import {
   kullaniciKilidiAl,
 } from "@/lib/cift-kayit";
 import { prisma } from "@/lib/db";
+import { depolama } from "@/lib/depolama";
 import {
   BILDIRIM_KODLARI,
   projeYoneticilerineBildir,
@@ -510,13 +511,31 @@ export async function kazanimSilEylemi(veri: FormData): Promise<void> {
    */
   const kazanim = await prisma.kullaniciKazanim.findFirst({
     where: { id: kazanimId, kullaniciId: kullanici.id },
-    select: { baslik: true, tip: true },
+    select: {
+      baslik: true,
+      tip: true,
+      ekler: { select: { depolamaYolu: true } },
+    },
   });
   if (!kazanim) throw new BulunamadiHatasi();
 
   await prisma.kullaniciKazanim.deleteMany({
     where: { id: kazanimId, kullaniciId: kullanici.id },
   });
+
+  /*
+   * EKLERİN DOSYALARI DA SİLİNİR (6 Kasım 2026 · güvenlik incelemesi). Ek
+   * satırları veritabanında kazanımla birlikte gidiyordu (onDelete: Cascade)
+   * ama dosyalar diskte kalıyordu; işaret eden kayıt kalmadığı için hiçbir
+   * bakım işi onları bulamıyordu — kişinin sildiğini sandığı belgeler
+   * süresiz duruyordu. Dosyalar kayıt silindikten SONRA kaldırılır: biri
+   * kalkmazsa silme geri alınmaz (faaliyetSilEylemi ile aynı sıra).
+   */
+  for (const ek of kazanim.ekler) {
+    await depolama()
+      .sil(ek.depolamaYolu)
+      .catch(() => undefined);
+  }
 
   await erisimLogla({
     kullaniciId: kullanici.id,

@@ -5,7 +5,7 @@ import {
   kilitKalanDakika,
   kilitliMi,
 } from "../dis-kimlik/kurallar";
-import { sifreDogrula } from "../dis-kimlik/sifre";
+import { sahteSifreDogrulamasi, sifreDogrula } from "../dis-kimlik/sifre";
 import { type GirisSonucu, girisYap } from "../kullanici/giris-akisi";
 import { kimlikDogrulamaLogla } from "../yetki/log";
 import { tcKimlikNoNormalle } from "./kurallar";
@@ -88,6 +88,8 @@ export async function kayitliGirisYap(
 
   // "Böyle bir kayıt yok" ile "şifre yanlış" ayrılmaz (bkz. dis-kimlik/giris.ts).
   if (!kayit) {
+    // Var olan hesaptaki doğrulamayla aynı süre (bkz. sahteSifreDogrulamasi).
+    await sahteSifreDogrulamasi(sifre);
     await kimlikDogrulamaLogla({
       islem: "GIRIS",
       basarili: false,
@@ -137,7 +139,15 @@ export async function kayitliGirisYap(
 
   await prisma.kayitKimlik.update({
     where: { kullaniciId: kayit.kullaniciId },
-    data: { basarisizDeneme: 0, kilitBitisTarihi: null, sonGirisTarihi: simdi },
+    data: {
+      basarisizDeneme: 0,
+      kilitBitisTarihi: null,
+      sonGirisTarihi: simdi,
+      // Bekleyen sıfırlama jetonu düşer (dis-kimlik/giris.ts ile aynı kural):
+      // şifresini bilen kişi için açık bir jetonun anlamı yok.
+      sifirlamaJetonuOzeti: null,
+      sifirlamaSonGecerlilik: null,
+    },
   });
 
   return girisYap(tcKimlikNo);

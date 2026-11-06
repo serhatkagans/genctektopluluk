@@ -10,6 +10,11 @@ import type { SmsIletisi, SmsSaglayici } from "./tipler";
  */
 export class GunlukSmsSaglayici implements SmsSaglayici {
   async gonder(ileti: SmsIletisi): Promise<void> {
-    console.info(`[sms:gunluk] ${ileti.alici}\n${ileti.govde}`);
+    // Üretimde gövde yazılmaz (bkz. eposta/gunluk-saglayici.ts).
+    const govde =
+      process.env.NODE_ENV === "production"
+        ? "(gövde üretimde günlüğe yazılmaz)"
+        : ileti.govde;
+    console.info(`[sms:gunluk] ${ileti.alici}\n${govde}`);
   }
 }

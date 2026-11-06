@@ -7,6 +7,7 @@ import { BILDIRIM_KODLARI, bildirimGonder } from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
 import { dogrudanYazisilabilirMi } from "@/lib/iletisim/kurallar";
 import {
+  disKullaniciMi,
   koordinatorIlKodu,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
@@ -162,6 +163,7 @@ export async function dogrudanYazismaAcEylemi(veri: FormData): Promise<void> {
     hedefKurumKodu: hedef.kurumKodu,
     hedefOkulTemsilcisiMi: hedef.gorevRolleri.length > 0,
     ayniEkiptenMi: ortakEkip !== null,
+    isteyenDisKullaniciMi: disKullaniciMi(kullanici),
   });
   if (!karar.olurMu) {
     hataylaDon(YOL, karar.neden ?? "Bu kişiyle doğrudan yazışamazsınız.");

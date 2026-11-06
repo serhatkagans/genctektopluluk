@@ -5,8 +5,12 @@ import { dosyaImzasiUyuyorMu } from "../guvenlik/dosya-imzasi";
 import {
   type EkSinirlari,
   type EkTuru,
+  FAALIYET_MAKS_EK,
+  YUKLEME_SINIRI_MESAJI,
+  ekAdediUygunMu,
   ekKabulEdilirMi,
 } from "./ek-kurallar";
+import { yuklemeSiniriniAstiMi } from "./yukleme-siniri";
 
 /**
  * Ek kaydetme — hem faaliyet açma formu hem detay ekranı buradan geçer.
@@ -30,12 +34,31 @@ export async function ekSinirlariniGetir(): Promise<EkSinirlari> {
     ]);
 
   return {
-    izinliGorselTipleri,
-    izinliBelgeTipleri,
-    gorselMaksBayt,
-    belgeMaksBayt,
+    izinliGorselTipleri: izinliGorselTipleri.filter(guvenliTipMi),
+    izinliBelgeTipleri: izinliBelgeTipleri.filter(guvenliTipMi),
+    gorselMaksBayt: Math.min(gorselMaksBayt, AZAMI_EK_BAYT),
+    belgeMaksBayt: Math.min(belgeMaksBayt, AZAMI_EK_BAYT),
   };
 }
+
+/*
+ * YÖNETİCİ AYARININ SINIRLARI (6 Kasım 2026 · güvenlik incelemesi).
+ *
+ * BOYUT: sunucu eylemlerinin gövde sınırı 12 MB (next.config.ts ·
+ * bodySizeLimit). Ayar bunun üstüne çıkarılırsa büyük dosya Next'te sessizce
+ * düşüyor, kullanıcı hiçbir hata görmüyordu. Ayar kaydedilir ama etkin değer
+ * gövde sınırının altında kalır.
+ *
+ * TİP: indirme rotaları `Content-Type`'ı kayıttaki tipten verir. Listeye
+ * yanlışlıkla `text/html` ya da `image/svg+xml` gibi betik taşıyabilen bir
+ * tip yazılırsa yüklenen dosya aynı alan adında çalışabilirdi. İmza denetimi
+ * (dosya-imzasi.ts) bugün bunları zaten reddediyor; bu ikinci kilit.
+ */
+const AZAMI_EK_BAYT = 11 * 1024 * 1024;
+// "xml" yalnızca tür adının kendisiyse ya da "+xml" ekiyse: Word'ün tipi
+// (application/vnd.openxmlformats-…) de "xml" içeriyor ve güvenli.
+const TEHLIKELI_TIPLER = /html|svg|javascript|ecmascript|\/xml$|\+xml$/i;
+const guvenliTipMi = (tip: string) => !TEHLIKELI_TIPLER.test(tip);
 
 export interface EkKayitSonucu {
   olurMu: boolean;
@@ -59,6 +82,16 @@ export async function ekKaydet(girdi: {
     girdi.sinirlar,
   );
   if (!karar.olurMu) return { olurMu: false, neden: karar.neden };
+
+  // Adet ve hız sınırı — disk doldurmaya karşı (bkz. ek-kurallar.ts).
+  const mevcutAdet = await prisma.faaliyetEk.count({
+    where: { faaliyetId: girdi.faaliyetId, silindiMi: false },
+  });
+  const adet = ekAdediUygunMu(mevcutAdet, FAALIYET_MAKS_EK);
+  if (!adet.olurMu) return { olurMu: false, neden: adet.neden };
+  if (await yuklemeSiniriniAstiMi(girdi.yukleyenKullaniciId)) {
+    return { olurMu: false, neden: YUKLEME_SINIRI_MESAJI };
+  }
 
   /*
    * İçerik, iddia edilen tiple uyuşuyor mu? `dosya.type` istemciden gelir ve

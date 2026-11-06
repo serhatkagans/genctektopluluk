@@ -24,6 +24,11 @@ import {
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi } from "@/lib/yetki/tipler";
 
+/** Yalnızca aktif öğrenci rolü olan kişi bu eylemlerin hedefi olabilir. */
+const AKTIF_OGRENCI_KOSULU = {
+  roller: { some: { rolKodu: "OGRENCI" as const, bitisTarihi: null } },
+};
+
 /**
  * ÖĞRENCİNİN MENTÖRLÜĞÜNE ÖĞRENCİ LİSTESİNDEN VERİLEN KARAR (26 Ağustos 2026 ·
  * danışman; 27 Ağustos 2026 · il koordinatörü).
@@ -108,9 +113,15 @@ export async function ogrenciMentorluguKararEylemi(
    * Kayıt önce okunuyor, yetki sonra soruluyor; yetkisizde yine 404 dönüyor
    * ki "böyle bir öğrenci var" bilgisi sızmasın (emsali: mentorluk/eylemler.ts
    * · kapsam filtresi).
+   *
+   * HEDEF ÖĞRENCİ OLMALI (6 Kasım 2026 · güvenlik incelemesi). İzin kuralı
+   * yalnızca il eşitliğine bakıyor; bu sorgu da rolü sormadığı için il
+   * koordinatörü ilindeki bir öğretmenin, mezunun ya da paydaşın mentörlük
+   * başvurusuna karar verebiliyor ve yalnızca proje yöneticisine ait olan
+   * kuyruğu atlıyordu. Öğrenci olmayan kimlik burada bulunamaz.
    */
-  const ogrenci = await prisma.kullanici.findUnique({
-    where: { id: ogrenciId },
+  const ogrenci = await prisma.kullanici.findFirst({
+    where: { id: ogrenciId, ...AKTIF_OGRENCI_KOSULU },
     select: {
       id: true,
       ad: true,
@@ -338,8 +349,9 @@ export async function mentorlukKaldirmaTalebiKararEylemi(
   const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
   if (!Number.isInteger(ogrenciId)) throw new BulunamadiHatasi();
 
-  const ogrenci = await prisma.kullanici.findUnique({
-    where: { id: ogrenciId },
+  // Hedef öğrenci olmalı (bkz. ogrenciMentorluguKararEylemi).
+  const ogrenci = await prisma.kullanici.findFirst({
+    where: { id: ogrenciId, ...AKTIF_OGRENCI_KOSULU },
     select: {
       id: true,
       ad: true,

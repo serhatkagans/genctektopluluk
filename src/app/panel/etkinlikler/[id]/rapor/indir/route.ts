@@ -19,7 +19,8 @@ import {
   wordYaniti,
 } from "@/lib/rapor/faaliyet-raporu";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
-import { faaliyetRaporuYazabilirMi } from "@/lib/yetki/izinler";
+import { faaliyetRaporuYazabilirMi, yetkiDevrolduMu } from "@/lib/yetki/izinler";
+import { ulusalBasvuranFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
@@ -49,13 +50,31 @@ export async function GET(
     return new Response("Bulunamadı", { status: 404 });
   }
 
-  if (!faaliyetRaporuYazabilirMi(kullanici, faaliyetKapsamiCikar(faaliyet))) {
+  const kapsamBilgisi = faaliyetKapsamiCikar(faaliyet);
+  if (!faaliyetRaporuYazabilirMi(kullanici, kapsamBilgisi)) {
     return new Response("Bulunamadı", { status: 404 });
   }
 
+  /*
+   * ULUSAL ETKİNLİKTE KATILIMCI LİSTESİ DEĞERLENDİRME EKRANIYLA AYNI KAPIDAN
+   * (6 Kasım 2026 · güvenlik incelemesi). Raporu yazabilen il koordinatörü,
+   * kendi ilinde düzenlenmiş ama başkasının açtığı ulusal etkinlikte 81 ilden
+   * seçilen katılımcıların adını, okulunu ve ilini indirebiliyordu; ekranda
+   * aynı liste ona kapalı (yetki matrisi §3: düzenleyene).
+   */
+  const ulusalMi =
+    faaliyet.kapsam === "ULUSAL" || faaliyet.kapsam === "ULUSLARARASI";
+  const basvuruKosulu = ulusalMi
+    ? ulusalBasvuranFiltresi(
+        kullanici,
+        faaliyet.id,
+        yetkiDevrolduMu(kullanici, kapsamBilgisi),
+      )
+    : { faaliyetId: faaliyet.id };
+
   const [basvurular, ekler, rapor] = await Promise.all([
     prisma.basvuru.findMany({
-      where: { faaliyetId: faaliyet.id },
+      where: basvuruKosulu,
       orderBy: [{ durum: "asc" }, { basvuruTarihi: "asc" }],
       select: {
         durum: true,

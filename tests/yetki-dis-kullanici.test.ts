@@ -4,6 +4,7 @@ import {
   disBasvuruYonetebilirMi,
   disKullaniciMi,
   faaliyetGorunurMu,
+  faaliyetIcerigiGorunurMu,
   mezunMu,
   ogretmenEnvanteriGorebilirMi,
   panodaEslesmeArayabilirMi,
@@ -264,5 +265,45 @@ describe("onay belgeleri", () => {
       "TAAHHUTNAME",
       "GIZLILIK_SOZLESMESI",
     ]);
+  });
+});
+
+/*
+ * ETKİNLİK İÇERİĞİ (6 Kasım 2026 · güvenlik incelemesi). 2 Kasım'da etkinlik
+ * kaydı herkese açıldı; ekler, görseller ve yorumlar da onunla açılmıştı ve
+ * dış kullanıcı başka ildeki okul içi etkinliğin fotoğraflarını
+ * indirebiliyordu. İçerik dış kullanıcıya "ulusal + kendi ili" kuralıyla açık.
+ */
+describe("etkinlik içeriği dış kullanıcıya", () => {
+  it.each([mezunYap(), paydasTemsilcisiYap()])(
+    "başka okulun okul içi etkinliğinde kapalı",
+    (kullanici) => {
+      expect(faaliyetIcerigiGorunurMu(kullanici, faaliyetYap())).toBe(false);
+    },
+  );
+
+  it("başka ilin il etkinliğinde kapalı, kendi ilinde açık", () => {
+    const mezun = mezunYap({ ilKodu: "34" });
+    expect(
+      faaliyetIcerigiGorunurMu(mezun, faaliyetYap({ kapsam: "IL", kurumKodu: null, ilKodu: "06" })),
+    ).toBe(false);
+    expect(
+      faaliyetIcerigiGorunurMu(mezun, faaliyetYap({ kapsam: "IL", kurumKodu: null, ilKodu: "34" })),
+    ).toBe(true);
+  });
+
+  it("ulusal etkinlikte ve kendi açtığı etkinlikte açık", () => {
+    const mezun = mezunYap();
+    expect(
+      faaliyetIcerigiGorunurMu(mezun, faaliyetYap({ kapsam: "ULUSAL", kurumKodu: null })),
+    ).toBe(true);
+    expect(
+      faaliyetIcerigiGorunurMu(mezun, faaliyetYap({ duzenleyenKullaniciId: mezun.id })),
+    ).toBe(true);
+  });
+
+  it("okul ve il kullanıcısında 2 Kasım kararı aynen geçerli", () => {
+    expect(faaliyetIcerigiGorunurMu(ogrenciYap({ kurumKodu: 999999 }), faaliyetYap())).toBe(true);
+    expect(faaliyetIcerigiGorunurMu(koordinatorYap({ ilKodu: "06" }), faaliyetYap())).toBe(true);
   });
 });

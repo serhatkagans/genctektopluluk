@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { uretimdeDur } from "./uretim-kilidi";
 import { ILLER } from "../prisma/veri/iller";
 import type { AuthKimlik } from "@/lib/auth/tipler";
 import {
@@ -9,6 +10,8 @@ import {
 import { prisma } from "@/lib/db";
 import { kullaniciSagla } from "@/lib/kullanici/sagla";
 import { danismanlikDurumunuDegistir } from "@/lib/ogretmen/danismanlik";
+
+uretimdeDur("npm run veri:ornek");
 
 /**
  * Örnek envanter üreteci — sistemi gerçekçi hacimde doldurur.

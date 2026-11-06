@@ -1,7 +1,8 @@
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { depolama } from "@/lib/depolama";
-import { gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import { faaliyetKapsamiCikar, gorunurFaaliyetGetir } from "@/lib/faaliyet/erisim";
+import { faaliyetIcerigiGorunurMu } from "@/lib/yetki/izinler";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import { zipAdiTemizle, zipOlustur } from "@/lib/zip";
 
@@ -41,6 +42,10 @@ export async function GET(
 
   const faaliyet = await gorunurFaaliyetGetir(kullanici, Number.parseInt(id, 10));
   if (!faaliyet) return new Response("Bulunamadı", { status: 404 });
+  // Tek tek indirmeyle aynı içerik kapısı (bkz. faaliyetIcerigiGorunurMu).
+  if (!faaliyetIcerigiGorunurMu(kullanici, faaliyetKapsamiCikar(faaliyet))) {
+    return new Response("Bulunamadı", { status: 404 });
+  }
 
   const ekler = await prisma.faaliyetEk.findMany({
     where: {

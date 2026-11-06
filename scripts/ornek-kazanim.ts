@@ -1,5 +1,8 @@
 import "dotenv/config";
+import { uretimdeDur } from "./uretim-kilidi";
 import { prisma } from "../src/lib/db";
+
+uretimdeDur("npm run veri:kazanim");
 
 /**
  * Kazanımlar ekranı için demo verisi.

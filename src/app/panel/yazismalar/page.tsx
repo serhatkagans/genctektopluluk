@@ -27,6 +27,7 @@ import { basHarfler } from "@/lib/kullanici/profil-foto-kurallar";
 import { tarihSaatYaz } from "@/lib/tarih";
 import {
   danismanMi,
+  disKullaniciMi,
   ilKoordinatoruMu,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
@@ -285,8 +286,15 @@ export default async function BaglantilarimSayfasi({
      * Okul temsilcileri — ülke genelinde ve YÜRÜRLÜKTEKİ DÖNEMDE görevli
      * olanlar. Geçen yılın temsilcisi bugün o görevde değil; listeye girmesi
      * "bana ulaşabilirsin" demek olurdu.
+     *
+     * DIŞ KULLANICIYA LİSTE YOK (6 Kasım 2026 · güvenlik incelemesi): okul
+     * temsilcisi kısayolu dış kullanıcıya kapandı (bkz.
+     * dogrudanYazisilabilirMi); yazışamayacağı reşit olmayan öğrencilerin
+     * ülke çapındaki ad listesini görmesinin de bir gerekçesi kalmadı.
      */
-    prisma.kullanici.findMany({
+    disKullaniciMi(kullanici)
+      ? Promise.resolve([])
+      : prisma.kullanici.findMany({
       where: {
         AND: [
           { aktif: true },
@@ -711,22 +719,24 @@ export default async function BaglantilarimSayfasi({
         />
       </Kart>
 
-      <Kart id="temsilciler">
-        <KartBasligi
-          baslik="Okul temsilcileri"
-          aciklama="Bu dönem görevli okul temsilcileri — okulunuz fark etmeksizin yazışabilirsiniz."
-          Ikon={BadgeCheck}
-        />
-        <KisiListesi
-          bosMesaji={
-            kisiAramasi
-              ? "Aramanıza uyan temsilci yok."
-              : "Bu dönem atanmış okul temsilcisi yok."
-          }
-          kisiler={temsilciler}
-          siniri={KISI_SINIRI}
-        />
-      </Kart>
+      {disKullaniciMi(kullanici) ? null : (
+        <Kart id="temsilciler">
+          <KartBasligi
+            baslik="Okul temsilcileri"
+            aciklama="Bu dönem görevli okul temsilcileri — okulunuz fark etmeksizin yazışabilirsiniz."
+            Ikon={BadgeCheck}
+          />
+          <KisiListesi
+            bosMesaji={
+              kisiAramasi
+                ? "Aramanıza uyan temsilci yok."
+                : "Bu dönem atanmış okul temsilcisi yok."
+            }
+            kisiler={temsilciler}
+            siniri={KISI_SINIRI}
+          />
+        </Kart>
+      )}
 
       {/*
         BAĞLANTI İSTEĞİ AKIŞI TAMAMEN KALKTI (21 Ağustos 2026 · istek:

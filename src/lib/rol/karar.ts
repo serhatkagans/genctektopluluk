@@ -13,6 +13,7 @@ import type { RolKodu } from "@/generated/prisma/enums";
 export type KoordinatorAtamaEngeli =
   | "KULLANICI_YOK"
   | "OGRENCIYE_VERILMEZ"
+  | "DIS_KULLANICIYA_VERILMEZ"
   | "ZATEN_KOORDINATOR"
   | "GECERSIZ_IL"
   | "IL_DOLU";
@@ -23,6 +24,8 @@ export const KOORDINATOR_ATAMA_ENGEL_MESAJLARI: Record<
 > = {
   KULLANICI_YOK: "Kullanıcı bulunamadı.",
   OGRENCIYE_VERILMEZ: "İl koordinatörlüğü yalnızca öğretmenlere verilir.",
+  DIS_KULLANICIYA_VERILMEZ:
+    "İl koordinatörlüğü mezun ya da paydaş temsilcisi hesabına verilemez.",
   ZATEN_KOORDINATOR: "Bu öğretmen zaten il koordinatörü olarak görevli.",
   GECERSIZ_IL: "Geçersiz il.",
   IL_DOLU:
@@ -45,6 +48,17 @@ export function koordinatorAtamaEngeli(girdi: {
 }): KoordinatorAtamaEngeli | null {
   if (!girdi.hedefVarMi || !girdi.hedefAktifMi) return "KULLANICI_YOK";
   if (girdi.hedefRolKodlari.includes("OGRENCI")) return "OGRENCIYE_VERILMEZ";
+  /*
+   * Dış kullanıcı (6 Kasım 2026 · güvenlik incelemesi): kimliği EBA'dan
+   * gelmeyen, kurumu olmayan bir hesaba bir ilin bütün öğrenci verisini
+   * açan rol verilmemeli. Yalnızca öğrenci rolü eleniyordu.
+   */
+  if (
+    girdi.hedefRolKodlari.includes("MEZUN") ||
+    girdi.hedefRolKodlari.includes("PAYDAS_TEMSILCISI")
+  ) {
+    return "DIS_KULLANICIYA_VERILMEZ";
+  }
   if (girdi.hedefRolKodlari.includes("IL_KOORDINATOR")) {
     return "ZATEN_KOORDINATOR";
   }

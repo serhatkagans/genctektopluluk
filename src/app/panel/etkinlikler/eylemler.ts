@@ -708,9 +708,16 @@ export async function faaliyetDuzenleEylemi(veri: FormData): Promise<void> {
         ...(yer.ilKodu !== faaliyet.ilKodu ? { ilceKodu: null } : {}),
         duzenleyenBirim,
       };
-      // Yeni kapsam açana göre onaya tabiyse, yayındaki etkinlik onaya döner.
+      /*
+       * Yeni yer açana göre onaya tabiyse, yayındaki etkinlik onaya döner.
+       *
+       * YALNIZCA KAPSAM DEĞİL, İL VE OKUL DA (6 Kasım 2026 · güvenlik
+       * incelemesi). Koşul eskiden kapsam değişimine bakıyordu: İzmir'in
+       * koordinatörünün onayladığı il etkinliği, kapsamı aynı kalarak
+       * Ankara'ya taşınınca Ankara'nın onayı hiç sorulmadan yayında
+       * kalıyordu. Onay belli bir yere verildi; yer değişince onay da düşer.
+       */
       kapsamOnayaDusuyor =
-        yeniKapsam !== faaliyet.kapsam &&
         faaliyet.onayDurumu !== "BEKLIYOR" &&
         onayDurumuBelirle(kullanici, yeniKapsam) === "BEKLIYOR";
     }

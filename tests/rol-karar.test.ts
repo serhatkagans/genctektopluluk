@@ -52,6 +52,15 @@ describe("il koordinatörü atama engelleri", () => {
     ).toBe("OGRENCIYE_VERILMEZ");
   });
 
+  it.each(["MEZUN", "PAYDAS_TEMSILCISI"] as const)(
+    "%s hesabına il koordinatörlüğü verilmez",
+    (rol) => {
+      expect(
+        koordinatorAtamaEngeli({ ...uygun, hedefRolKodlari: [rol] }),
+      ).toBe("DIS_KULLANICIYA_VERILMEZ");
+    },
+  );
+
   it("zaten koordinatör olan kişiye ikinci kez atama yapılmaz", () => {
     expect(
       koordinatorAtamaEngeli({

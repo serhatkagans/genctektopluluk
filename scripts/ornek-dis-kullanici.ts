@@ -1,10 +1,13 @@
 import "dotenv/config";
+import { uretimdeDur } from "./uretim-kilidi";
 import { prisma } from "@/lib/db";
 import { basvuruyuOnayla, disBasvuruOlustur } from "@/lib/dis-kimlik/basvuru";
 import {
   type DisBasvuruGirdisi,
   disBasvuruGirdisiniCoz,
 } from "@/lib/dis-kimlik/kurallar";
+
+uretimdeDur("npm run veri:dis-kullanici");
 
 /**
  * Örnek dış kullanıcı üreteci: birer mezun, paydaş temsilcisi ve mentör.

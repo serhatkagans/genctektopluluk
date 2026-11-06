@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { sifirlamayiTamamla, sifirlamaIste } from "@/lib/dis-kimlik/sifirlama";
 import {
   sifirlamaHostuSec,
@@ -11,7 +12,8 @@ import {
   kayitSifirlamaIste,
   kayitSifirlamayiTamamla,
 } from "@/lib/kayit/sifirlama";
-import { IZINLI_HOST_LISTESI, uygulamaYolu } from "@/lib/ortam";
+import { basliklardanAnahtar, paylasilanHizSiniri } from "@/lib/hiz-siniri";
+import { IZINLI_HOST_LISTESI, ortam, uygulamaYolu } from "@/lib/ortam";
 
 /**
  * Parola sıfırlama eylemleri (yalnızca dış kullanıcılar).
@@ -35,14 +37,63 @@ async function istekKoku(): Promise<string> {
   return `${sifirlamaSemasiSec(secilen)}://${secilen}`;
 }
 
+/*
+ * HIZ SINIRI VE SABİT YANIT SÜRESİ (6 Kasım 2026 · güvenlik incelemesi).
+ *
+ * Bu uçlarda IP sınırı yoktu; tek fren hesap başına 2 dakikalık bekleme
+ * süresiydi. Elinde T.C. ya da e-posta listesi olan biri (T.C. 11 hane,
+ * sıralanabilir) her kayıtlı hesaba 2 dakikada bir posta göndertip SMTP
+ * kotasını ve CPU'yu (her jeton scrypt) tüketebiliyordu.
+ *
+ * Ayrıca hesap yokken eylem anında dönüyor, varken scrypt + SMTP bekliyordu:
+ * yanıt süresi "bu numara/adres kayıtlı mı" sorusunu cevaplıyordu. İş artık
+ * `after` ile YANITTAN SONRA yapılıyor; ekran her durumda aynı hızda
+ * "gönderildi" der.
+ *
+ * İstek sınırı aşılınca da ekran "gönderildi" der ve iş yapılmaz: bu ekranın
+ * söylediği tek şey her zaman aynı olmalı. Tamamlama tarafında sınır açıkça
+ * söylenir — orada kişi zaten geçerli bir bağlantıyla geliyor.
+ */
+const SIFIRLAMA_PENCERE_DAKIKA = 10;
+const sifirlamaIstekSiniri = paylasilanHizSiniri({
+  kova: "sifirlama-iste",
+  pencereMs: SIFIRLAMA_PENCERE_DAKIKA * 60_000,
+  sinir: 5,
+});
+const sifirlamaTamamlamaSiniri = paylasilanHizSiniri({
+  kova: "sifirlama-tamamla",
+  pencereMs: SIFIRLAMA_PENCERE_DAKIKA * 60_000,
+  sinir: 10,
+});
+const SINIR_ASILDI_MESAJI = `Kısa sürede çok fazla deneme yapıldı. ${SIFIRLAMA_PENCERE_DAKIKA} dakika sonra tekrar deneyin.`;
+
+async function istemciAnahtari(): Promise<string> {
+  return basliklardanAnahtar(await headers(), ortam.GUVENILEN_VEKIL_SAYISI);
+}
+
+/** İşi yanıttan sonra çalıştırır; hata kullanıcıya değil sunucu günlüğüne gider. */
+function yanittanSonra(ad: string, is: () => Promise<void>): void {
+  after(async () => {
+    try {
+      await is();
+    } catch (hata) {
+      console.error(`[${ad}] sıfırlama isteği işlenemedi:`, hata);
+    }
+  });
+}
+
 export async function sifirlamaIsteEylemi(veri: FormData): Promise<void> {
   const eposta = String(veri.get("eposta") ?? "");
   const kok = await istekKoku();
 
-  await sifirlamaIste(eposta, (adres, jeton) => {
-    const sorgu = `?e=${encodeURIComponent(adres)}&jeton=${encodeURIComponent(jeton)}`;
-    return `${kok}${uygulamaYolu("/sifre-sifirlama")}${sorgu}`;
-  });
+  if (!(await sifirlamaIstekSiniri.takildiMi(await istemciAnahtari()))) {
+    yanittanSonra("dis-kimlik", () =>
+      sifirlamaIste(eposta, (adres, jeton) => {
+        const sorgu = `?e=${encodeURIComponent(adres)}&jeton=${encodeURIComponent(jeton)}`;
+        return `${kok}${uygulamaYolu("/sifre-sifirlama")}${sorgu}`;
+      }),
+    );
+  }
 
   /*
    * SONUÇ HER DURUMDA AYNI. E-posta kayıtlı değilse de "gönderildi" denir;
@@ -57,6 +108,12 @@ export async function sifirlamaTamamlaEylemi(veri: FormData): Promise<void> {
   const jeton = String(veri.get("jeton") ?? "");
   const sifre = String(veri.get("sifre") ?? "");
   const sifreTekrar = String(veri.get("sifreTekrar") ?? "");
+
+  if (await sifirlamaTamamlamaSiniri.takildiMi(await istemciAnahtari())) {
+    redirect(
+      `/sifre-sifirlama?e=${encodeURIComponent(eposta)}&jeton=${encodeURIComponent(jeton)}&hata=${encodeURIComponent(SINIR_ASILDI_MESAJI)}`,
+    );
+  }
 
   const sonuc = await sifirlamayiTamamla(eposta, jeton, sifre, sifreTekrar);
 
@@ -82,10 +139,14 @@ export async function kayitSifirlamaIsteEylemi(veri: FormData): Promise<void> {
   const tcKimlikNo = String(veri.get("tcKimlikNo") ?? "");
   const kok = await istekKoku();
 
-  await kayitSifirlamaIste(tcKimlikNo, (kullaniciId, jeton) => {
-    const sorgu = `?k=${kullaniciId}&jeton=${encodeURIComponent(jeton)}`;
-    return `${kok}${uygulamaYolu("/sifre-sifirlama")}${sorgu}`;
-  });
+  if (!(await sifirlamaIstekSiniri.takildiMi(await istemciAnahtari()))) {
+    yanittanSonra("kayit", () =>
+      kayitSifirlamaIste(tcKimlikNo, (kullaniciId, jeton) => {
+        const sorgu = `?k=${kullaniciId}&jeton=${encodeURIComponent(jeton)}`;
+        return `${kok}${uygulamaYolu("/sifre-sifirlama")}${sorgu}`;
+      }),
+    );
+  }
 
   // Sonuç her durumda aynı (bkz. sifirlamaIsteEylemi).
   redirect("/sifre-sifirlama?tur=kayit&durum=gonderildi");
@@ -96,6 +157,12 @@ export async function kayitSifirlamaTamamlaEylemi(veri: FormData): Promise<void>
   const jeton = String(veri.get("jeton") ?? "");
   const sifre = String(veri.get("sifre") ?? "");
   const sifreTekrar = String(veri.get("sifreTekrar") ?? "");
+
+  if (await sifirlamaTamamlamaSiniri.takildiMi(await istemciAnahtari())) {
+    redirect(
+      `/sifre-sifirlama?k=${encodeURIComponent(kimlik)}&jeton=${encodeURIComponent(jeton)}&hata=${encodeURIComponent(SINIR_ASILDI_MESAJI)}`,
+    );
+  }
 
   const sonuc = await kayitSifirlamayiTamamla(
     Number.parseInt(kimlik, 10),

@@ -394,6 +394,18 @@ export function dogrudanYazisilabilirMi(girdi: {
    * dar tarafta kalıyor, geniş tarafta değil.
    */
   ayniEkiptenMi?: boolean;
+  /**
+   * İsteyen dış kullanıcı (mezun, paydaş) mı? ZORUNLU alan.
+   *
+   * DIŞ KULLANICIYA OKUL TEMSİLCİSİ KISAYOLU YOK (6 Kasım 2026 · güvenlik
+   * incelemesi). İstisnaların gerekçesi "taraflar birbirini zaten tanıyor";
+   * okul temsilcisi bir öğrencidir ve çoğu reşit değildir, ülkedeki her
+   * mezunun ya da paydaşın onu tanıdığı varsayılamaz. Kısayol açıkken bir dış
+   * kullanıcı 81 ildeki bütün okul temsilcileriyle onaysız yazışma
+   * açabiliyordu. Dış kullanıcı panodan bağlantı isteği gönderir; aynı ekipte
+   * olduğu kişilerle (ekip sohbetinde zaten yazışıyorlar) doğrudan yazışır.
+   */
+  isteyenDisKullaniciMi: boolean;
 }): { olurMu: boolean; neden?: string } {
   if (girdi.isteyenId === girdi.hedefId) {
     return { olurMu: false, neden: "Kendinize mesaj gönderemezsiniz." };
@@ -402,8 +414,9 @@ export function dogrudanYazisilabilirMi(girdi: {
   const ayniOkul =
     girdi.isteyenKurumKodu !== null &&
     girdi.isteyenKurumKodu === girdi.hedefKurumKodu;
+  const temsilciKisayolu = girdi.hedefOkulTemsilcisiMi && !girdi.isteyenDisKullaniciMi;
 
-  if (ayniOkul || girdi.hedefOkulTemsilcisiMi || girdi.ayniEkiptenMi === true) {
+  if (ayniOkul || temsilciKisayolu || girdi.ayniEkiptenMi === true) {
     return { olurMu: true };
   }
 

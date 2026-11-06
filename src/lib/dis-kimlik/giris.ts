@@ -8,7 +8,7 @@ import {
   kilitKalanDakika,
   kilitliMi,
 } from "./kurallar";
-import { sifreDogrula } from "./sifre";
+import { sahteSifreDogrulamasi, sifreDogrula } from "./sifre";
 
 /**
  * EBA dışı giriş (mezun, paydaş temsilcisi).
@@ -251,7 +251,16 @@ async function bekleyenBasvuruCevabi(
     select: { sifreOzeti: true },
   });
 
-  if (bekleyen?.sifreOzeti && (await sifreDogrula(sifre, bekleyen.sifreOzeti))) {
+  // Ne kimlik ne bekleyen başvuru var: süre yine aynı olsun (bkz.
+  // sahteSifreDogrulamasi).
+  let bekleyenDogruMu = false;
+  if (bekleyen?.sifreOzeti) {
+    bekleyenDogruMu = await sifreDogrula(sifre, bekleyen.sifreOzeti);
+  } else {
+    await sahteSifreDogrulamasi(sifre);
+  }
+
+  if (bekleyenDogruMu) {
     return {
       durum: "BASARISIZ",
       mesaj:

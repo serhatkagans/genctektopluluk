@@ -718,8 +718,17 @@ async function main() {
    * yöneticilerin şifresi yok, o kipte giremezler; açılmaları yalnızca
    * listelerde görünen ölü kayıtlar bırakırdı. İlk yönetici
    * `npm run kullanici:yonetici` ile açılır.
+   *
+   * AÇIK "mock" İSTENİR, VARSAYILAN YOK (6 Kasım 2026 · güvenlik incelemesi).
+   * Bu adım katalog dışındaki bütün proje yöneticilerini pasife alıyor ve
+   * seed her dağıtımda koşuyor (dagitim/guncelle.sh). Değişken eksik kalmış
+   * bir sunucuda eski `?? "mock"` varsayılanı gerçek yöneticileri tek
+   * dağıtımda kilitlerdi. Üretimde (NODE_ENV) de hiç çalışmaz.
    */
-  if ((process.env.AUTH_PROVIDER ?? "mock") === "mock") {
+  if (
+    process.env.AUTH_PROVIDER === "mock" &&
+    process.env.NODE_ENV !== "production"
+  ) {
     await baslangicYoneticileriniOlustur();
   } else {
     console.log(

@@ -182,6 +182,15 @@ export async function kullaniciyiImhaEt(
       fotoDepolamaYolu: true,
       ogrenciProfil: { select: { cvDepolamaYolu: true } },
       ogretmenProfil: { select: { cvDepolamaYolu: true } },
+      /*
+       * KAZANIM EKLERİ (6 Kasım 2026 · güvenlik incelemesi). Sertifika, ürün
+       * belgesi ve görselleri kişiseldir; imha önceden yalnızca fotoğraf ve
+       * CV'yi kaldırıyordu. Markette paylaşılmış ürünün dosyaları anonim
+       * hesaptan sonra da oturumu olan herkese iniyordu.
+       */
+      kazanimlar: {
+        select: { ekler: { select: { id: true, depolamaYolu: true } } },
+      },
     },
   });
 
@@ -206,6 +215,18 @@ export async function kullaniciyiImhaEt(
     kullanici.ogretmenProfil?.cvDepolamaYolu,
   ]) {
     if (anahtar) silinemeyenDosya += await dosyaSil(anahtar);
+  }
+
+  const kazanimEkleri = kullanici.kazanimlar.flatMap((kazanim) => kazanim.ekler);
+  for (const ek of kazanimEkleri) {
+    silinemeyenDosya += await dosyaSil(ek.depolamaYolu);
+  }
+  if (kazanimEkleri.length > 0) {
+    // Dosyası gitmiş ek satırı kalmasın: indirme rotası onu yine sunmaya
+    // çalışır, listeler kırık bağlantı gösterirdi.
+    await prisma.kazanimEk.deleteMany({
+      where: { id: { in: kazanimEkleri.map((ek) => ek.id) } },
+    });
   }
 
   const gizle = {

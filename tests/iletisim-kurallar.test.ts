@@ -386,7 +386,39 @@ describe("doğrudan yazışma", () => {
     isteyenKurumKodu: 100 as number | null,
     hedefKurumKodu: 100 as number | null,
     hedefOkulTemsilcisiMi: false,
+    isteyenDisKullaniciMi: false,
     ...ozellikler,
+  });
+
+  it("dış kullanıcı okul temsilcisine onaysız yazışma açamaz", () => {
+    /*
+     * 6 Kasım 2026 · güvenlik incelemesi: kısayol açıkken bir mezun ya da
+     * paydaş 81 ildeki bütün okul temsilcisi öğrencilerle onaysız yazışma
+     * açabiliyordu.
+     */
+    const karar = dogrudanYazisilabilirMi(
+      girdi({
+        isteyenKurumKodu: null,
+        hedefKurumKodu: 200,
+        hedefOkulTemsilcisiMi: true,
+        isteyenDisKullaniciMi: true,
+      }),
+    );
+    expect(karar.olurMu).toBe(false);
+  });
+
+  it("dış kullanıcı aynı ekipteki kişiyle yine yazışır", () => {
+    expect(
+      dogrudanYazisilabilirMi(
+        girdi({
+          isteyenKurumKodu: null,
+          hedefKurumKodu: 200,
+          hedefOkulTemsilcisiMi: true,
+          isteyenDisKullaniciMi: true,
+          ayniEkiptenMi: true,
+        }),
+      ).olurMu,
+    ).toBe(true);
   });
 
   it("aynı okuldakiyle onay beklemeden yazışılır", () => {

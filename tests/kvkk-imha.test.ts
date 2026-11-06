@@ -12,6 +12,7 @@ const kullaniciListele = jest.fn();
 const ekListele = jest.fn();
 const ekGuncelle = jest.fn();
 const dosyaSil = jest.fn();
+const kazanimEkSil = jest.fn();
 const topluGuncelle = jest.fn();
 
 /*
@@ -41,6 +42,9 @@ jest.mock("@/lib/db", () => ({
     faaliyetEk: {
       findMany: (...girdiler: unknown[]) => ekListele(...girdiler),
       update: (...girdiler: unknown[]) => ekGuncelle(...girdiler),
+    },
+    kazanimEk: {
+      deleteMany: (...girdiler: unknown[]) => kazanimEkSil(...girdiler),
     },
     $transaction: async (isle: (islem: unknown) => Promise<unknown>) =>
       isle({
@@ -147,6 +151,7 @@ describe("kullanıcı imhası", () => {
       fotoDepolamaYolu: "foto/42.jpg",
       ogrenciProfil: { cvDepolamaYolu: "cv/42.pdf" },
       ogretmenProfil: null,
+      kazanimlar: [],
       ...uzerine,
     });
   }
@@ -159,6 +164,22 @@ describe("kullanıcı imhası", () => {
     expect(sonuc.yapildiMi).toBe(true);
     expect(dosyaSil).toHaveBeenCalledWith("foto/42.jpg");
     expect(dosyaSil).toHaveBeenCalledWith("cv/42.pdf");
+  });
+
+  it("kazanım eklerinin dosyalarını ve satırlarını da siler", async () => {
+    // 6 Kasım 2026 · güvenlik incelemesi: imha yalnızca foto ve CV'yi kaldırıyordu.
+    kullaniciyiKur({
+      kazanimlar: [
+        { ekler: [{ id: 7, depolamaYolu: "2026/10/a.pdf" }] },
+        { ekler: [{ id: 8, depolamaYolu: "2026/10/b.jpg" }] },
+      ],
+    });
+
+    await kullaniciyiImhaEt(42, SIMDI);
+
+    expect(dosyaSil).toHaveBeenCalledWith("2026/10/a.pdf");
+    expect(dosyaSil).toHaveBeenCalledWith("2026/10/b.jpg");
+    expect(kazanimEkSil).toHaveBeenCalledWith({ where: { id: { in: [7, 8] } } });
   });
 
   it("dosya silinemese de kayıt imhasını tamamlar ve hatayı sayar", async () => {
@@ -277,6 +298,7 @@ describe("hareketsiz kullanıcı taraması", () => {
       fotoDepolamaYolu: null,
       ogrenciProfil: null,
       ogretmenProfil: null,
+      kazanimlar: [],
     }));
 
     const sonuc = await hareketsizKullanicilariImhaEt(SINIR, SIMDI);
