@@ -1407,6 +1407,26 @@ export function yonetimPanosuGorebilirMi(
 }
 
 /**
+ * OKUL EŞLEŞTİRME (9 Kasım 2026 · istek: "koordinatör ilindekileri atasın ya
+ * da bağlasın"). Okulunu elle yazmış kişiyi kayıtlı bir okula bağlamak ve
+ * gerekirse okulu eklemek.
+ *
+ * İl verilmezse "ekranı açabilir mi" sorusudur. İl verilirse o ildeki kişi ve
+ * okul üzerinde işlem yapabilir mi: merkez her ilde, koordinatör yalnızca
+ * kendi ilinde. Danışman öğretmen DIŞARIDA — okul kaydı ilin ortak verisi,
+ * bir öğretmenin ekleyeceği ad herkesin kayıt ekranında seçenek olur.
+ */
+export function okulEslestirebilirMi(
+  kullanici: OturumKullanicisi,
+  ilKodu?: string | null,
+): boolean {
+  if (projeYoneticisiMi(kullanici)) return true;
+  if (!ilKoordinatoruMu(kullanici)) return false;
+  if (ilKodu === undefined) return true;
+  return ilKodu !== null && koordinatorIlKodu(kullanici) === ilKodu;
+}
+
+/**
  * Panoda BU İLİN kırılımını açabilir mi?
  *
  * Kırılım adresten geliyor (`/panel/yonetim/il/34`), dolayısıyla kapsam

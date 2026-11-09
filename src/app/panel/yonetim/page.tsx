@@ -44,6 +44,7 @@ import { acikKvkkBasvuruSayisi } from "@/lib/kvkk/basvuru";
 import { egitimOgretimYili } from "@/lib/ogretmen/gorev-yillari";
 import { ilerlemeYuzdesi, YOL_HARITASI } from "@/lib/proje/yol-haritasi";
 import { onayliMentorMu } from "@/lib/mentor/veri";
+import { okulsuzKisiSayisi } from "@/lib/okul/eslestirme-islem";
 import {
   birimUyarilari,
   illeriSuz,
@@ -63,6 +64,7 @@ import {
   kullaniciYonetebilirMi,
   kvkkBasvurulariniYanitlayabilirMi,
   ogrenciEnvanteriGorebilirMi,
+  okulEslestirebilirMi,
   ogretmenEnvanteriGorebilirMi,
   panoIlaniOnaylayabilirMi,
   paydasGorebilirMi,
@@ -158,8 +160,12 @@ export default async function YonetimSayfasi({
    * aşağıdaki "Onay kuyruğu" kartı birleşik ekrana gidiyor ve rozeti o ekranın
    * gösterdiği her şeyi saymalı.
    */
-  const [bekleyenGorevBasvurusu, bekleyenIlan, acikKvkkBasvurusu] =
-    await Promise.all([
+  const [
+    bekleyenGorevBasvurusu,
+    bekleyenIlan,
+    acikKvkkBasvurusu,
+    okulsuzSayisi,
+  ] = await Promise.all([
       gencTekGoreviYonetebilirMi(kullanici)
         ? prisma.gencTekGorevBasvurusu.count({
             where: { onayDurumu: "BEKLIYOR" },
@@ -179,6 +185,11 @@ export default async function YonetimSayfasi({
          kullanılıyor. */
       kvkkBasvurulariniYanitlayabilirMi(kullanici)
         ? acikKvkkBasvuruSayisi()
+        : Promise.resolve(0),
+      /* Okul eşleştirme (9 Kasım 2026): okulunu elle yazmış, henüz bir okula
+         bağlanmamış kişiler. Koordinatörde kendi ili, merkezde ülke geneli. */
+      okulEslestirebilirMi(kullanici)
+        ? okulsuzKisiSayisi(merkezMi ? null : ilKodu)
         : Promise.resolve(0),
     ]);
   /*
@@ -592,6 +603,22 @@ export default async function YonetimSayfasi({
               aciklama="İldeki danışmansız öğrencileri okullarına göre öğretmenlere atayın"
               Ikon={UserCheck}
               yol="/panel/yonetim/toplu-danisman"
+              ton="uyari"
+            />
+          )}
+          {/*
+            OKUL EŞLEŞTİRME (9 Kasım 2026 · istekler: "aynı adla yazılmış
+            öğrencileri grup halinde görür ve tek tıkla doğru okula bağlar" ·
+            "koordinatör ilindekileri atasın ya da bağlasın"). Rozet, okulu
+            eşleşmemiş kişi sayısı; sıfırda basılmaz.
+          */}
+          {okulEslestirebilirMi(kullanici) && (
+            <KisayolKarti
+              baslik="Okul eşleştirme"
+              aciklama="Okulunu elle yazanları gerçek okuluna bağlayın"
+              Ikon={School}
+              yol="/panel/yonetim/okul-eslestirme"
+              bekleyen={okulsuzSayisi}
               ton="uyari"
             />
           )}
