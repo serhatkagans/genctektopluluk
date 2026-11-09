@@ -75,6 +75,7 @@ import {
   ogrenciEnvanteriGorebilirMi,
   calismaGrubuYoneticisiAtayabilirMi,
   ogrenciTemsilciligiAtayabilirMi,
+  okulEslestirebilirMi,
   type TemsilcilikRolu,
   projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
@@ -194,6 +195,45 @@ function TemsilcilikHucresi({
    * basılıyor. "—" yazılsaydı, görevli bir öğrenci başkasının ekranında
    * görevsiz görünürdü — oysa sütunun ilk işi durumu söylemek.
    */
+  /*
+   * OKULA BAĞLI DEĞİLSE "OKULA BAĞLA" (9 Kasım 2026 · istek: "temsilci yap
+   * koordinatörde pasifti, onu da aktif yapabilir misin").
+   *
+   * Okul temsilciliği kaydı bir OKULA bağlanır (kapsam sütunu kurum kodu);
+   * okulunu elle yazmış öğrencinin kurum kodu yok, görev ona verilemez. Canlıda
+   * kayıtlı okul listesi boş olduğu için bu sütun herkeste "—" idi ve sebebi
+   * görünmüyordu. Okulu eşleştirebilen (koordinatör kendi ilinde, merkez)
+   * kişiye "—" yerine eşleştirme ekranına giden bağlantı basılır; öğrenci
+   * okula bağlanınca aynı hücrede "Görev ver" çıkar.
+   *
+   * İLÇE SÜTUNUNDA DA: ilçesi boş öğrenciye ilçe temsilciliği verilemiyor;
+   * okula bağlanınca ilçe okulun kaydından dolar, yani yol aynı.
+   */
+  const okulaBaglanmaliMi =
+    (rolKodu === "OKUL_TEMSILCISI" && ogrenci.kurumKodu === null) ||
+    (rolKodu === "ILCE_TEMSILCISI" && ogrenci.ilceKodu === null);
+  if (
+    !yetkili &&
+    !mevcut &&
+    okulaBaglanmaliMi &&
+    ogrenci.ilKodu !== null &&
+    okulEslestirebilirMi(kullanici, ogrenci.ilKodu)
+  ) {
+    return (
+      <Link
+        href={`/panel/yonetim/okul-eslestirme?il=${ogrenci.ilKodu}`}
+        title={
+          rolKodu === "OKUL_TEMSILCISI"
+            ? "Öğrenci kayıtlı bir okula bağlı değil; okul temsilciliği için önce okulunu eşleştirin"
+            : "Öğrencinin ilçesi kayıtlı değil; okulunu eşleştirince ilçesi okuldan dolar"
+        }
+        className="whitespace-nowrap rounded-md border border-dashed border-cizgi px-2.5 py-1.5 text-sm font-medium text-metin-yumusak transition hover:bg-zemin hover:text-metin"
+      >
+        Okula bağla
+      </Link>
+    );
+  }
+
   if (!yetkili) {
     return mevcut ? (
       <span
