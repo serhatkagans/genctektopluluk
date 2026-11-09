@@ -13,7 +13,10 @@ import {
 } from "@/lib/rapor/disa-aktarma";
 import type { XlsxSutun } from "@/lib/rapor/xlsx";
 import { gorevRolAdi } from "@/lib/yetki/etiketler";
-import { ogrenciEnvanteriGorebilirMi } from "@/lib/yetki/izinler";
+import {
+  ogrenciEnvanteriGorebilirMi,
+  projeYoneticisiMi,
+} from "@/lib/yetki/izinler";
 import { ogrenciListeFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLoglaCoklu } from "@/lib/yetki/log";
 import { ogrenciFiltreleriniCoz, type SorguParametreleri } from "../filtreler";
@@ -24,14 +27,25 @@ export const dynamic = "force-dynamic";
  * Öğrenci envanterinin dosya çıktısı (varsayılan XLSX, `?bicim=csv` ile CSV).
  *
  * Dosya, ekranda görünen listenin AYNISIDIR: aynı kapsam filtresinden ve aynı
- * ekran filtrelerinden geçer, aynı sütunları taşır. Dışa aktarmaya ekranda
- * olmayan bir alan (e-posta, telefon) eklemek, indirme yolunu kapsam
- * genişletmenin arka kapısı hâline getirirdi.
+ * ekran filtrelerinden geçer, aynı sütunları taşır.
  *
  * Tek fark sayfalamanın olmaması; onun yerine bir satır sınırı var.
+ *
+ * E-POSTA VE TELEFON YALNIZCA PROJE YÖNETİCİSİNDE (9 Kasım 2026 · istek:
+ * "proje yönetici için … excel ve csv için eposta ve telefon bilgileri de
+ * gelsin"). Bilgi öğrenci detay ekranında zaten aynı kapsamda görünüyor; yeni
+ * olan, bütün listenin TEK DOSYADA toplanması. Öğrencilerin çoğu 18 yaş altı
+ * olduğu için toplu iletişim dökümü merkezle sınırlı tutuldu — koordinatöre
+ * açılacaksa ayrı bir karar olarak açılmalı.
+ *
+ * OKUL ELLE YAZILMIŞSA O AD BASILIR (aynı gün · istek: "çocukların girdiği
+ * ilçe ve okul isimleri boş geliyor"). Kayıtlı okul listesi boş olduğu için
+ * herkes okulunu elle yazdı ve "Okul" sütunu yalnızca kayıtlı okuldan
+ * dolduğundan bütün dosyada boştu. Kurum kodu sütunu boş kalır: elle yazılan
+ * adın kodu yoktur.
  */
 
-const SUTUNLAR: readonly XlsxSutun[] = [
+const SUTUNLAR: readonly (XlsxSutun & { yalnizcaMerkez?: boolean })[] = [
   { baslik: "Ad", genislik: 18 },
   { baslik: "Soyad", genislik: 18 },
   { baslik: "Sınıf", genislik: 10 },
@@ -42,6 +56,8 @@ const SUTUNLAR: readonly XlsxSutun[] = [
   { baslik: "İl", genislik: 14 },
   { baslik: "İlçe", genislik: 16 },
   { baslik: "Danışman", genislik: 22 },
+  { baslik: "E-posta", genislik: 30, yalnizcaMerkez: true },
+  { baslik: "Telefon", genislik: 16, yalnizcaMerkez: true },
   /*
     TEMSİLCİLİK SÜTUNLARI (27 Ağustos 2026 · istek: "excele şu sütundaki
     verileri de ekleyelim · İl temsilcisi · İlçe temsilcisi · Okul
@@ -76,6 +92,7 @@ export async function GET(istek: Request) {
   if (!ogrenciEnvanteriGorebilirMi(kullanici)) {
     return new Response("Bulunamadı", { status: 404 });
   }
+  const iletisimDahil = projeYoneticisiMi(kullanici);
 
   const adres = new URL(istek.url);
   const parametreler: SorguParametreleri = Object.fromEntries(
@@ -117,6 +134,9 @@ export async function GET(istek: Request) {
       egitimOgretimYili: true,
       kurumKodu: true,
       kurum: { select: { ad: true, okulTuru: true } },
+      beyanOkulAdi: true,
+      beyanOkulTuru: true,
+      ogrenciProfil: { select: { eposta: true, telefon: true } },
       il: { select: { ad: true } },
       ilce: { select: { ad: true } },
       calismaGruplari: {
@@ -170,7 +190,9 @@ export async function GET(istek: Request) {
       islem: "GORUNTULEME" as const,
       hedefTip: "OGRENCI" as const,
       hedefId: ogrenci.id,
-      detay: `Öğrenci listesi ${bicim.toUpperCase()} olarak dışa aktarıldı`,
+      detay:
+        `Öğrenci listesi ${bicim.toUpperCase()} olarak dışa aktarıldı` +
+        (iletisimDahil ? " (e-posta ve telefon dahil)" : ""),
     })),
   );
 
@@ -185,19 +207,21 @@ export async function GET(istek: Request) {
       const gorev = gorevler.find((kayit) => kayit.rolKodu === rolKodu);
       return gorev ? gorevRolAdi(gorev) : "";
     };
-    return [
+    const satir = [
       ogrenci.ad,
       ogrenci.soyad,
       ogrenci.sinif ?? "",
       ogrenci.egitimOgretimYili,
-      ogrenci.kurum?.ad ?? "",
-      ogrenci.kurum?.okulTuru ?? "",
+      ogrenci.kurum?.ad ?? ogrenci.beyanOkulAdi ?? "",
+      ogrenci.kurum?.okulTuru ?? ogrenci.beyanOkulTuru ?? "",
       // Kurum kodu KİMLİKTİR, sayı değil: metin kalsın ki Excel onu
       // hesaplanabilir bir değere çevirmesin (bkz. lib/rapor/xlsx.ts).
       ogrenci.kurumKodu === null ? "" : String(ogrenci.kurumKodu),
       ogrenci.il?.ad ?? "",
       ogrenci.ilce?.ad ?? "",
       danisman ? `${danisman.ad} ${danisman.soyad}` : "Atanmadı",
+      ogrenci.ogrenciProfil?.eposta ?? "",
+      ogrenci.ogrenciProfil?.telefon ?? "",
       temsilcilik("IL_TEMSILCISI"),
       temsilcilik("ILCE_TEMSILCISI"),
       temsilcilik("OKUL_TEMSILCISI"),
@@ -206,6 +230,8 @@ export async function GET(istek: Request) {
         .join(", "),
       ogrenci.kazanimlar.map((kazanim) => kazanim.baslik).join(", "),
     ];
+    // Merkez dışındakilerde iletişim sütunları satırdan da düşer.
+    return satir.filter((_, sira) => iletisimDahil || !SUTUNLAR[sira].yalnizcaMerkez);
   });
 
   return disaAktarmaYaniti({
@@ -213,7 +239,9 @@ export async function GET(istek: Request) {
     dosyaAdi: "genctek-ogrenciler",
     baslik: "GençTek Ekosistemi",
     altBaslik: altBaslikYaz("Öğrenci envanteri", satirlar.length),
-    sutunlar: SUTUNLAR,
+    sutunlar: SUTUNLAR.filter((sutun) => iletisimDahil || !sutun.yalnizcaMerkez).map(
+      ({ baslik, genislik }) => ({ baslik, genislik }),
+    ),
     satirlar,
   });
 }
