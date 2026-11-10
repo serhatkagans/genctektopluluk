@@ -9,7 +9,9 @@ import type { OturumKullanicisi } from "./tipler";
 export const ROL_ETIKETLERI: Record<RolKodu, string> = {
   OGRENCI: "Öğrenci",
   DANISMAN: "Danışman öğretmen",
-  IL_KOORDINATOR: "İl koordinatörü",
+  // Unvan, büyük harfle (10 Kasım 2026 · istek: üst bardaki rozette
+  // "İl koordinatörü" yerine "İl Koordinatörü" dursun). Vitrindeki unvanla aynı.
+  IL_KOORDINATOR: "İl Koordinatörü",
   PROJE_YONETICISI: "Proje yöneticisi",
   // EBA dışı roller: kimlikleri AuthProvider'dan gelmez, başvuru onayıyla
   // doğar (bkz. lib/dis-kimlik/).
