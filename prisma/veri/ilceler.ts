@@ -218,6 +218,10 @@ export const TUM_ILCELER: { ilceKodu: string; ilKodu: string; ad: string }[] = [
   { ilceKodu: "1615", ilKodu: "16", ad: "Osmangazi" },
   { ilceKodu: "1616", ilKodu: "16", ad: "Yenişehir" },
   { ilceKodu: "1617", ilKodu: "16", ad: "Yıldırım" },
+  // Gerçek ilçe değil: il milli eğitim müdürlüğü kadrosundakiler ilçe olarak
+  // "Büyükşehir" seçiyor (10 Kasım 2026 isteği). Kod alfabetik sıranın dışında,
+  // sona eklendi; mevcut kodlar kaymasın diye.
+  { ilceKodu: "1618", ilKodu: "16", ad: "Büyükşehir" },
   { ilceKodu: "1701", ilKodu: "17", ad: "Ayvacık" },
   { ilceKodu: "1702", ilKodu: "17", ad: "Bayramiç" },
   { ilceKodu: "1703", ilKodu: "17", ad: "Biga" },
