@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { yoneticiDanismanAta } from "@/lib/danisman/atama";
-import { projeYoneticisiMi } from "@/lib/yetki/izinler";
+import { danismanAtayaniCoz, yoneticiDanismanAta } from "@/lib/danisman/atama";
 import { erisimLogla } from "@/lib/yetki/log";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
 
@@ -15,16 +14,25 @@ const YOL = "/panel/yonetim/toplu-danisman";
  * atama olsun"). Seçilen her öğrenci için tekil atamanın aynısı çalışır
  * (bkz. lib/danisman/atama.ts · yoneticiDanismanAta): kural ve bildirimler
  * tek yerde.
+ *
+ * İl koordinatörü de kullanır (11 Kasım 2026). Öğrenci id'leri formdan
+ * geldiği için il kısıtı her öğrencide yoneticiDanismanAta içinde yeniden
+ * sorulur; başka ilin öğrencisi "atanamadı" sayısına düşer.
  */
 export async function topluDanismanAtaEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!projeYoneticisiMi(kullanici)) {
-    throw new YetkiHatasi("Danışman atamasını yalnızca proje yöneticisi yapar.");
+  const atayan = danismanAtayaniCoz(kullanici);
+  if (!atayan) {
+    throw new YetkiHatasi(
+      "Danışman atamasını il koordinatörü ya da proje yöneticisi yapar.",
+    );
   }
 
-  const il = String(veri.get("il") ?? "");
+  // Koordinatörün ekranında il sabit; formdaki değere bakılmaz.
+  const il =
+    atayan.rol === "IL_KOORDINATOR" ? "" : String(veri.get("il") ?? "");
   const donus = (sorgu: string) =>
-    `${YOL}?il=${encodeURIComponent(il)}&${sorgu}`;
+    il ? `${YOL}?il=${encodeURIComponent(il)}&${sorgu}` : `${YOL}?${sorgu}`;
 
   const danismanId = Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
   const ogrenciIdleri = veri
@@ -42,7 +50,7 @@ export async function topluDanismanAtaEylemi(veri: FormData): Promise<void> {
   let atanan = 0;
   const hatalar: string[] = [];
   for (const ogrenciId of ogrenciIdleri) {
-    const sonuc = await yoneticiDanismanAta(ogrenciId, danismanId);
+    const sonuc = await yoneticiDanismanAta(ogrenciId, danismanId, atayan);
     if (sonuc.olurMu) atanan += 1;
     else hatalar.push(sonuc.neden);
   }
@@ -52,7 +60,7 @@ export async function topluDanismanAtaEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "DANISMAN_ATAMA",
     hedefId: danismanId,
-    detay: `Toplu danışman ataması: ${atanan}/${ogrenciIdleri.length} öğrenci → ${danismanId}`,
+    detay: `Toplu danışman ataması (${atayan.rol === "IL_KOORDINATOR" ? `il koordinatörü, ${atayan.ilKodu}` : "proje yöneticisi"}): ${atanan}/${ogrenciIdleri.length} öğrenci → ${danismanId}`,
   });
 
   revalidatePath(YOL);

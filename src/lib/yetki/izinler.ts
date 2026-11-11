@@ -784,6 +784,33 @@ export function danismanligiSonlandirabilirMi(
 }
 
 /**
+ * DANIŞMAN ÖĞRETMEN ATAYABİLİR Mİ? (11 Kasım 2026 · istek: "koordinatörlere
+ * danışman öğretmen ata kısmını aç, kendi ilindeki öğretmenleri danışman
+ * olarak atayabilsinler").
+ *
+ * 23 Ekim'den beri atamayı yalnızca proje yöneticisi yapıyordu (bkz.
+ * danisman/politika.ts). Kapı şimdi il koordinatörüne de açık ama YALNIZCA
+ * KENDİ İLİNDE: öğrenci onun ilinde olmalı; öğretmenin de öğrencinin ilinden
+ * olması atama kuralının kendisi (bkz. danisman/atama.ts · yoneticiDanismanAta).
+ *
+ * İl verilmezse "ekranı / formu açabilir mi" sorusudur. Danışman öğretmen
+ * DIŞARIDA: öğretmenin öğrenci alabilmesi, öğrenci çekme kapısını yeniden
+ * açardı (bkz. yetki/kapsam.ts).
+ */
+export function danismanAtayabilirMi(
+  kullanici: OturumKullanicisi,
+  ilKodu?: string | null,
+): boolean {
+  if (projeYoneticisiMi(kullanici)) return true;
+  if (!ilKoordinatoruMu(kullanici)) return false;
+  const kendiIli = koordinatorIlKodu(kullanici);
+  // İli kayıtlı olmayan koordinatör hiçbir ilde atama yapamaz: fail closed.
+  if (kendiIli === null) return false;
+  if (ilKodu === undefined) return true;
+  return ilKodu === kendiIli;
+}
+
+/**
  * Etkinlik listesi CSV olarak indirilebilir mi? (10 Ağustos 2026 · istek:
  * "öğrenci etkinliklerinde CSV indir kalkacak")
  *

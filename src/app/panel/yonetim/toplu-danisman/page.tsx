@@ -14,7 +14,12 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { ildekiDanismanlar } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
 import { okulAdiBenzerMi } from "@/lib/okul/benzerlik";
-import { projeYoneticisiMi } from "@/lib/yetki/izinler";
+import {
+  danismanAtayabilirMi,
+  koordinatorIlKodu,
+  projeYoneticisiMi,
+} from "@/lib/yetki/izinler";
+import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { topluDanismanAtaEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +44,11 @@ const OGRENCI_SINIRI = 500;
  * Her grubun öğretmen listesi GRUBUN İLİNDEN gelir (atama kuralı "aynı il",
  * bkz. lib/danisman/atama.ts · yoneticiDanismanAta); grubun okuluyla aynı ya da benzer adlı
  * okuldaki öğretmenler ★ ile işaretli ve üstte. Az öğrencisi olan önce.
+ *
+ * İL KOORDİNATÖRÜNE AÇIK (11 Kasım 2026 · istek: "koordinatörler kendi
+ * ilindeki öğretmenleri danışman olarak atayabilsinler"). Koordinatörde il
+ * kendi iline SABİTLENİR, il kutusu basılmaz; adres çubuğuna yazılan `?il=`
+ * yok sayılır. Öğrenciler ayrıca merkezi kapsam filtresinden geçer.
  */
 export default async function TopluDanismanSayfasi({
   searchParams,
@@ -46,30 +56,40 @@ export default async function TopluDanismanSayfasi({
   searchParams: Promise<{ il?: string; durum?: string; hata?: string }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!projeYoneticisiMi(kullanici)) {
+  if (!danismanAtayabilirMi(kullanici)) {
     return (
       <Kart>
         <KartBasligi
           baslik="Toplu danışman ataması"
-          aciklama="Bu ekran proje yöneticisine açıktır."
+          aciklama="Bu ekran il koordinatörüne ve proje yöneticisine açıktır."
         />
       </Kart>
     );
   }
 
+  const merkezMi = projeYoneticisiMi(kullanici);
   const { il, durum, hata } = await searchParams;
-  const secilenIl = il && /^\d{2}$/.test(il) ? il : null;
+  const secilenIl = merkezMi
+    ? il && /^\d{2}$/.test(il)
+      ? il
+      : null
+    : koordinatorIlKodu(kullanici);
   const ilAdi = ILLER.find((kayit) => kayit.ilKodu === secilenIl)?.ad ?? null;
 
   const [ogrenciler, ogretmenler] = await Promise.all([
     prisma.kullanici.findMany({
       where: {
-        aktif: true,
-        roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
-        ogrenciAtamalari: { none: { bitisTarihi: null } },
-        ...(secilenIl
-          ? { OR: [{ ilKodu: secilenIl }, { kurum: { ilKodu: secilenIl } }] }
-          : {}),
+        AND: [
+          ogrenciKapsamFiltresi(kullanici),
+          {
+            aktif: true,
+            roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+            ogrenciAtamalari: { none: { bitisTarihi: null } },
+          },
+          secilenIl
+            ? { OR: [{ ilKodu: secilenIl }, { kurum: { ilKodu: secilenIl } }] }
+            : {},
+        ],
       },
       orderBy: [{ ilKodu: "asc" }, { ad: "asc" }, { soyad: "asc" }],
       take: OGRENCI_SINIRI,
@@ -134,35 +154,42 @@ export default async function TopluDanismanSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Toplu danışman ataması"
-        aciklama="Danışmansız öğrencileri il ve okula göre listeler; seçtiğiniz öğrencileri tek seferde bir danışman öğretmene atarsınız. Öğretmen, öğrencinin ilinden seçilir."
+        aciklama={
+          merkezMi
+            ? "Danışmansız öğrencileri il ve okula göre listeler; seçtiğiniz öğrencileri tek seferde bir danışman öğretmene atarsınız. Öğretmen, öğrencinin ilinden seçilir."
+            : "İlinizdeki danışmansız öğrencileri okula göre listeler; seçtiğiniz öğrencileri tek seferde ilinizdeki bir danışman öğretmene atarsınız."
+        }
         geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
       />
 
       {durum && <BilgiKutusu cesit="olumlu">{durum}</BilgiKutusu>}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
-      {/* İl seçilince kendiliğinden süzer; "Tüm iller" listenin tamamı. */}
-      <form method="get" className="flex flex-wrap items-end gap-3">
-        <label className="block min-w-60">
-          <span className="text-sm font-medium text-metin-yumusak">İl</span>
-          <OtomatikSecimKutusu
-            ad="il"
-            deger={secilenIl}
-            bosEtiket="Tüm iller"
-            etiket="İl"
-            sinif={SINIF_GIRDI}
-            secenekler={ILLER.map((kayit) => ({
-              deger: kayit.ilKodu,
-              etiket: kayit.ad,
-            }))}
-          />
-        </label>
-        <noscript>
-          <button type="submit" className={SINIF_BIRINCIL_BUTON}>
-            Süz
-          </button>
-        </noscript>
-      </form>
+      {/* İl seçilince kendiliğinden süzer; "Tüm iller" listenin tamamı.
+          Koordinatörde il sabit, kutu basılmaz. */}
+      {merkezMi && (
+        <form method="get" className="flex flex-wrap items-end gap-3">
+          <label className="block min-w-60">
+            <span className="text-sm font-medium text-metin-yumusak">İl</span>
+            <OtomatikSecimKutusu
+              ad="il"
+              deger={secilenIl}
+              bosEtiket="Tüm iller"
+              etiket="İl"
+              sinif={SINIF_GIRDI}
+              secenekler={ILLER.map((kayit) => ({
+                deger: kayit.ilKodu,
+                etiket: kayit.ad,
+              }))}
+            />
+          </label>
+          <noscript>
+            <button type="submit" className={SINIF_BIRINCIL_BUTON}>
+              Süz
+            </button>
+          </noscript>
+        </form>
+      )}
 
       <>
         {secilenIl && (

@@ -3,6 +3,7 @@ import {
   basvuruDegerlendirebilirMi,
   basvuruYapabilirMi,
   calismaGrubuTanimlayabilirMi,
+  danismanAtayabilirMi,
   ekYukleyebilirMi,
   faaliyetPaydasiYonetebilirMi,
   ogrenciEnvanteriGorebilirMi,
@@ -709,6 +710,31 @@ describe("rol ve görev atama", () => {
     expect(okulTemsilcisiAtayabilirMi(projeYoneticisiYap(), 750001, false)).toBe(
       true,
     );
+  });
+
+  /*
+   * DANIŞMAN ATAMASI (11 Kasım 2026 · istek: "koordinatörlere danışman
+   * öğretmen ata kısmını aç, kendi ilindeki öğretmenleri danışman olarak
+   * atayabilsinler").
+   */
+  it("danışmanı merkez her ilde, koordinatör yalnızca kendi ilinde atar", () => {
+    expect(danismanAtayabilirMi(projeYoneticisiYap())).toBe(true);
+    expect(danismanAtayabilirMi(projeYoneticisiYap(), "06")).toBe(true);
+
+    const koordinator = koordinatorYap({ ilKodu: "34" });
+    // İl verilmezse "ekranı açabilir mi" sorusu.
+    expect(danismanAtayabilirMi(koordinator)).toBe(true);
+    expect(danismanAtayabilirMi(koordinator, "34")).toBe(true);
+    expect(danismanAtayabilirMi(koordinator, "06")).toBe(false);
+    // İli bilinmeyen öğrenci kimsenin ilinde değildir.
+    expect(danismanAtayabilirMi(koordinator, null)).toBe(false);
+  });
+
+  it("danışman öğretmen ve öğrenci danışman atayamaz", () => {
+    expect(danismanAtayabilirMi(danismanYap())).toBe(false);
+    expect(danismanAtayabilirMi(danismanYap(), "34")).toBe(false);
+    expect(danismanAtayabilirMi(ogrenciYap())).toBe(false);
+    expect(danismanAtayabilirMi(rolsuzOgretmenYap())).toBe(false);
   });
 
   it("il temsilcisini koordinatör yalnızca kendi ilinde atar", () => {

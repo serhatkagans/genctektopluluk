@@ -2,7 +2,13 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { AtamaTipi, KapanmaNedeni } from "@/generated/prisma/enums";
 import { BILDIRIM_KODLARI, bildirimGonder, projeYoneticilerineBildir } from "../bildirim/gonder";
 import { prisma } from "../db";
+import {
+  danismanAtayabilirMi,
+  koordinatorIlKodu,
+  projeYoneticisiMi,
+} from "../yetki/izinler";
 import { danismanAdayiFiltresi } from "../yetki/kapsam";
+import type { OturumKullanicisi } from "../yetki/tipler";
 import { ATAMAYI_YALNIZCA_YONETICI_YAPAR } from "./politika";
 import {
   type DanismanAdayi,
@@ -759,7 +765,7 @@ export async function tekOgrenciyiBirak(girdi: {
   }
 
   const yeniDurum = ATAMAYI_YALNIZCA_YONETICI_YAPAR
-    ? "Öğrenci danışmansız kaldı; yeni danışmanını proje yöneticisi atar."
+    ? "Öğrenci danışmansız kaldı; yeni danışmanını il koordinatörü ya da proje yöneticisi atar."
     : "Öğrenci danışmansız kaldı; okulundaki danışman öğretmenlerden birini kendisi seçebilir ya da bir öğretmen danışmanlığına alabilir.";
 
   return { olurMu: true, yeniDurum, ogrenciAdSoyad };
@@ -879,12 +885,37 @@ export async function yeniDanismanBildirimiYap(
  * elle yazılmış okul adları aynı okulu farklı kayıtlarda tutabiliyor.
  * Öğrencinin danışmana görünmesi okuldan bağımsızdır (bkz. yetki/kapsam.ts).
  *
- * Yetki burada SORULMAZ; çağıran eylem proje yöneticisini denetler (bkz.
- * ogrenciler/[id]/eylemler.ts).
+ * İL KOORDİNATÖRÜ DE ATAR (11 Kasım 2026 · istek: "koordinatörler kendi
+ * ilindeki öğretmenleri danışman olarak atayabilsinler"). Koordinatörde
+ * öğrenci KENDİ İLİNDE olmalı — hem kaydındaki il (kapsam filtresinin
+ * baktığı) hem okulunun ili. Öğretmen öğrencinin ilinden seçildiği için
+ * böylece koordinatörün ilinden olur.
+ *
+ * Rol burada SORULMAZ; çağıran eylem `danismanAtayabilirMi` ile denetler
+ * (bkz. ogrenciler/[id]/eylemler.ts). İl kısıtı ise burada da uygulanır:
+ * toplu atamada öğrenci id'leri formdan geliyor.
  */
+export type DanismanAtayan =
+  | { rol: "PROJE_YONETICISI" }
+  | { rol: "IL_KOORDINATOR"; ilKodu: string };
+
+/**
+ * Oturumdaki kişinin atayan kimliği; atama yetkisi yoksa null. Proje
+ * yöneticisi önce gelir: iki rolü birden taşıyan kişi il kısıtına takılmaz.
+ */
+export function danismanAtayaniCoz(
+  kullanici: OturumKullanicisi,
+): DanismanAtayan | null {
+  if (!danismanAtayabilirMi(kullanici)) return null;
+  if (projeYoneticisiMi(kullanici)) return { rol: "PROJE_YONETICISI" };
+  const ilKodu = koordinatorIlKodu(kullanici);
+  return ilKodu ? { rol: "IL_KOORDINATOR", ilKodu } : null;
+}
+
 export async function yoneticiDanismanAta(
   ogrenciId: number,
   danismanKullaniciId: number,
+  atayan: DanismanAtayan,
 ): Promise<{ olurMu: false; neden: string } | { olurMu: true; degistiMi: boolean }> {
   const ogrenci = await prisma.kullanici.findFirst({
     where: {
@@ -898,6 +929,15 @@ export async function yoneticiDanismanAta(
   const ogrenciIli = ogrenci.kurum?.ilKodu ?? ogrenci.ilKodu;
   if (!ogrenciIli) {
     return { olurMu: false, neden: "Öğrencinin ili kayıtlı değil." };
+  }
+  if (
+    atayan.rol === "IL_KOORDINATOR" &&
+    (ogrenci.ilKodu !== atayan.ilKodu || ogrenciIli !== atayan.ilKodu)
+  ) {
+    return {
+      olurMu: false,
+      neden: "Yalnızca kendi ilinizdeki öğrencilere danışman atayabilirsiniz.",
+    };
   }
 
   const uygun = await prisma.kullanici.findFirst({
@@ -927,7 +967,7 @@ export async function yoneticiDanismanAta(
     await danismanlikBittiBildirimi(
       sonuc.oncekiDanismanKullaniciId,
       `${ogrenci.ad} ${ogrenci.soyad}`,
-      "proje yöneticisi tarafından başka bir danışman öğretmene atandı",
+      `${atayan.rol === "IL_KOORDINATOR" ? "il koordinatörü" : "proje yöneticisi"} tarafından başka bir danışman öğretmene atandı`,
     );
   }
   return { olurMu: true, degistiMi: true };

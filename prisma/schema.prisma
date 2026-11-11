@@ -95,6 +95,8 @@ enum AtamaTipi {
   /// Proje yöneticisi elle atadı (23 Ekim 2026 · istek: "atamayı yönetici
   /// yapsın"). Bu tarihten sonra açılan atamaların tek kaynağı budur; diğer
   /// tipler geçmiş kayıtlarda kalır (bkz. lib/danisman/politika.ts).
+  /// 11 Kasım 2026'dan beri kendi ilinde il koordinatörünün atamaları da bu
+  /// tiple açılır; kimin atadığı erişim kaydında yazılı.
   YONETICI_ATADI
 }
 

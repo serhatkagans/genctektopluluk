@@ -42,9 +42,9 @@ import { uygulamaYolu } from "@/lib/ortam";
 import { tarihSaatYaz, tarihYaz } from "@/lib/tarih";
 import { gorevRolAdi } from "@/lib/yetki/etiketler";
 import {
+  danismanAtayabilirMi,
   danismanligiSonlandirabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
-  projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { ildekiDanismanlar } from "@/lib/danisman/atama";
@@ -137,12 +137,14 @@ export default async function OgrenciProfilSayfasi({
     !kendiDanismanligi && danismanligiSonlandirabilirMi(kullanici);
 
   /*
-   * DANIŞMAN ATAMASINI PROJE YÖNETİCİSİ YAPAR (23 Ekim 2026). Seçenekler
-   * öğrencinin İLİNDEKİ danışman öğretmenler; aynı ya da benzer adlı okuldaki
-   * öğretmenler üstte ve işaretli (okul adları elle yazıldığı için birebir
-   * eşleşme aranmıyor — bkz. lib/okul/benzerlik.ts).
+   * DANIŞMAN ATAMASINI PROJE YÖNETİCİSİ YAPAR (23 Ekim 2026); 11 Kasım
+   * 2026'dan beri il koordinatörü de, YALNIZCA KENDİ İLİNDEKİ öğrenciye.
+   * Seçenekler öğrencinin İLİNDEKİ danışman öğretmenler; aynı ya da benzer
+   * adlı okuldaki öğretmenler üstte ve işaretli (okul adları elle yazıldığı
+   * için birebir eşleşme aranmıyor — bkz. lib/okul/benzerlik.ts).
    */
-  const yoneticiAtamasi = projeYoneticisiMi(kullanici) && !kendiProfili;
+  const yoneticiAtamasi =
+    danismanAtayabilirMi(kullanici, ogrenci.ilKodu) && !kendiProfili;
   const ogrenciOkulAdi = ogrenci.kurum?.ad ?? ogrenci.beyanOkulAdi;
   const ayniOkulMu = (aday: { kurumKodu: number | null; okulAdi: string | null }) =>
     (ogrenci.kurumKodu !== null && aday.kurumKodu === ogrenci.kurumKodu) ||
@@ -333,8 +335,9 @@ export default async function OgrenciProfilSayfasi({
 
         {/*
           YÖNETİCİ ATAMASI (23 Ekim 2026 · istek: "atamayı yönetici yapsın").
-          Yalnızca proje yöneticisine basılır; seçenekler öğrencinin OKULUNDAKİ
-          danışman öğretmenlerdir.
+          Proje yöneticisine ve öğrencinin ilinin koordinatörüne basılır
+          (11 Kasım 2026); seçenekler öğrencinin İLİNDEKİ danışman
+          öğretmenlerdir.
         */}
         {yoneticiAtamasi && (
           <div className="mt-5 border-t border-cizgi pt-4">
@@ -414,7 +417,7 @@ export default async function OgrenciProfilSayfasi({
                   : `${atama.danisman.ad} ${atama.danisman.soyad} öğretmenin danışmanlığı sonlanır; karar erişim kaydına yazılır`}
                 . Öğrenci başka bir öğretmene DEVREDİLMEZ, danışmansız kalır:
                 {ATAMAYI_YALNIZCA_YONETICI_YAPAR
-                  ? " yeni danışmanını proje yöneticisi atar."
+                  ? " yeni danışmanını il koordinatörü ya da proje yöneticisi atar."
                   : " okulundaki danışman öğretmenlerden birini kendisi seçebilir ya da bir öğretmen onu danışmanlığına alabilir. Öğrenciye \"yeni danışmanını seç\" bildirimi gider."}
               </BilgiKutusu>
               <label className="block">

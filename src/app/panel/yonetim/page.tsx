@@ -57,6 +57,7 @@ import {
   ilOzetleriniGetir,
 } from "@/lib/rapor/yonetim-ozeti";
 import {
+  danismanAtayabilirMi,
   gencTekGoreviYonetebilirMi,
   hataKayitlariniGorebilirMi,
   ilKoordinatoruMu,
@@ -595,9 +596,10 @@ export default async function YonetimSayfasi({
           */}
           {/*
             TOPLU DANIŞMAN ATAMASI (23 Ekim 2026 · istek: "yönetim panelinde
-            toplu atama olsun"). Atamayı yalnızca proje yöneticisi yapıyor.
+            toplu atama olsun"). 11 Kasım 2026'dan beri il koordinatörüne de
+            açık; koordinatör yalnızca kendi ilini görür ve atar.
           */}
-          {projeYoneticisiMi(kullanici) && (
+          {danismanAtayabilirMi(kullanici) && (
             <KisayolKarti
               baslik="Toplu danışman ataması"
               aciklama="İldeki danışmansız öğrencileri okullarına göre öğretmenlere atayın"

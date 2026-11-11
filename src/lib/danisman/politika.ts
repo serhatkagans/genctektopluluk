@@ -17,9 +17,15 @@
  *
  * Eski akış silinmedi, bu bayrağın arkasında duruyor; örnek veri betikleri de
  * onu kullanmaya devam ediyor.
+ *
+ * İL KOORDİNATÖRÜ DE ATAR (11 Kasım 2026 · istek: "koordinatörlere danışman
+ * öğretmen ata kısmını aç"). "Yönetici" artık proje yöneticisi ile kendi
+ * ilindeki il koordinatörü demek (bkz. yetki/izinler.ts ·
+ * danismanAtayabilirMi). Öğretmen ve öğrenci için yukarıdaki kapalı yollar
+ * değişmedi.
  */
 export const ATAMAYI_YALNIZCA_YONETICI_YAPAR = true;
 
 /** Kapalı yollardan biri çağrıldığında kullanıcıya gösterilen metin. */
 export const YONETICI_ATAR_ACIKLAMASI =
-  "Danışman öğretmen ataması proje yöneticisi tarafından yapılır.";
+  "Danışman öğretmen ataması il koordinatörü ya da proje yöneticisi tarafından yapılır.";

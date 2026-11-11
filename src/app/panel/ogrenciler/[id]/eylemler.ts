@@ -6,6 +6,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { BILDIRIM_KODLARI } from "@/lib/bildirim/sablon";
 import { bildirimGonder } from "@/lib/bildirim/gonder";
 import {
+  danismanAtayaniCoz,
   ilKoordinatoruGetir,
   tekOgrenciyiBirak,
   yoneticiDanismanAta,
@@ -15,7 +16,6 @@ import { prisma } from "@/lib/db";
 import {
   danismanligiSonlandirabilirMi,
   ogrenciCalismaGrubuYonetebilirMi,
-  projeYoneticisiMi,
 } from "@/lib/yetki/izinler";
 import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
@@ -291,26 +291,38 @@ export async function danismanligiBirakEylemi(veri: FormData): Promise<void> {
 }
 
 /**
- * Proje yöneticisinin danışman ataması (23 Ekim 2026 · istek: "atamayı
- * yönetici yapsın"; seçim: yalnızca proje yöneticisi).
+ * Danışman ataması — proje yöneticisi (23 Ekim 2026 · istek: "atamayı
+ * yönetici yapsın") ve kendi ilinde il koordinatörü (11 Kasım 2026 · istek:
+ * "koordinatörler kendi ilindeki öğretmenleri danışman olarak atayabilsinler").
  *
  * Kural ve bildirimler lib/danisman/atama.ts · yoneticiDanismanAta'da; burası
- * yalnızca yetkiyi sorar.
+ * rolü ve kapsamı sorar.
  */
 export async function yoneticiDanismanAtaEylemi(veri: FormData): Promise<void> {
   const kullanici = await oturumKullanicisiZorunlu();
-  if (!projeYoneticisiMi(kullanici)) {
-    throw new YetkiHatasi("Danışman atamasını yalnızca proje yöneticisi yapar.");
+  const atayan = danismanAtayaniCoz(kullanici);
+  if (!atayan) {
+    throw new YetkiHatasi(
+      "Danışman atamasını il koordinatörü ya da proje yöneticisi yapar.",
+    );
   }
 
   const ogrenciId = Number.parseInt(String(veri.get("ogrenciId") ?? ""), 10);
   const danismanId = Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
   if (!Number.isFinite(ogrenciId)) throw new BulunamadiHatasi();
+
+  // Rol yetmez: öğrenci kişinin KAPSAMINDA olmalı (koordinatörde kendi ili).
+  const kapsamda = await prisma.kullanici.findFirst({
+    where: { AND: [{ id: ogrenciId }, ogrenciKapsamFiltresi(kullanici)] },
+    select: { id: true },
+  });
+  if (!kapsamda) throw new BulunamadiHatasi();
+
   if (!Number.isFinite(danismanId)) {
     hataylaDon(ogrenciId, "Atanacak danışman öğretmeni seçin.");
   }
 
-  const sonuc = await yoneticiDanismanAta(ogrenciId, danismanId);
+  const sonuc = await yoneticiDanismanAta(ogrenciId, danismanId, atayan);
   if (!sonuc.olurMu) hataylaDon(ogrenciId, sonuc.neden);
 
   await erisimLogla({
@@ -318,7 +330,7 @@ export async function yoneticiDanismanAtaEylemi(veri: FormData): Promise<void> {
     islem: "DEGISIKLIK",
     hedefTip: "DANISMAN_ATAMA",
     hedefId: ogrenciId,
-    detay: `Proje yöneticisi danışman atadı: ${danismanId}`,
+    detay: `${atayan.rol === "IL_KOORDINATOR" ? "İl koordinatörü" : "Proje yöneticisi"} danışman atadı: ${danismanId}`,
   });
 
   revalidatePath(ogrenciYolu(ogrenciId));
