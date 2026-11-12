@@ -82,14 +82,15 @@ export default async function AcilisSayfasi() {
             className="flex w-full items-center justify-center gap-2 rounded-kutu bg-vitrin-secili-zemin py-3.5 font-semibold text-vitrin-secili-metin shadow-yuksek transition hover:opacity-90"
           >
             <LogIn size={16} aria-hidden />
-            {kayitMi ? "Öğrenci / Öğretmen Girişi" : "EBA ile Giriş Yap"}
+            {/* Genel ifade (12 Kasım 2026): mezun ve mentör de bu kapıdan geçiyor. */}
+            {kayitMi ? "Giriş Yap" : "EBA ile Giriş Yap"}
           </Link>
 
           <p className="mt-4 text-xs text-vitrin-metin-yumusak">
             {kayitMi ? (
               <>
-                T.C. kimlik numaranız ve şifrenizle girersiniz. Hesabınız
-                yoksa{" "}
+                Öğrenci ve öğretmenler T.C. kimlik numarasıyla, mezun ve
+                mentörler e-posta adresiyle girer. Hesabınız yoksa{" "}
                 <Link href="/kayit" className="font-semibold underline">
                   kayıt olun
                 </Link>
