@@ -86,20 +86,15 @@ export default async function AcilisSayfasi() {
             {kayitMi ? "Giriş Yap" : "EBA ile Giriş Yap"}
           </Link>
 
-          <p className="mt-4 text-xs text-vitrin-metin-yumusak">
-            {kayitMi ? (
-              <>
-                Öğrenci ve öğretmenler T.C. kimlik numarasıyla, mezun ve
-                mentörler e-posta adresiyle girer. Hesabınız yoksa{" "}
-                <Link href="/kayit" className="font-semibold underline">
-                  kayıt olun
-                </Link>
-                .
-              </>
-            ) : (
-              "Öğrenci ve öğretmen kimlik bilgileri EBA üzerinden alınır."
-            )}
-          </p>
+          {/*
+            Kayıt kipinde düğmenin altında açıklama yok (12 Kasım 2026 · istek:
+            "açıklamaları sil"). Kayıt bağlantısı giriş ekranında duruyor.
+          */}
+          {!kayitMi && (
+            <p className="mt-4 text-xs text-vitrin-metin-yumusak">
+              Öğrenci ve öğretmen kimlik bilgileri EBA üzerinden alınır.
+            </p>
+          )}
 
           {/*
             "E-DEVLET İLE GİRİŞ" DÜĞMESİ KALKTI (24 Ekim 2026 · istek:
