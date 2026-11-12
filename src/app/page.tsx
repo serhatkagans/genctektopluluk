@@ -1,4 +1,4 @@
-import { Info, LogIn } from "lucide-react";
+import { Info, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TemaSecici } from "@/components/TemaSecici";
@@ -87,9 +87,19 @@ export default async function AcilisSayfasi() {
           </Link>
 
           {/*
-            Kayıt kipinde düğmenin altında açıklama yok (12 Kasım 2026 · istek:
-            "açıklamaları sil"). Kayıt bağlantısı giriş ekranında duruyor.
+            KAYIT OL DÜĞMESİ (12 Kasım 2026 · istek: "kayıt ol sayfası koy
+            oraya"). Açıklama metni yerine ayrı düğme; giriş düğmesinin
+            ikincil (çerçeveli) eşi.
           */}
+          {kayitMi && (
+            <Link
+              href="/kayit"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-kutu border border-vitrin-cizgi bg-white/10 py-3.5 font-semibold text-vitrin-metin transition hover:bg-white/20"
+            >
+              <UserPlus size={16} aria-hidden />
+              Kayıt Ol
+            </Link>
+          )}
           {!kayitMi && (
             <p className="mt-4 text-xs text-vitrin-metin-yumusak">
               Öğrenci ve öğretmen kimlik bilgileri EBA üzerinden alınır.
