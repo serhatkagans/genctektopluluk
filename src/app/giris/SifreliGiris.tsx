@@ -1,4 +1,4 @@
-import { CheckCircle2, KeyRound, LogIn, UserPlus } from "lucide-react";
+import { CheckCircle2, KeyRound, LogIn, Mail, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
 import {
@@ -102,6 +102,22 @@ export function SifreliGiris({
         >
           <UserPlus size={15} aria-hidden />
           Kayıt olun
+        </Link>
+      </div>
+
+      {/*
+        MEZUN VE MENTÖR GİRİŞİ (12 Kasım 2026 · istek: "mezun ve mentör
+        girişi de ekleyeceğiz"). Onaylanan başvurunun hesabı e-postayla
+        girer (/dis-giris); T.C. numarası sorulmaz.
+      */}
+      <div className="mt-4 flex items-center justify-between gap-3 text-sm text-metin-yumusak">
+        <span>Mezun ya da mentör müsünüz?</span>
+        <Link
+          href="/dis-giris"
+          className="inline-flex items-center gap-1.5 font-medium text-vurgu-metin"
+        >
+          <Mail size={15} aria-hidden />
+          E-postayla giriş
         </Link>
       </div>
 

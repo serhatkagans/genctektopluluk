@@ -57,6 +57,18 @@ enum DisKullaniciTuru {
   MENTOR
 }
 
+/// Mezun ve mentörün bugün ne yaptığı (12 Kasım 2026 · istek: "Mezun,
+/// üniversite, çalışıyor", "bir şirket çalışanı, şirketi olan da olabilir").
+///
+/// Seçime göre başvuruda farklı alanlar zorunlu olur: üniversitede okul ve
+/// bölüm, şirket çalışanında şirket ve pozisyon, şirket sahibinde şirket.
+enum GuncelDurum {
+  UNIVERSITE
+  SIRKET_CALISANI
+  SIRKET_SAHIBI
+  DIGER
+}
+
 /// Mentörlük başvurusunun durumu.
 ///
 /// `OnayDurumu` PAYLAŞILMADI: o enum'da `ONAY_GEREKMEZ` var ve mentörlükte
@@ -553,7 +565,7 @@ model Kullanici {
   /// `aktif` ALANININ YERİNİ TUTMAZ, onu tamamlar: pasife almak kişiyi tümden
   /// dışarıda bırakır, sürüm ise hesabı açık tutup yalnızca eski çerezleri
   /// geçersiz kılar.
-  oturumSurumu      Int      @default(0) @map("oturum_surumu")
+  oturumSurumu Int @default(0) @map("oturum_surumu")
 
   /// Kişisel verisi imha edilmiş kaydın imha anı (KVKK m.7 · Genelge 3/e-3/g).
   ///
@@ -571,7 +583,7 @@ model Kullanici {
   /// dışında bir şey yapmaz — ama bakım işinin her ay aynı satırları yeniden
   /// işlemesini de engeller.
   anonimlestirmeTarihi DateTime? @map("anonimlestirme_tarihi") @db.Timestamptz(6)
-  olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi      DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   /// Kişinin kendi yüklediği profil fotoğrafı — e-Okul'dan GELMEZ, gecelik
   /// senkronda üzerine yazılmaz (kimlik alanlarından farkı budur).
@@ -701,7 +713,7 @@ model Kullanici {
   /// KVKK m.11 kapsamında kendi açtığı başvurular ve merkez tarafında
   /// yanıtladıkları. İkisi AYRI ilişki: aynı kişi hem başvuran hem yanıtlayan
   /// olabilir (proje yöneticisinin de kişisel verisi işleniyor).
-  kvkkBasvurulari         KvkkBasvurusu[] @relation("KvkkBasvuran")
+  kvkkBasvurulari            KvkkBasvurusu[] @relation("KvkkBasvuran")
   yanitladigiKvkkBasvurulari KvkkBasvurusu[] @relation("KvkkBasvuruYanitlayan")
 
   gonderiler          Gonderi[]       @relation("GonderiYazan")
@@ -775,17 +787,34 @@ model KullaniciRol {
 /// SİLME YOKTUR: reddedilen başvuru da durur. "Bu kişi neden alınmadı"
 /// sorusunun cevabı gerekiyor ve aynı kişi tekrar başvurabiliyor.
 model DisKullaniciBasvurusu {
-  id      Int              @id @default(autoincrement())
-  tur     DisKullaniciTuru
-  ad      String           @db.VarChar(100)
-  soyad   String           @db.VarChar(100)
+  id            Int              @id @default(autoincrement())
+  tur           DisKullaniciTuru
+  ad            String           @db.VarChar(100)
+  soyad         String           @db.VarChar(100)
   /// Hem giriş adı hem tebligat adresi. Küçük harfe indirgenmiş olarak
   /// saklanır; büyük/küçük harf farkı iki ayrı hesap doğurmamalı.
-  eposta  String           @db.VarChar(150)
-  telefon String?          @db.VarChar(20)
+  eposta        String           @db.VarChar(150)
+  telefon       String?          @db.VarChar(20)
   /// Başvuranın ili. Kurum kodu YOKTUR — mezun okulundan ayrılmıştır, paydaş
   /// temsilcisi zaten okula bağlı değildir.
-  ilKodu  String           @map("il_kodu") @db.Char(2)
+  ///
+  /// YURT DIŞINDA NULL (12 Kasım 2026 · istek: "ülke dışında da olabilir").
+  /// O zaman `ulke` ve `yurtDisiSehir` dolu olur. İl kapsamı olmadığı için bu
+  /// kişileri il koordinatörü görmez, yalnızca proje yöneticisi görür.
+  /// Paydaş başvurusu yurt dışından yapılamaz (paydaş envanteri il bazlı).
+  ilKodu        String?          @map("il_kodu") @db.Char(2)
+  ulke          String?          @db.VarChar(100)
+  yurtDisiSehir String?          @map("yurt_disi_sehir") @db.VarChar(100)
+
+  /// MEZUN VE MENTÖRDE bugünkü durum ve ona bağlı alanlar (12 Kasım 2026).
+  /// Paydaşta hepsi NULL; paydaşın kurumu `paydasId`dedir.
+  guncelDurum    GuncelDurum? @map("guncel_durum")
+  universite     String?      @db.VarChar(250)
+  bolum          String?      @db.VarChar(150)
+  /// Şirket çalışanında çalıştığı, şirket sahibinde kurduğu şirket; "Diğer"de
+  /// isteğe bağlı kurum adı.
+  calistigiKurum String?      @map("calistigi_kurum") @db.VarChar(250)
+  pozisyon       String?      @db.VarChar(150)
 
   /// Kişinin başvuruda belirlediği şifre.
   ///
@@ -797,8 +826,10 @@ model DisKullaniciBasvurusu {
   /// MEZUN başvurusunda: mezun olduğu okul ve yılı. Okul isteğe bağlıdır —
   /// kapanmış ya da referans tablosunda bulunmayan bir okuldan mezun olan
   /// kişi başvuramaz hâle gelmemeli.
-  mezunKurumKodu Int? @map("mezun_kurum_kodu")
-  mezuniyetYili  Int? @map("mezuniyet_yili")
+  mezunKurumKodu Int?    @map("mezun_kurum_kodu")
+  /// Okul listede yoksa (ya da kişi yurt dışındaysa) elle yazılan okul adı.
+  mezunOkulAdi   String? @map("mezun_okul_adi") @db.VarChar(250)
+  mezuniyetYili  Int?    @map("mezuniyet_yili")
 
   /// PAYDAS başvurusunda: temsil ettiği kurumun envanterdeki kaydı ve kişinin
   /// oradaki görevi. Kurum envanteri il koordinatörlerince yönetildiği için
@@ -849,7 +880,7 @@ model DisKullaniciBasvurusu {
   olusanKullaniciId Int?     @unique(map: "dis_basvuru_olusan_kullanici_key") @map("olusan_kullanici_id")
   olusturmaTarihi   DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
-  il              Il         @relation(fields: [ilKodu], references: [ilKodu])
+  il              Il?        @relation(fields: [ilKodu], references: [ilKodu])
   mezunKurum      Kurum?     @relation(fields: [mezunKurumKodu], references: [kurumKodu])
   paydas          Paydas?    @relation(fields: [paydasId], references: [id])
   kararVeren      Kullanici? @relation("DisBasvuruKararVeren", fields: [kararVerenKullaniciId], references: [id])
@@ -1183,7 +1214,7 @@ model OgretmenProfil {
   /// çünkü sınır bir ürün kararıdır ve migration istemeden değişebilmeli.
   /// Öğrencininkiyle aynı sütun, aynı sınır; alan kopyalandı çünkü iki profil
   /// satırının yaşam döngüsü ayrı (CV alanlarında verilen gerekçenin aynısı).
-  cvEkNotu         String?   @map("cv_ek_notu") @db.Text
+  cvEkNotu String? @map("cv_ek_notu") @db.Text
 
   /// MESLEKİ BAĞLANTILAR (7 Ağustos 2026 · istek: mezun/paydaş/mentör profilinde
   /// "linkedin github").
@@ -1325,16 +1356,16 @@ model DanismanTalebi {
 /// Liste sabit kodlanmaz, proje yöneticisi yönetir. Silme yoktur:
 /// kapanan grup aktif=false yapılır, geçmiş seçimler korunur.
 model CalismaGrubu {
-  id     Int     @id @default(autoincrement())
-  ad     String  @unique @db.VarChar(150)
+  id       Int     @id @default(autoincrement())
+  ad       String  @unique @db.VarChar(150)
   /// Grup seçilirken adın altında görünen tek cümlelik tanıtım. Ayarlar
   /// ekranından düzenlenir; boş bırakılabilir.
   aciklama String? @db.VarChar(300)
   /// Grubun uzun tanıtım yazısı (27 Ekim 2026). Öğrenci grubu seçince seçim
   /// listesinin altında okur; Ayarlar ekranından düzenlenir, boş olabilir.
   tanitim  String? @db.Text
-  siraNo Int     @map("sira_no")
-  aktif  Boolean @default(true)
+  siraNo   Int     @map("sira_no")
+  aktif    Boolean @default(true)
 
   ogrenciSecimleri  OgrenciCalismaGrubu[]
   faaliyetler       FaaliyetCalismaGrubu[]
@@ -1397,9 +1428,9 @@ model OgrenciCalismaGrubu {
 /// Alanların hepsi birlikte dolar ya da birlikte boşalır; kısmi dolu bir satır
 /// dosyası olmayan bir CV demek olurdu (ck_ogrenci_profil_cv, migration'da).
 model OgrenciProfil {
-  kullaniciId      Int       @id @map("kullanici_id")
-  eposta           String?   @db.VarChar(150)
-  telefon          String?   @db.VarChar(20)
+  kullaniciId Int     @id @map("kullanici_id")
+  eposta      String? @db.VarChar(150)
+  telefon     String? @db.VarChar(20)
 
   /// DANIŞMAN ÖĞRETMEN BİLGİSİ — ÖĞRENCİNİN BEYANI (23 Ekim 2026 · istek:
   /// "Öğrencinin Danışman öğretmen bilgilerini girebileceği bir alan olsun,
@@ -1410,18 +1441,18 @@ model OgrenciProfil {
   /// öğrencinin yazdığı metindir — öğretmenin sistemde hesabı olmasa da
   /// girilebilir ve hiçbir erişim vermez. Hepsi isteğe bağlı; doluysa ad ve
   /// soyad birlikte istenir (bkz. lib/ogrenci/genel-bilgiler-kurallar.ts).
-  beyanDanismanAd      String? @map("beyan_danisman_ad") @db.VarChar(100)
-  beyanDanismanSoyad   String? @map("beyan_danisman_soyad") @db.VarChar(100)
-  beyanDanismanBrans   String? @map("beyan_danisman_brans") @db.VarChar(100)
-  beyanDanismanTelefon String? @map("beyan_danisman_telefon") @db.VarChar(20)
-  beyanDanismanEposta  String? @map("beyan_danisman_eposta") @db.VarChar(150)
+  beyanDanismanAd      String?   @map("beyan_danisman_ad") @db.VarChar(100)
+  beyanDanismanSoyad   String?   @map("beyan_danisman_soyad") @db.VarChar(100)
+  beyanDanismanBrans   String?   @map("beyan_danisman_brans") @db.VarChar(100)
+  beyanDanismanTelefon String?   @map("beyan_danisman_telefon") @db.VarChar(20)
+  beyanDanismanEposta  String?   @map("beyan_danisman_eposta") @db.VarChar(150)
   /// Öğrencinin yüklediği CV. Orijinal dosya adı yalnızca indirirken gösterilir;
   /// diskteki ad depolama katmanının ürettiği anahtardır (bkz. FaaliyetEk).
-  cvDosyaAdi       String?   @map("cv_dosya_adi") @db.VarChar(255)
-  cvDepolamaYolu   String?   @map("cv_depolama_yolu") @db.Text
-  cvMimeTipi       String?   @map("cv_mime_tipi") @db.VarChar(100)
-  cvBoyutBayt      BigInt?   @map("cv_boyut_bayt")
-  cvYuklenmeTarihi DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
+  cvDosyaAdi           String?   @map("cv_dosya_adi") @db.VarChar(255)
+  cvDepolamaYolu       String?   @map("cv_depolama_yolu") @db.Text
+  cvMimeTipi           String?   @map("cv_mime_tipi") @db.VarChar(100)
+  cvBoyutBayt          BigInt?   @map("cv_boyut_bayt")
+  cvYuklenmeTarihi     DateTime? @map("cv_yuklenme_tarihi") @db.Timestamptz(6)
 
   /// EKLEMEK İSTEDİKLERİNİZ (31 Ağustos 2026 · istek: "CV yükle bunu eklemek
   /// istedikleriniz yap, dosya ekleme kalsın metin ekleme alanı olsun").
@@ -1437,7 +1468,7 @@ model OgrenciProfil {
   ///
   /// SINIR UYGULAMA KATMANINDA (bkz. lib/ogrenci/cv-kurallar.ts): sütun `Text`,
   /// çünkü sınır bir ürün kararıdır ve migration istemeden değişebilmeli.
-  cvEkNotu         String?   @map("cv_ek_notu") @db.Text
+  cvEkNotu String? @map("cv_ek_notu") @db.Text
 
   /// Öğrencinin kendi girdiği mesleki bağlantıları. e-Okul'dan GELMEZ ve
   /// senkronda üzerine yazılmaz; e-posta ve telefonla aynı kategoridedir.
@@ -1534,8 +1565,8 @@ model KvkkBasvurusu {
   /// 13. maddesine aykırıdır.
   yanitMetni            String?   @map("yanit_metni") @db.Text
 
-  basvuran   Kullanici  @relation("KvkkBasvuran", fields: [basvuranKullaniciId], references: [id])
-  yanitlayan Kullanici? @relation("KvkkBasvuruYanitlayan", fields: [yanitlayanKullaniciId], references: [id])
+  basvuran   Kullanici           @relation("KvkkBasvuran", fields: [basvuranKullaniciId], references: [id])
+  yanitlayan Kullanici?          @relation("KvkkBasvuruYanitlayan", fields: [yanitlayanKullaniciId], references: [id])
   konular    KvkkBasvuruKonusu[]
 
   @@index([durum, olusturmaTarihi], map: "kvkk_basvurusu_durum_olusturma_idx")
@@ -2284,16 +2315,16 @@ model Erisimlogu {
 /// Aynı kullanıcı, tür ve gün yalnızca bir kez kaydedilir; zamanlanmış işin
 /// yeniden çalışması aynı uyarıyı çoğaltmaz.
 model ErisimAnomalisi {
-  id                      Int               @id @default(autoincrement())
-  kullaniciId             Int               @map("kullanici_id")
-  tur                     ErisimAnomaliTuru
-  gun                     DateTime          @db.Date
-  logSayisi               Int               @map("log_sayisi")
-  benzersizHedefSayisi    Int               @map("benzersiz_hedef_sayisi")
-  ilkErisimTarihi         DateTime          @map("ilk_erisim_tarihi") @db.Timestamptz(6)
-  sonErisimTarihi         DateTime          @map("son_erisim_tarihi") @db.Timestamptz(6)
-  olusturmaTarihi         DateTime          @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
-  bildirimTarihi          DateTime?         @map("bildirim_tarihi") @db.Timestamptz(6)
+  id                   Int               @id @default(autoincrement())
+  kullaniciId          Int               @map("kullanici_id")
+  tur                  ErisimAnomaliTuru
+  gun                  DateTime          @db.Date
+  logSayisi            Int               @map("log_sayisi")
+  benzersizHedefSayisi Int               @map("benzersiz_hedef_sayisi")
+  ilkErisimTarihi      DateTime          @map("ilk_erisim_tarihi") @db.Timestamptz(6)
+  sonErisimTarihi      DateTime          @map("son_erisim_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi      DateTime          @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  bildirimTarihi       DateTime?         @map("bildirim_tarihi") @db.Timestamptz(6)
 
   kullanici Kullanici @relation(fields: [kullaniciId], references: [id])
 
@@ -2695,14 +2726,14 @@ model YazismaOkuma {
 }
 
 model Mesaj {
-  id                  Int      @id @default(autoincrement())
-  yazismaId           Int      @map("yazisma_id")
-  yazanKullaniciId    Int      @map("yazan_kullanici_id")
-  icerik              String   @db.Text
+  id                  Int       @id @default(autoincrement())
+  yazismaId           Int       @map("yazisma_id")
+  yazanKullaniciId    Int       @map("yazan_kullanici_id")
+  icerik              String    @db.Text
   /// SİLME YOKTUR, gizleme vardır: içerik korunur çünkü şikâyet incelemesinde
   /// silinmiş bir mesaj en çok ihtiyaç duyulan kayıttır.
-  gizlendiMi          Boolean  @default(false) @map("gizlendi_mi")
-  gizleyenKullaniciId Int?     @map("gizleyen_kullanici_id")
+  gizlendiMi          Boolean   @default(false) @map("gizlendi_mi")
+  gizleyenKullaniciId Int?      @map("gizleyen_kullanici_id")
   /// Gizlemenin ANI — imha penceresi buradan işler (2 Eylül 2026).
   ///
   /// Öbür gizlenebilir tablolarda (Gonderi, GonderiYorumu, EkipMesaji,
@@ -2715,7 +2746,7 @@ model Mesaj {
   /// uydurulmuş bir tarih kaydı yanlışlardı; imha o satırlarda
   /// `olusturmaTarihi`ne düşer.
   gizlenmeTarihi      DateTime? @map("gizlenme_tarihi") @db.Timestamptz(6)
-  olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+  olusturmaTarihi     DateTime  @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
 
   yazisma  Yazisma    @relation(fields: [yazismaId], references: [baglantiIstegiId], onDelete: Cascade)
   yazan    Kullanici  @relation("MesajYazan", fields: [yazanKullaniciId], references: [id])

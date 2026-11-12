@@ -63,6 +63,15 @@ export async function basvuruEylemi(veri: FormData): Promise<void> {
     paydasId: metin("paydasId"),
     gorevUnvani: metin("gorevUnvani"),
     beyan: metin("beyan"),
+    // Yurt dışı, elle yazılan okul ve bugünkü durum (12 Kasım 2026).
+    ulke: metin("ulke"),
+    yurtDisiSehir: metin("yurtDisiSehir"),
+    mezunOkulAdi: metin("mezunOkulAdi"),
+    guncelDurum: metin("guncelDurum"),
+    universite: metin("universite"),
+    bolum: metin("bolum"),
+    calistigiKurum: metin("calistigiKurum"),
+    pozisyon: metin("pozisyon"),
     /*
      * MENTÖRLÜK (7 Ağustos 2026 · tek form). tur=MENTOR ise işaret gizli
      * alandan "evet" gelir; mezun ve paydaşta onay kutusundan.

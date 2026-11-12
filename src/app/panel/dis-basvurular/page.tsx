@@ -14,7 +14,11 @@ import {
   type BasvuruSatiri,
   basvurulariListele,
 } from "@/lib/dis-kimlik/basvuru";
-import { TUR_ETIKETLERI } from "@/lib/dis-kimlik/kurallar";
+import {
+  basvuruKonumu,
+  GUNCEL_DURUM_ETIKETLERI,
+  TUR_ETIKETLERI,
+} from "@/lib/dis-kimlik/kurallar";
 import { tarihSaatYaz } from "@/lib/tarih";
 import { disBasvuruYonetebilirMi } from "@/lib/yetki/izinler";
 import { basvuruOnaylaEylemi, basvuruReddetEylemi } from "./eylemler";
@@ -49,7 +53,7 @@ function BasvuruGovdesi({ basvuru }: { basvuru: BasvuruSatiri }) {
             <TurRozeti tur={basvuru.tur} />
           </p>
           <p className="mt-1 text-sm text-metin-yumusak">
-            {basvuru.il.ad} · {tarihSaatYaz(basvuru.olusturmaTarihi)} tarihinde
+            {basvuruKonumu(basvuru)} · {tarihSaatYaz(basvuru.olusturmaTarihi)} tarihinde
             başvurdu
           </p>
         </div>
@@ -68,18 +72,56 @@ function BasvuruGovdesi({ basvuru }: { basvuru: BasvuruSatiri }) {
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        {basvuru.tur === "MEZUN" ? (
+        {basvuru.tur === "MEZUN" && (
           <>
             <div>
               <dt className="text-metin-yumusak">Mezun olduğu okul</dt>
               <dd className="text-metin">
-                {basvuru.mezunKurum?.ad ?? "Belirtilmedi"}
+                {basvuru.mezunKurum?.ad ??
+                  basvuru.mezunOkulAdi ??
+                  "Belirtilmedi"}
               </dd>
             </div>
             <div>
               <dt className="text-metin-yumusak">Mezuniyet yılı</dt>
               <dd className="text-metin">{basvuru.mezuniyetYili ?? "—"}</dd>
             </div>
+          </>
+        )}
+        {/* Bugünkü durum (12 Kasım 2026): mezun ve mentörde. */}
+        {basvuru.tur !== "PAYDAS" ? (
+          <>
+            <div>
+              <dt className="text-metin-yumusak">Şu anki durumu</dt>
+              <dd className="text-metin">
+                {basvuru.guncelDurum
+                  ? GUNCEL_DURUM_ETIKETLERI[basvuru.guncelDurum]
+                  : "Belirtilmedi"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-metin-yumusak">
+                {basvuru.guncelDurum === "UNIVERSITE"
+                  ? "Üniversite / bölüm"
+                  : "Kurum / pozisyon"}
+              </dt>
+              <dd className="text-metin">
+                {(basvuru.guncelDurum === "UNIVERSITE"
+                  ? [basvuru.universite, basvuru.bolum]
+                  : [basvuru.calistigiKurum, basvuru.pozisyon]
+                )
+                  .filter(Boolean)
+                  .join(" · ") || "—"}
+              </dd>
+            </div>
+            {basvuru.mentorlukIstiyor && (
+              <div className="sm:col-span-2">
+                <dt className="text-metin-yumusak">Mentörlük konuları</dt>
+                <dd className="text-metin">
+                  {basvuru.mentorlukKonulari ?? "Yalnızca çalışma grupları seçildi"}
+                </dd>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -285,7 +327,7 @@ export default async function DisBasvurularSayfasi({
                         </span>
                       )}
                       <span className="block text-xs text-metin-yumusak">
-                        {basvuru.eposta} · {basvuru.il.ad}
+                        {basvuru.eposta} · {basvuruKonumu(basvuru)}
                       </span>
                     </td>
                     <td className="py-2 pr-4 text-metin-yumusak">

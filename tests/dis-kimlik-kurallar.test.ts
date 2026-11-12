@@ -16,6 +16,7 @@ import {
   sifirlamaYenidenIstenebilirMi,
   sifreKarariniVer,
   turunRolu,
+  YURT_DISI,
 } from "@/lib/dis-kimlik/kurallar";
 
 /**
@@ -49,9 +50,132 @@ function girdiYap(
     mentorlukIstiyor: false,
     mentorlukKonulari: "",
     mentorlukGrupIdleri: [],
+    // Mezun ve mentörde zorunlu (12 Kasım 2026); paydaşta yok sayılır.
+    guncelDurum: "UNIVERSITE",
+    universite: "Orta Doğu Teknik Üniversitesi",
+    bolum: "Bilgisayar Mühendisliği",
     ...ozellikler,
   };
 }
+
+/*
+ * YURT DIŞI VE ŞU ANKİ DURUM (12 Kasım 2026).
+ *
+ * İstekler: "Mezun, üniversite, çalışıyor", "ülke dışında da olabilir",
+ * "bir şirket çalışanı, şirketi olan da olabilir".
+ */
+describe("başvuruda yurt dışı", () => {
+  test("yurt dışı seçen mezunun ili boş, ülke ve şehri dolu kaydedilir", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ ilKodu: YURT_DISI, ulke: " Almanya ", yurtDisiSehir: "Berlin" }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    if (!karar.olurMu) return;
+    expect(karar.kayit.ilKodu).toBeNull();
+    expect(karar.kayit.ulke).toBe("Almanya");
+    expect(karar.kayit.yurtDisiSehir).toBe("Berlin");
+  });
+
+  test("yurt dışında ülke ya da şehir boşsa başvuru alınmaz", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ tur: "MENTOR", ilKodu: YURT_DISI, ulke: "Almanya", mentorlukKonulari: "Arduino" }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(false);
+  });
+
+  test("paydaş yurt dışı seçemez", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({
+        tur: "PAYDAS",
+        ilKodu: YURT_DISI,
+        ulke: "Almanya",
+        yurtDisiSehir: "Berlin",
+        paydasId: "3",
+        gorevUnvani: "Müdür",
+      }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(false);
+  });
+
+  test("Türkiye'deki başvuruda ülke alanları kaydedilmez", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ ulke: "Almanya", yurtDisiSehir: "Berlin" }),
+      SIMDI,
+    );
+    expect(karar.olurMu && karar.kayit.ulke).toBeNull();
+  });
+});
+
+describe("başvuruda şu anki durum", () => {
+  test("mezun durumu seçmeden başvuramaz", () => {
+    const karar = disBasvuruGirdisiniCoz(girdiYap({ guncelDurum: "" }), SIMDI);
+    expect(karar.olurMu).toBe(false);
+  });
+
+  test("üniversite öğrencisinde bölüm zorunlu", () => {
+    const karar = disBasvuruGirdisiniCoz(girdiYap({ bolum: "" }), SIMDI);
+    expect(karar.olurMu).toBe(false);
+  });
+
+  test("şirket çalışanında şirket ve pozisyon zorunlu", () => {
+    const eksik = disBasvuruGirdisiniCoz(
+      girdiYap({ guncelDurum: "SIRKET_CALISANI", calistigiKurum: "Aselsan" }),
+      SIMDI,
+    );
+    expect(eksik.olurMu).toBe(false);
+
+    const tam = disBasvuruGirdisiniCoz(
+      girdiYap({
+        guncelDurum: "SIRKET_CALISANI",
+        calistigiKurum: "Aselsan",
+        pozisyon: "Yazılım mühendisi",
+      }),
+      SIMDI,
+    );
+    expect(tam.olurMu).toBe(true);
+    if (!tam.olurMu) return;
+    // Önceden doldurulmuş ama gizlenmiş üniversite alanları kayda düşmez.
+    expect(tam.kayit.universite).toBeNull();
+    expect(tam.kayit.bolum).toBeNull();
+    expect(tam.kayit.calistigiKurum).toBe("Aselsan");
+  });
+
+  test("şirket sahibinde pozisyon isteğe bağlı", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({
+        tur: "MENTOR",
+        guncelDurum: "SIRKET_SAHIBI",
+        calistigiKurum: "Robotik Atölye Ltd.",
+        mentorlukKonulari: "Robotik",
+      }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    expect(karar.olurMu && karar.kayit.guncelDurum).toBe("SIRKET_SAHIBI");
+  });
+
+  test("paydaşta durum sorulmaz ve kaydedilmez", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ tur: "PAYDAS", paydasId: "3", gorevUnvani: "Müdür" }),
+      SIMDI,
+    );
+    expect(karar.olurMu).toBe(true);
+    expect(karar.olurMu && karar.kayit.guncelDurum).toBeNull();
+  });
+
+  test("listede olmayan okul elle yazılabilir", () => {
+    const karar = disBasvuruGirdisiniCoz(
+      girdiYap({ mezunOkulAdi: "  Kapanmış Anadolu Lisesi " }),
+      SIMDI,
+    );
+    expect(karar.olurMu && karar.kayit.mezunOkulAdi).toBe(
+      "Kapanmış Anadolu Lisesi",
+    );
+  });
+});
 
 /*
  * MENTÖRLÜK (7 Ağustos 2026).

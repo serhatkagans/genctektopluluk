@@ -1,6 +1,10 @@
 import { oturumKullanicisi } from "@/lib/auth/oturum";
 import { basvurulariListele } from "@/lib/dis-kimlik/basvuru";
-import { TUR_ETIKETLERI } from "@/lib/dis-kimlik/kurallar";
+import {
+  basvuruKonumu,
+  GUNCEL_DURUM_ETIKETLERI,
+  TUR_ETIKETLERI,
+} from "@/lib/dis-kimlik/kurallar";
 import { ONAY_DURUMU_ETIKETLERI } from "@/lib/faaliyet/kurallar";
 import {
   altBaslikYaz,
@@ -35,9 +39,14 @@ const SUTUNLAR: readonly XlsxSutun[] = [
   { baslik: "Tür", genislik: 20 },
   { baslik: "E-posta", genislik: 28 },
   { baslik: "Telefon", genislik: 16 },
-  { baslik: "İl", genislik: 14 },
+  { baslik: "İl / ülke", genislik: 18 },
   { baslik: "Mezun olduğu okul", genislik: 34 },
   { baslik: "Mezuniyet yılı", genislik: 13 },
+  { baslik: "Şu anki durumu", genislik: 20 },
+  { baslik: "Üniversite", genislik: 28 },
+  { baslik: "Bölüm", genislik: 24 },
+  { baslik: "Şirket / kurum", genislik: 28 },
+  { baslik: "Pozisyon", genislik: 20 },
   { baslik: "Paydaş kurum", genislik: 30 },
   { baslik: "Görev unvanı", genislik: 24 },
   { baslik: "Beyan", genislik: 50 },
@@ -78,11 +87,16 @@ export async function GET(istek: Request) {
     TUR_ETIKETLERI[basvuru.tur],
     basvuru.eposta,
     basvuru.telefon ?? "",
-    basvuru.il?.ad ?? "",
-    basvuru.mezunKurum?.ad ?? "",
+    basvuruKonumu(basvuru),
+    basvuru.mezunKurum?.ad ?? basvuru.mezunOkulAdi ?? "",
     // Mezuniyet yılı KİMLİK DEĞİL SAYI değil de metin: "2019" bir yıl etiketi,
     // toplanacak bir değer değil.
     basvuru.mezuniyetYili === null ? "" : String(basvuru.mezuniyetYili),
+    basvuru.guncelDurum ? GUNCEL_DURUM_ETIKETLERI[basvuru.guncelDurum] : "",
+    basvuru.universite ?? "",
+    basvuru.bolum ?? "",
+    basvuru.calistigiKurum ?? "",
+    basvuru.pozisyon ?? "",
     basvuru.paydas?.ad ?? "",
     basvuru.gorevUnvani ?? "",
     basvuru.beyan,

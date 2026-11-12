@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ILLER } from "../../../prisma/veri/iller";
+import { GuncelDurumAlanlari } from "@/components/GuncelDurumAlanlari";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
 import {
   BilgiKutusu,
@@ -15,7 +16,13 @@ import {
   SINIF_GIRDI,
 } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { disTuruMu, SIFRE_ALT_SINIRI } from "@/lib/dis-kimlik/kurallar";
+import {
+  disTuruMu,
+  SIFRE_ALT_SINIRI,
+  YURT_DISI,
+  yurtDisiSecilebilirMi,
+} from "@/lib/dis-kimlik/kurallar";
+import { ortam } from "@/lib/ortam";
 import { PAYDAS_TURU_ETIKETLERI } from "@/lib/paydas/kurallar";
 import { basvuruEylemi } from "./eylemler";
 
@@ -107,22 +114,52 @@ export default async function BasvuruSayfasi({
   }
 
   const secilenTur = tur && disTuruMu(tur) ? tur : null;
-  const secilenIl = il && /^\d{2}$/.test(il) ? il : null;
-  const ilAdi = ILLER.find((kayit) => kayit.ilKodu === secilenIl)?.ad ?? null;
+  /*
+   * YURT DIŞI (12 Kasım 2026 · istek: "ülke dışında da olabilir"). İl
+   * listesinin sonunda; mezun ve mentör seçebilir, paydaş seçemez.
+   */
+  const yurtDisiMi = il === YURT_DISI;
+  const secilenIl = il && (/^\d{2}$/.test(il) || yurtDisiMi) ? il : null;
+  const ilAdi = yurtDisiMi
+    ? "Yurt dışı"
+    : (ILLER.find((kayit) => kayit.ilKodu === secilenIl)?.ad ?? null);
+  const yurtDisiHatasi =
+    secilenTur !== null && yurtDisiMi && !yurtDisiSecilebilirMi(secilenTur)
+      ? "Paydaş başvurusunda kurumunuzun bulunduğu ili seçin; yurt dışı seçilemez."
+      : null;
 
   // ---- 1. adım: tür ve il ------------------------------------------------
-  if (!secilenTur || !secilenIl || !ilAdi) {
+  if (!secilenTur || !secilenIl || !ilAdi || yurtDisiHatasi) {
     return (
       <KamuSayfaDuzeni
         baslik="Sisteme giriş başvurusu"
-        aciklama="EBA hesabı olmayan mezun ve paydaş temsilcileri için. Başvurunuz proje yöneticisi tarafından değerlendirilir."
+        aciklama="Mezun, mentör ve paydaş temsilcileri için. Başvurunuz proje yöneticisi tarafından değerlendirilir; onaylanınca e-posta adresiniz ve şifrenizle giriş yaparsınız."
       >
+        {(hata || yurtDisiHatasi) && (
+          <BilgiKutusu cesit="hata" className="mt-6">
+            {yurtDisiHatasi ?? hata}
+          </BilgiKutusu>
+        )}
+
         <BilgiKutusu cesit="uyari" className="mt-6">
-          Öğrenci ve öğretmenler başvuru yapmaz — kimlikleri EBA&apos;dan gelir ve{" "}
-          <Link href="/giris" className="font-medium underline">
-            EBA girişini
-          </Link>{" "}
-          kullanırlar.
+          {ortam.AUTH_PROVIDER === "kayit" ? (
+            <>
+              Öğrenci ve öğretmenler başvuru yapmaz,{" "}
+              <Link href="/kayit" className="font-medium underline">
+                kayıt ekranından
+              </Link>{" "}
+              kayıt olur.
+            </>
+          ) : (
+            <>
+              Öğrenci ve öğretmenler başvuru yapmaz — kimlikleri EBA&apos;dan
+              gelir ve{" "}
+              <Link href="/giris" className="font-medium underline">
+                EBA girişini
+              </Link>{" "}
+              kullanırlar.
+            </>
+          )}
         </BilgiKutusu>
 
         <form method="get" className="mt-8 space-y-6">
@@ -174,7 +211,12 @@ export default async function BasvuruSayfasi({
                   {kayit.ad}
                 </option>
               ))}
+              <option value={YURT_DISI}>Yurt dışı</option>
             </select>
+            <span className="mt-1 block text-xs text-metin-yumusak">
+              Yurt dışında yaşayan mezun ve mentörler &quot;Yurt dışı&quot;nı
+              seçer; ülke ve şehir sonraki adımda sorulur.
+            </span>
           </label>
 
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>
@@ -190,7 +232,7 @@ export default async function BasvuruSayfasi({
   const mentorMu = secilenTur === "MENTOR";
 
   const [okullar, paydaslar, calismaGruplari] = await Promise.all([
-    mezunMu
+    mezunMu && !yurtDisiMi
       ? prisma.kurum.findMany({
           where: { ilKodu: secilenIl },
           select: { kurumKodu: true, ad: true },
@@ -248,6 +290,40 @@ export default async function BasvuruSayfasi({
       <form action={basvuruEylemi} className="mt-6 space-y-8">
         <input type="hidden" name="tur" value={secilenTur} />
         <input type="hidden" name="ilKodu" value={secilenIl} />
+
+        {yurtDisiMi && (
+          <Kart>
+            <h2 className="mb-4 text-lg font-semibold text-baslik">
+              Yaşadığınız yer
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-metin-yumusak">
+                  Ülke
+                </span>
+                <input
+                  name="ulke"
+                  required
+                  maxLength={100}
+                  autoComplete="country-name"
+                  className={SINIF_GIRDI}
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-metin-yumusak">
+                  Şehir
+                </span>
+                <input
+                  name="yurtDisiSehir"
+                  required
+                  maxLength={100}
+                  autoComplete="address-level2"
+                  className={SINIF_GIRDI}
+                />
+              </label>
+            </div>
+          </Kart>
+        )}
 
         <Kart>
           <h2 className="mb-4 text-lg font-semibold text-baslik">
@@ -312,21 +388,40 @@ export default async function BasvuruSayfasi({
 
           {mezunMu ? (
             <div className="grid gap-4 sm:grid-cols-2">
+              {!yurtDisiMi && (
+                <label className="block sm:col-span-2">
+                  <span className="text-sm font-medium text-metin-yumusak">
+                    Mezun olduğunuz okul (isteğe bağlı)
+                  </span>
+                  <select name="mezunKurumKodu" className={SINIF_GIRDI}>
+                    <option value="">Listede yok / belirtmek istemiyorum</option>
+                    {okullar.map((okul) => (
+                      <option key={okul.kurumKodu} value={okul.kurumKodu}>
+                        {okul.ad}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-metin-yumusak">
+                    Yalnızca {ilAdi} ilindeki okullar listeleniyor.
+                  </span>
+                </label>
+              )}
+              {/*
+                ELLE YAZILAN OKUL (12 Kasım 2026): listede olmayan ya da
+                yurt dışındaki kişi okulunu buraya yazar. Listeden seçim
+                yapıldıysa sunucu bu kutuyu dikkate almaz.
+              */}
               <label className="block">
                 <span className="text-sm font-medium text-metin-yumusak">
-                  Mezun olduğunuz okul (isteğe bağlı)
+                  {yurtDisiMi
+                    ? "Mezun olduğunuz okul (isteğe bağlı)"
+                    : "Okulunuz listede yoksa adı"}
                 </span>
-                <select name="mezunKurumKodu" className={SINIF_GIRDI}>
-                  <option value="">Listede yok / belirtmek istemiyorum</option>
-                  {okullar.map((okul) => (
-                    <option key={okul.kurumKodu} value={okul.kurumKodu}>
-                      {okul.ad}
-                    </option>
-                  ))}
-                </select>
-                <span className="mt-1 block text-xs text-metin-yumusak">
-                  Yalnızca {ilAdi} ilindeki okullar listeleniyor.
-                </span>
+                <input
+                  name="mezunOkulAdi"
+                  maxLength={250}
+                  className={SINIF_GIRDI}
+                />
               </label>
               <label className="block">
                 <span className="text-sm font-medium text-metin-yumusak">
@@ -371,6 +466,20 @@ export default async function BasvuruSayfasi({
             </div>
           )}
         </Kart>
+        )}
+
+        {/*
+          ŞU ANKİ DURUM (12 Kasım 2026 · istekler: "Mezun, üniversite,
+          çalışıyor", "bir şirket çalışanı, şirketi olan da olabilir").
+          Mezun ve mentörde sorulur; paydaşın kurumu yukarıda zaten var.
+        */}
+        {secilenTur !== "PAYDAS" && (
+          <Kart>
+            <h2 className="mb-4 text-lg font-semibold text-baslik">
+              Şu an ne yapıyorsunuz?
+            </h2>
+            <GuncelDurumAlanlari />
+          </Kart>
         )}
 
         {/*

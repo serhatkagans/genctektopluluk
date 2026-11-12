@@ -17,7 +17,12 @@ import {
   bekleyenBasvuruEpostasi,
   zatenKayitliEpostasi,
 } from "./eposta";
-import { type DisBasvuruKaydi, TUR_ETIKETLERI, turunRolu } from "./kurallar";
+import {
+  basvuruKonumu,
+  type DisBasvuruKaydi,
+  TUR_ETIKETLERI,
+  turunRolu,
+} from "./kurallar";
 import { sifreOzetle } from "./sifre";
 
 /**
@@ -134,8 +139,16 @@ export async function disBasvuruOlustur(
       eposta: kayit.eposta,
       telefon: kayit.telefon,
       ilKodu: kayit.ilKodu,
+      ulke: kayit.ulke,
+      yurtDisiSehir: kayit.yurtDisiSehir,
       sifreOzeti,
       mezunKurumKodu: kayit.mezunKurumKodu,
+      mezunOkulAdi: kayit.mezunOkulAdi,
+      guncelDurum: kayit.guncelDurum,
+      universite: kayit.universite,
+      bolum: kayit.bolum,
+      calistigiKurum: kayit.calistigiKurum,
+      pozisyon: kayit.pozisyon,
       mezuniyetYili: kayit.mezuniyetYili,
       paydasId: kayit.paydasId,
       gorevUnvani: kayit.gorevUnvani,
@@ -147,14 +160,19 @@ export async function disBasvuruOlustur(
       mentorlukKonulari: kayit.mentorlukKonulari,
       mentorlukGrupIdleri: kayit.mentorlukGrupIdleri,
     },
-    select: { id: true, il: { select: { ad: true } } },
+    select: {
+      id: true,
+      ulke: true,
+      yurtDisiSehir: true,
+      il: { select: { ad: true } },
+    },
   });
 
   await basvuruAlindiEpostasi(kayit.eposta, `${kayit.ad} ${kayit.soyad}`);
   await projeYoneticilerineHaberVer(
     `${kayit.ad} ${kayit.soyad}`,
     TUR_ETIKETLERI[kayit.tur],
-    basvuru.il.ad,
+    basvuruKonumu(basvuru),
   );
 
   return { durum: "ALINDI", basvuruId: basvuru.id };
@@ -198,7 +216,17 @@ const BASVURU_ALANLARI = {
   eposta: true,
   telefon: true,
   ilKodu: true,
+  ulke: true,
+  yurtDisiSehir: true,
   mezuniyetYili: true,
+  mezunOkulAdi: true,
+  guncelDurum: true,
+  universite: true,
+  bolum: true,
+  calistigiKurum: true,
+  pozisyon: true,
+  mentorlukIstiyor: true,
+  mentorlukKonulari: true,
   gorevUnvani: true,
   beyan: true,
   durum: true,

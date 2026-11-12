@@ -1,4 +1,4 @@
-import { GraduationCap, School } from "lucide-react";
+import { Award, GraduationCap, School, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ILLER } from "../../../prisma/veri/iller";
 import { KamuSayfaDuzeni } from "@/components/KamuSayfaDuzeni";
@@ -11,7 +11,7 @@ import {
   SINIF_GIRDI,
 } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { SIFRE_ALT_SINIRI } from "@/lib/dis-kimlik/kurallar";
+import { SIFRE_ALT_SINIRI, YURT_DISI } from "@/lib/dis-kimlik/kurallar";
 import {
   KAYIT_TIPLERI,
   kayitTipiMi,
@@ -37,6 +37,29 @@ export const dynamic = "force-dynamic";
 
 const IKONLAR = { OGRENCI: GraduationCap, OGRETMEN: School } as const;
 
+/*
+ * MEZUN VE MENTÖR (12 Kasım 2026 · istek: "mezun ve mentör girişi de
+ * ekleyeceğiz kayıt olurken"). Bu ikisi burada hesap AÇMAZ: seçilince onaylı
+ * başvuru formuna (/basvuru) gidilir, hesap proje yöneticisinin onayıyla
+ * açılır ve giriş e-postayla yapılır. Okul ve sınıf sorulmaz; yerine bugünkü
+ * durum (üniversite, şirket çalışanı, şirket sahibi) ve yurt dışı seçeneği
+ * var.
+ */
+const BASVURU_TIPLERI = [
+  {
+    kod: "MEZUN",
+    etiket: "Mezun",
+    aciklama: "Onaydan sonra e-postanızla girersiniz",
+    Ikon: Award,
+  },
+  {
+    kod: "MENTOR",
+    etiket: "Mentör",
+    aciklama: "Onaydan sonra e-postanızla girersiniz",
+    Ikon: Users,
+  },
+] as const;
+
 export default async function KayitSayfasi({
   searchParams,
 }: {
@@ -45,6 +68,16 @@ export default async function KayitSayfasi({
   if (ortam.AUTH_PROVIDER !== "kayit") redirect("/giris");
 
   const { tip, il, hata } = await searchParams;
+
+  // Mezun ve mentör başvuru formuna gider; il (ya da yurt dışı) taşınır.
+  if (tip === "MEZUN" || tip === "MENTOR") {
+    const ilParam =
+      il && (/^\d{2}$/.test(il) || il === YURT_DISI)
+        ? `&il=${encodeURIComponent(il)}`
+        : "";
+    redirect(`/basvuru?tur=${tip}${ilParam}`);
+  }
+
   const secilenTip = tip && kayitTipiMi(tip) ? tip : null;
   const secilenIl = il && /^\d{2}$/.test(il) ? il : null;
   const ilAdi = ILLER.find((kayit) => kayit.ilKodu === secilenIl)?.ad ?? null;
@@ -54,13 +87,14 @@ export default async function KayitSayfasi({
     return (
       <KamuSayfaDuzeni
         baslik="Kayıt ol"
-        aciklama="Öğrenci ve öğretmenler için. Kaydınızdan sonra T.C. kimlik numaranız ve şifrenizle giriş yaparsınız."
+        aciklama="Öğrenci ve öğretmenler kaydından sonra T.C. kimlik numarası ve şifreyle girer. Mezun ve mentörler başvuru yapar, onaydan sonra e-posta adresiyle girer."
         geriYol="/giris"
         geriEtiket="Giriş ekranı"
       >
-        {hata && (
+        {(hata || (secilenTip && il === YURT_DISI)) && (
           <BilgiKutusu cesit="hata" className="mt-6">
-            {hata}
+            {hata ??
+              "Yurt dışı yalnızca mezun ve mentörler için. Öğrenci ve öğretmenler okulunun ilini seçer."}
           </BilgiKutusu>
         )}
 
@@ -91,12 +125,34 @@ export default async function KayitSayfasi({
                   </label>
                 );
               })}
+              {BASVURU_TIPLERI.map((secenek) => (
+                <label
+                  key={secenek.kod}
+                  className="flex cursor-pointer items-center gap-3 rounded-kart border border-cizgi bg-kart p-4 transition hover:border-vurgu has-checked:border-vurgu"
+                >
+                  <input
+                    type="radio"
+                    name="tip"
+                    value={secenek.kod}
+                    required
+                  />
+                  <span>
+                    <span className="flex items-center gap-1.5 font-medium text-metin">
+                      <secenek.Ikon size={16} className="text-vurgu-metin" />
+                      {secenek.etiket}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-metin-yumusak">
+                      {secenek.aciklama}
+                    </span>
+                  </span>
+                </label>
+              ))}
             </div>
           </fieldset>
 
           <label className="block max-w-sm">
             <span className="text-sm font-medium text-metin-yumusak">
-              Okulunuzun bulunduğu il
+              İl
             </span>
             <select
               name="il"
@@ -110,7 +166,12 @@ export default async function KayitSayfasi({
                   {kayit.ad}
                 </option>
               ))}
+              <option value={YURT_DISI}>Yurt dışı (mezun ve mentör)</option>
             </select>
+            <span className="mt-1 block text-xs text-metin-yumusak">
+              Öğrenci ve öğretmenler okulunun ilini, mezun ve mentörler
+              yaşadığı ili seçer.
+            </span>
           </label>
 
           <button type="submit" className={SINIF_BIRINCIL_BUTON}>

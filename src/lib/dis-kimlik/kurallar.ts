@@ -1,4 +1,8 @@
-import type { DisKullaniciTuru, RolKodu } from "@/generated/prisma/enums";
+import type {
+  DisKullaniciTuru,
+  GuncelDurum,
+  RolKodu,
+} from "@/generated/prisma/enums";
 
 /**
  * EBA dışı giriş kuralları — mezun ve paydaş temsilcisi.
@@ -78,6 +82,45 @@ export function turunRolu(tur: DisKullaniciTuru): RolKodu {
 
 export function disTuruMu(deger: string): deger is DisKullaniciTuru {
   return (DIS_TURLERI as string[]).includes(deger);
+}
+
+/**
+ * İl seçiminde "Yurt dışı" seçeneğinin değeri (12 Kasım 2026 · istek: "ülke
+ * dışında da olabilir"). İl kodu iki rakam olduğu için onunla karışmaz.
+ * Yalnızca mezun ve mentörde seçilebilir; paydaş envanteri il bazlı.
+ */
+export const YURT_DISI = "YD";
+
+export function yurtDisiSecilebilirMi(tur: DisKullaniciTuru): boolean {
+  return tur !== "PAYDAS";
+}
+
+/** Mezun ve mentörün bugünkü durumu (12 Kasım 2026). */
+export const GUNCEL_DURUM_ETIKETLERI: Record<GuncelDurum, string> = {
+  UNIVERSITE: "Üniversite öğrencisi",
+  SIRKET_CALISANI: "Şirket çalışanı",
+  SIRKET_SAHIBI: "Şirket sahibi",
+  DIGER: "Diğer",
+};
+
+export const GUNCEL_DURUMLAR = Object.keys(
+  GUNCEL_DURUM_ETIKETLERI,
+) as GuncelDurum[];
+
+export function guncelDurumMu(deger: string): deger is GuncelDurum {
+  return (GUNCEL_DURUMLAR as string[]).includes(deger);
+}
+
+/** Başvurunun konumu tek satırda: "Ankara" ya da "Almanya · Berlin". */
+export function basvuruKonumu(basvuru: {
+  il: { ad: string } | null;
+  ulke: string | null;
+  yurtDisiSehir: string | null;
+}): string {
+  if (basvuru.il) return basvuru.il.ad;
+  return [basvuru.ulke ?? "Yurt dışı", basvuru.yurtDisiSehir]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 // ---------------------------------------------------------------------------
@@ -293,6 +336,22 @@ export interface DisBasvuruGirdisi {
   gorevUnvani: string;
   beyan: string;
   /**
+   * 12 Kasım 2026 eklemeleri. İsteğe bağlı tanımlı ki eski çağıranlar
+   * derlenmeye devam etsin; boş gelmeleri "girilmedi" demektir.
+   *
+   * `ilKodu` = `YURT_DISI` ise ülke ve şehir zorunludur.
+   */
+  ulke?: string;
+  yurtDisiSehir?: string;
+  /** MEZUN: okul listede yoksa elle yazılan ad. */
+  mezunOkulAdi?: string;
+  /** MEZUN ve MENTOR: bugünkü durum ve ona bağlı alanlar. */
+  guncelDurum?: string;
+  universite?: string;
+  bolum?: string;
+  calistigiKurum?: string;
+  pozisyon?: string;
+  /**
    * MENTÖRLÜK (7 Ağustos 2026 · "Paydaş/Mentör başvurusu tek bir formdan
    * yapılacak"). tur=MENTOR olduğunda zorunlu olarak true gelir; mezun ve
    * paydaş da işaretleyebilir.
@@ -309,9 +368,18 @@ export interface DisBasvuruKaydi {
   soyad: string;
   eposta: string;
   telefon: string | null;
-  ilKodu: string;
+  /** Yurt dışında null; o zaman `ulke` dolu. */
+  ilKodu: string | null;
+  ulke: string | null;
+  yurtDisiSehir: string | null;
   sifre: string;
   mezunKurumKodu: number | null;
+  mezunOkulAdi: string | null;
+  guncelDurum: GuncelDurum | null;
+  universite: string | null;
+  bolum: string | null;
+  calistigiKurum: string | null;
+  pozisyon: string | null;
   mezuniyetYili: number | null;
   paydasId: number | null;
   gorevUnvani: string | null;
@@ -327,6 +395,9 @@ export type DisBasvuruKarari =
 
 const AD_UST_SINIRI = 100;
 const UNVAN_UST_SINIRI = 150;
+/** `kurum.ad` ile aynı sınır; üniversite ve şirket adı da bu boyda. */
+const KURUM_ADI_UST_SINIRI = 250;
+const KISA_ALAN_UST_SINIRI = 100;
 const BEYAN_ALT_SINIRI = 20;
 const BEYAN_UST_SINIRI = 2000;
 /** `mentorluk.konular` ile aynı sınır (lib/mentor/kurallar.ts). */
@@ -389,8 +460,41 @@ export function disBasvuruGirdisiniCoz(
     return { olurMu: false, neden: "Telefon numarası geçerli değil." };
   }
 
-  const ilKodu = girdi.ilKodu.trim();
-  if (!/^\d{2}$/.test(ilKodu)) {
+  /*
+   * KONUM: il ya da yurt dışı (12 Kasım 2026). Yurt dışında ülke zorunlu,
+   * şehir de zorunlu — "Almanya" tek başına kişiyi bulmaya yetmez.
+   */
+  const ilMetni = girdi.ilKodu.trim();
+  let ilKodu: string | null = null;
+  let ulke: string | null = null;
+  let yurtDisiSehir: string | null = null;
+  if (ilMetni === YURT_DISI) {
+    if (!yurtDisiSecilebilirMi(tur)) {
+      return {
+        olurMu: false,
+        neden: "Paydaş başvurusunda kurumunuzun bulunduğu ili seçin.",
+      };
+    }
+    ulke = bosVeyaMetin(girdi.ulke ?? "");
+    yurtDisiSehir = bosVeyaMetin(girdi.yurtDisiSehir ?? "");
+    if (!ulke || !yurtDisiSehir) {
+      return {
+        olurMu: false,
+        neden: "Yurt dışında yaşıyorsanız ülkenizi ve şehrinizi yazın.",
+      };
+    }
+    if (
+      ulke.length > KISA_ALAN_UST_SINIRI ||
+      yurtDisiSehir.length > KISA_ALAN_UST_SINIRI
+    ) {
+      return {
+        olurMu: false,
+        neden: `Ülke ve şehir en fazla ${KISA_ALAN_UST_SINIRI} karakter olabilir.`,
+      };
+    }
+  } else if (/^\d{2}$/.test(ilMetni)) {
+    ilKodu = ilMetni;
+  } else {
     return { olurMu: false, neden: "İl seçilmelidir." };
   }
 
@@ -424,6 +528,7 @@ export function disBasvuruGirdisiniCoz(
    */
 
   let mezunKurumKodu: number | null = null;
+  let mezunOkulAdi: string | null = null;
   let mezuniyetYili: number | null = null;
   let paydasId: number | null = null;
   let gorevUnvani: string | null = null;
@@ -449,6 +554,15 @@ export function disBasvuruGirdisiniCoz(
         return { olurMu: false, neden: "Mezun olunan okul geçerli değil." };
       }
       mezunKurumKodu = kurumKodu;
+    } else {
+      // Listede yoksa ya da yurt dışındaysa okul adı elle yazılabilir.
+      mezunOkulAdi = bosVeyaMetin(girdi.mezunOkulAdi ?? "");
+      if (mezunOkulAdi && mezunOkulAdi.length > KURUM_ADI_UST_SINIRI) {
+        return {
+          olurMu: false,
+          neden: `Okul adı en fazla ${KURUM_ADI_UST_SINIRI} karakter olabilir.`,
+        };
+      }
     }
   } else if (tur === "PAYDAS") {
     const paydasMetni = girdi.paydasId.trim();
@@ -475,6 +589,9 @@ export function disBasvuruGirdisiniCoz(
       };
     }
   }
+
+  const durumKarari = guncelDurumuCoz(tur, girdi);
+  if (!durumKarari.olurMu) return durumKarari;
 
   /*
    * MENTÖRLÜK ALANLARI.
@@ -536,9 +653,13 @@ export function disBasvuruGirdisiniCoz(
       eposta,
       telefon,
       ilKodu,
+      ulke,
+      yurtDisiSehir,
       sifre: girdi.sifre,
       mezunKurumKodu,
+      mezunOkulAdi,
       mezuniyetYili,
+      ...durumKarari.alanlar,
       paydasId,
       gorevUnvani,
       beyan,
@@ -547,6 +668,111 @@ export function disBasvuruGirdisiniCoz(
       mentorlukGrupIdleri,
     },
   };
+}
+
+type DurumAlanlari = Pick<
+  DisBasvuruKaydi,
+  "guncelDurum" | "universite" | "bolum" | "calistigiKurum" | "pozisyon"
+>;
+
+/**
+ * Mezun ve mentörün bugünkü durumu (12 Kasım 2026 · istekler: "Mezun,
+ * üniversite, çalışıyor", "bir şirket çalışanı, şirketi olan da olabilir").
+ *
+ * Zorunlu alanlar duruma göre değişir:
+ *   - Üniversite öğrencisi → üniversite ve bölüm
+ *   - Şirket çalışanı      → şirket ve pozisyon
+ *   - Şirket sahibi        → şirket (pozisyon isteğe bağlı)
+ *   - Diğer                → hiçbiri; kurum ve pozisyon isteğe bağlı
+ *
+ * Seçilen duruma ait OLMAYAN alanlar atılır: kişi önce "Üniversite" seçip
+ * doldurup sonra "Şirket çalışanı"na geçtiyse gizlenen üniversite alanı da
+ * formla birlikte gelir ve kayda yanlış bilgi olarak düşerdi.
+ *
+ * Paydaşta sorulmaz; hepsi null döner.
+ */
+export function guncelDurumuCoz(
+  tur: DisKullaniciTuru,
+  girdi: Pick<
+    DisBasvuruGirdisi,
+    "guncelDurum" | "universite" | "bolum" | "calistigiKurum" | "pozisyon"
+  >,
+):
+  | { olurMu: true; alanlar: DurumAlanlari }
+  | { olurMu: false; neden: string } {
+  const bos: DurumAlanlari = {
+    guncelDurum: null,
+    universite: null,
+    bolum: null,
+    calistigiKurum: null,
+    pozisyon: null,
+  };
+  if (tur === "PAYDAS") return { olurMu: true, alanlar: bos };
+
+  const durumMetni = (girdi.guncelDurum ?? "").trim();
+  if (!guncelDurumMu(durumMetni)) {
+    return {
+      olurMu: false,
+      neden:
+        "Şu anki durumunuzu seçin (üniversite öğrencisi, şirket çalışanı, şirket sahibi ya da diğer).",
+    };
+  }
+
+  const universite = bosVeyaMetin(girdi.universite ?? "");
+  const bolum = bosVeyaMetin(girdi.bolum ?? "");
+  const calistigiKurum = bosVeyaMetin(girdi.calistigiKurum ?? "");
+  const pozisyon = bosVeyaMetin(girdi.pozisyon ?? "");
+
+  const sinirlar: [string | null, number, string][] = [
+    [universite, KURUM_ADI_UST_SINIRI, "Üniversite adı"],
+    [calistigiKurum, KURUM_ADI_UST_SINIRI, "Şirket/kurum adı"],
+    [bolum, UNVAN_UST_SINIRI, "Bölüm"],
+    [pozisyon, UNVAN_UST_SINIRI, "Pozisyon"],
+  ];
+  for (const [deger, sinir, ad] of sinirlar) {
+    if (deger && deger.length > sinir) {
+      return {
+        olurMu: false,
+        neden: `${ad} en fazla ${sinir} karakter olabilir.`,
+      };
+    }
+  }
+
+  const guncelDurum: GuncelDurum = durumMetni;
+  switch (guncelDurum) {
+    case "UNIVERSITE":
+      if (!universite || !bolum) {
+        return {
+          olurMu: false,
+          neden: "Okuduğunuz üniversiteyi ve bölümü yazın.",
+        };
+      }
+      return { olurMu: true, alanlar: { ...bos, guncelDurum, universite, bolum } };
+    case "SIRKET_CALISANI":
+      if (!calistigiKurum || !pozisyon) {
+        return {
+          olurMu: false,
+          neden: "Çalıştığınız şirketi ve pozisyonunuzu yazın.",
+        };
+      }
+      return {
+        olurMu: true,
+        alanlar: { ...bos, guncelDurum, calistigiKurum, pozisyon },
+      };
+    case "SIRKET_SAHIBI":
+      if (!calistigiKurum) {
+        return { olurMu: false, neden: "Şirketinizin adını yazın." };
+      }
+      return {
+        olurMu: true,
+        alanlar: { ...bos, guncelDurum, calistigiKurum, pozisyon },
+      };
+    case "DIGER":
+      return {
+        olurMu: true,
+        alanlar: { ...bos, guncelDurum, calistigiKurum, pozisyon },
+      };
+  }
 }
 
 // ---------------------------------------------------------------------------
