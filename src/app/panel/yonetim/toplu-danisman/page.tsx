@@ -11,7 +11,7 @@ import {
   SINIF_GIRDI,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { ildekiDanismanlar } from "@/lib/danisman/atama";
+import { ildekiDanismanlar, koordinatorleriIlleriyleGetir } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
 import { okulAdiBenzerMi } from "@/lib/okul/benzerlik";
 import {
@@ -49,6 +49,12 @@ const OGRENCI_SINIRI = 500;
  * ilindeki öğretmenleri danışman olarak atayabilsinler"). Koordinatörde il
  * kendi iline SABİTLENİR, il kutusu basılmaz; adres çubuğuna yazılan `?il=`
  * yok sayılır. Öğrenciler ayrıca merkezi kapsam filtresinden geçer.
+ *
+ * OKULUNDA DANIŞMAN YOKSA İL KOORDİNATÖRÜ (13 Kasım 2026 · istek: "aynı şeyi
+ * il koordinatörü yapsın, o ildeki danışmansız öğrencileri okulda danışman
+ * yoksa kendini danışman yapabilsin"). Grubun okulunda (★) danışman öğretmen
+ * yoksa ilin koordinatörü de seçenek olur (`IL_KOORDINATOR_FALLBACK`);
+ * koordinatörün kendi ekranında ayrıca "Beni danışman yap" düğmesi çıkar.
  */
 export default async function TopluDanismanSayfasi({
   searchParams,
@@ -76,7 +82,7 @@ export default async function TopluDanismanSayfasi({
     : koordinatorIlKodu(kullanici);
   const ilAdi = ILLER.find((kayit) => kayit.ilKodu === secilenIl)?.ad ?? null;
 
-  const [ogrenciler, ogretmenler] = await Promise.all([
+  const [ogrenciler, ogretmenler, koordinatorler] = await Promise.all([
     prisma.kullanici.findMany({
       where: {
         AND: [
@@ -105,6 +111,7 @@ export default async function TopluDanismanSayfasi({
       },
     }),
     ildekiDanismanlar(secilenIl),
+    koordinatorleriIlleriyleGetir(secilenIl),
   ]);
   const ilAdiBul = (kod: string | null) =>
     ILLER.find((kayit) => kayit.ilKodu === kod)?.ad ?? "İl bilgisi yok";
@@ -250,6 +257,16 @@ export default async function TopluDanismanSayfasi({
                     okulAdiBenzerMi(o.okulAdi, grup.okulAdi),
                 }))
                 .sort((a, b) => Number(b.ayniOkul) - Number(a.ayniOkul));
+              // Okulunda danışman öğretmen yoksa grubun ilinin koordinatörü.
+              const okuldaDanismanVar = secenekler.some((o) => o.ayniOkul);
+              const koordinatorSecenekleri = okuldaDanismanVar
+                ? []
+                : koordinatorler.filter(
+                    (k) => grup.ilKodu !== null && k.ilKodu === grup.ilKodu,
+                  );
+              const kendimKoordinatorMuyum = koordinatorSecenekleri.some(
+                (k) => k.kullaniciId === kullanici.id,
+              );
               return (
                 <Kart key={`${grup.okulAdi}-${sira}`}>
                   <KartBasligi
@@ -284,7 +301,14 @@ export default async function TopluDanismanSayfasi({
                         </li>
                       ))}
                     </ul>
-                    {secenekler.length === 0 ? (
+                    {!okuldaDanismanVar && koordinatorSecenekleri.length > 0 && (
+                      <p className="rounded-kutu bg-uyari-zemin px-3 py-2 text-xs text-uyari-metin">
+                        {kendimKoordinatorMuyum
+                          ? "Bu okulda kayıtlı danışman öğretmen yok. İşaretli öğrencilerin danışmanlığını kendiniz üstlenebilirsiniz."
+                          : "Bu okulda kayıtlı danışman öğretmen yok. Öğrencileri listenin sonundaki il koordinatörüne atayabilirsiniz."}
+                      </p>
+                    )}
+                    {secenekler.length === 0 && koordinatorSecenekleri.length === 0 ? (
                       <p className="text-sm text-metin-yumusak">
                         {grup.ilKodu
                           ? `${ilAdiBul(grup.ilKodu)} ilinde atanabilecek danışman öğretmen yok.`
@@ -312,6 +336,17 @@ export default async function TopluDanismanSayfasi({
                                 {` · ${o.ogrenciSayisi} öğrenci`}
                               </option>
                             ))}
+                            {koordinatorSecenekleri.length > 0 && (
+                              <optgroup label="İl koordinatörü (okulda danışman yoksa)">
+                                {koordinatorSecenekleri.map((k) => (
+                                  <option key={k.kullaniciId} value={k.kullaniciId}>
+                                    {k.ad} {k.soyad} · İl koordinatörü
+                                    {k.kullaniciId === kullanici.id ? " (siz)" : ""}
+                                    {` · ${k.ogrenciSayisi} öğrenci`}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
                           </select>
                           <span className="mt-1 flex items-center gap-1 text-xs text-metin-yumusak">
                             <Star size={12} aria-hidden /> aynı ya da benzer
@@ -322,6 +357,18 @@ export default async function TopluDanismanSayfasi({
                           <UserCheck size={16} aria-hidden />
                           İşaretlileri ata
                         </button>
+                        {kendimKoordinatorMuyum && (
+                          <button
+                            type="submit"
+                            name="kendim"
+                            value="1"
+                            formNoValidate
+                            className={SINIF_BIRINCIL_BUTON}
+                          >
+                            <UserCheck size={16} aria-hidden />
+                            Beni danışman yap
+                          </button>
+                        )}
                       </div>
                     )}
                   </form>

@@ -34,7 +34,15 @@ export async function topluDanismanAtaEylemi(veri: FormData): Promise<void> {
   const donus = (sorgu: string) =>
     il ? `${YOL}?il=${encodeURIComponent(il)}&${sorgu}` : `${YOL}?${sorgu}`;
 
-  const danismanId = Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
+  /*
+   * "Beni danışman yap" (13 Kasım 2026): il koordinatörü okulunda danışman
+   * olmayan öğrencileri kendine alır. Uygunluk (öğrencinin ilinin
+   * koordinatörü mü) yoneticiDanismanAta içinde sorulur.
+   */
+  const danismanId =
+    veri.get("kendim") === "1"
+      ? kullanici.id
+      : Number.parseInt(String(veri.get("danismanId") ?? ""), 10);
   const ogrenciIdleri = veri
     .getAll("ogrenciId")
     .map((deger) => Number.parseInt(String(deger), 10))

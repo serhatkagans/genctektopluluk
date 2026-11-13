@@ -99,6 +99,46 @@ export async function ildekiKoordinatorler(
   }));
 }
 
+/**
+ * İl koordinatörleri, illeriyle birlikte; il verilmezse tüm iller. Toplu
+ * atama ekranında okulunda danışman olmayan grubun seçeneği (13 Kasım 2026 ·
+ * istek: "aynı şeyi il koordinatörü yapsın, ildeki danışmansız öğrencileri
+ * okulda danışman yoksa kendini danışman yapabilsin").
+ */
+export async function koordinatorleriIlleriyleGetir(
+  ilKodu: string | null,
+): Promise<{ kullaniciId: number; ad: string; soyad: string; ilKodu: string; ogrenciSayisi: number }[]> {
+  const roller = await prisma.kullaniciRol.findMany({
+    where: {
+      rolKodu: "IL_KOORDINATOR",
+      bitisTarihi: null,
+      ilKodu: ilKodu ?? { not: null },
+      kullanici: { aktif: true },
+    },
+    select: {
+      ilKodu: true,
+      kullanici: {
+        select: {
+          id: true,
+          ad: true,
+          soyad: true,
+          _count: { select: { danismanAtamalari: { where: { bitisTarihi: null } } } },
+        },
+      },
+    },
+  });
+  return roller
+    .filter((rol): rol is typeof rol & { ilKodu: string } => rol.ilKodu !== null)
+    .map((rol) => ({
+      kullaniciId: rol.kullanici.id,
+      ad: rol.kullanici.ad,
+      soyad: rol.kullanici.soyad,
+      ilKodu: rol.ilKodu,
+      ogrenciSayisi: rol.kullanici._count.danismanAtamalari,
+    }))
+    .sort((a, b) => `${a.ad} ${a.soyad}`.localeCompare(`${b.ad} ${b.soyad}`, "tr"));
+}
+
 export interface KoordinatorBilgisi {
   kullaniciId: number;
   ad: string;
