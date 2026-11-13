@@ -47,7 +47,11 @@ import {
   ogrenciCalismaGrubuYonetebilirMi,
 } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
-import { ildekiDanismanlar } from "@/lib/danisman/atama";
+import { ildekiDanismanlar, ildekiKoordinatorler } from "@/lib/danisman/atama";
+import {
+  AramaliDanismanSecimi,
+  type DanismanSecenegi,
+} from "@/components/AramaliDanismanSecimi";
 import { okulAdiBenzerMi } from "@/lib/okul/benzerlik";
 import { ATAMAYI_YALNIZCA_YONETICI_YAPAR } from "@/lib/danisman/politika";
 import {
@@ -153,8 +157,36 @@ export default async function OgrenciProfilSayfasi({
     yoneticiAtamasi && ogrenci.ilKodu
       ? (await ildekiDanismanlar(ogrenci.ilKodu))
           .map((aday) => ({ ...aday, ayniOkul: ayniOkulMu(aday) }))
-          .sort((a, b) => Number(b.ayniOkul) - Number(a.ayniOkul))
+          // Aynı okuldakiler üstte, sonra ada göre (13 Kasım 2026 · "isme
+          // göre sıralı değil"); önceki sıra öğrenci sayısına göreydi.
+          .sort(
+            (a, b) =>
+              Number(b.ayniOkul) - Number(a.ayniOkul) ||
+              `${a.ad} ${a.soyad}`.localeCompare(`${b.ad} ${b.soyad}`, "tr"),
+          )
       : [];
+  const koordinatorler =
+    yoneticiAtamasi && ogrenci.ilKodu ? await ildekiKoordinatorler(ogrenci.ilKodu) : [];
+  const okuldaDanismanVar = atanabilirler.some((aday) => aday.ayniOkul);
+  const danismanSecenekleri: DanismanSecenegi[] = [
+    ...atanabilirler.map((aday) => ({
+      deger: String(aday.kullaniciId),
+      grup: aday.ayniOkul ? "Öğrencinin okulundaki öğretmenler" : "İldeki diğer danışman öğretmenler",
+      etiket: [
+        `${aday.ayniOkul ? "★ " : ""}${aday.ad} ${aday.soyad}`,
+        aday.brans,
+        aday.okulAdi,
+        `${aday.ogrenciSayisi} öğrenci`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    })),
+    ...koordinatorler.map((koordinator) => ({
+      deger: String(koordinator.kullaniciId),
+      grup: "İl koordinatörü (okulda danışman yoksa)",
+      etiket: `${koordinator.ad} ${koordinator.soyad} · İl koordinatörü · ${koordinator.ogrenciSayisi} öğrenci`,
+    })),
+  ];
   const beyan = ogrenci.ogrenciProfil;
   const danismanBeyani = beyan?.beyanDanismanAd
     ? [
@@ -341,39 +373,33 @@ export default async function OgrenciProfilSayfasi({
         */}
         {yoneticiAtamasi && (
           <div className="mt-5 border-t border-cizgi pt-4">
-            {atanabilirler.length === 0 ? (
+            {danismanSecenekleri.length === 0 ? (
               <BilgiKutusu cesit="uyari">
-                Öğrencinin ilinde sisteme kayıtlı danışman öğretmen yok.
-                Öğretmen kaydolduğunda burada seçilebilir.
+                Öğrencinin ilinde sisteme kayıtlı danışman öğretmen ya da il
+                koordinatörü yok. Öğretmen kaydolduğunda burada seçilebilir.
               </BilgiKutusu>
             ) : (
               <form action={yoneticiDanismanAtaEylemi} className="space-y-3">
                 <input type="hidden" name="ogrenciId" value={ogrenci.id} />
-                <label className="block">
-                  <span className="text-sm font-medium text-metin">
+                <div>
+                  <span className="mb-1 block text-sm font-medium text-metin">
                     {atama ? "Danışmanı değiştir" : "Danışman ata"}
                   </span>
-                  <select
-                    name="danismanId"
-                    required
-                    defaultValue={atama ? String(atama.danismanKullaniciId) : ""}
-                    className={SINIF_GIRDI}
-                  >
-                    <option value="">Seçiniz</option>
-                    {atanabilirler.map((aday) => (
-                      <option key={aday.kullaniciId} value={aday.kullaniciId}>
-                        {aday.ayniOkul ? "★ " : ""}
-                        {aday.ad} {aday.soyad}
-                        {aday.brans ? ` · ${aday.brans}` : ""}
-                        {aday.okulAdi ? ` · ${aday.okulAdi}` : ""}
-                        {` · ${aday.ogrenciSayisi} öğrenci`}
-                      </option>
-                    ))}
-                  </select>
+                  {!okuldaDanismanVar && koordinatorler.length > 0 && (
+                    <p className="mb-2 rounded-kutu bg-uyari-zemin px-3 py-2 text-xs text-uyari-metin">
+                      Öğrencinin okulunda kayıtlı danışman öğretmen yok. Öğrenciyi
+                      listenin sonundaki il koordinatörüne atayabilirsiniz.
+                    </p>
+                  )}
+                  <AramaliDanismanSecimi
+                    ad="danismanId"
+                    secenekler={danismanSecenekleri}
+                    varsayilan={atama ? String(atama.danismanKullaniciId) : ""}
+                  />
                   <span className="mt-1 block text-xs text-metin-yumusak">
                     ★ öğrencinin okuluyla aynı ya da benzer adlı okuldaki öğretmen.
                   </span>
-                </label>
+                </div>
                 <button type="submit" className={SINIF_BIRINCIL_BUTON}>
                   <UserCheck size={16} aria-hidden />
                   {atama ? "Danışmanı değiştir" : "Danışman ata"}

@@ -70,6 +70,35 @@ export async function ilKoordinatoruGetir(
   return rol?.kullaniciId ?? null;
 }
 
+/**
+ * İlin etkin il koordinatörleri — danışman atama listesinde "okulunda
+ * danışman yoksa" seçeneği olarak çıkarlar (13 Kasım 2026).
+ */
+export async function ildekiKoordinatorler(
+  ilKodu: string | null,
+): Promise<{ kullaniciId: number; ad: string; soyad: string; ogrenciSayisi: number }[]> {
+  if (!ilKodu) return [];
+  const satirlar = await prisma.kullanici.findMany({
+    where: {
+      aktif: true,
+      roller: { some: { rolKodu: "IL_KOORDINATOR", ilKodu, bitisTarihi: null } },
+    },
+    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      _count: { select: { danismanAtamalari: { where: { bitisTarihi: null } } } },
+    },
+  });
+  return satirlar.map((s) => ({
+    kullaniciId: s.id,
+    ad: s.ad,
+    soyad: s.soyad,
+    ogrenciSayisi: s._count.danismanAtamalari,
+  }));
+}
+
 export interface KoordinatorBilgisi {
   kullaniciId: number;
   ad: string;
@@ -940,21 +969,34 @@ export async function yoneticiDanismanAta(
     };
   }
 
-  const uygun = await prisma.kullanici.findFirst({
-    where: { AND: [ilDanismaniFiltresi(ogrenciIli), { id: danismanKullaniciId }] },
-    select: { id: true },
-  });
+  /*
+   * İL KOORDİNATÖRÜ DE SEÇİLEBİLİR (13 Kasım 2026 · istek: "o okulda hiç
+   * danışman yok bu durumda o öğrenciyi koordinatöre atayalım"). Otomatik
+   * atamanın zaten bildiği yol: okulunda danışmanı olmayan öğrenci ilin
+   * koordinatörüne `IL_KOORDINATOR_FALLBACK` ile bağlanır. Yalnızca
+   * ÖĞRENCİNİN İLİNİN koordinatörü — başka ilin koordinatörü değil.
+   */
+  const koordinatorMu = (await ildekiKoordinatorler(ogrenciIli)).some(
+    (koordinator) => koordinator.kullaniciId === danismanKullaniciId,
+  );
+  const uygun =
+    koordinatorMu ||
+    (await prisma.kullanici.findFirst({
+      where: { AND: [ilDanismaniFiltresi(ogrenciIli), { id: danismanKullaniciId }] },
+      select: { id: true },
+    }));
   if (!uygun) {
     return {
       olurMu: false,
-      neden: "Seçilen öğretmen öğrencinin ilindeki danışman öğretmenlerden değil.",
+      neden:
+        "Seçilen kişi öğrencinin ilindeki danışman öğretmenlerden ya da il koordinatöründen değil.",
     };
   }
 
   const sonuc = await atamaDegistir({
     ogrenciId,
     danismanKullaniciId,
-    atamaTipi: "YONETICI_ATADI",
+    atamaTipi: koordinatorMu ? "IL_KOORDINATOR_FALLBACK" : "YONETICI_ATADI",
     kapanmaNedeni: "DEVIR",
   });
   if (!sonuc.degistiMi) return { olurMu: true, degistiMi: false };

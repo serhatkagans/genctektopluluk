@@ -31,6 +31,24 @@ import type { OturumKullanicisi } from "./tipler";
  * sessizce veri göstermesinin tam olarak nasıl olduğunu gösteren bir örnek.
  */
 
+/**
+ * Ad soyad araması (13 Kasım 2026): her kelime adda ya da soyadda geçmeli.
+ * Tek bir "içerir" koşulu "Ayşe Yılmaz" yazana hiçbir şey bulmuyordu —
+ * ne ad ne soyad o iki kelimenin tamamını içeriyor.
+ */
+function adSoyadAramaKosullari(ara: string): Prisma.KullaniciWhereInput[] {
+  return ara
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((kelime) => ({
+      OR: [
+        { ad: { contains: kelime, mode: "insensitive" as const } },
+        { soyad: { contains: kelime, mode: "insensitive" as const } },
+      ],
+    }));
+}
+
 /** Hiçbir kaydı döndürmeyen filtre. */
 const HICBIRI: Prisma.KullaniciWhereInput = { id: { in: [] } };
 
@@ -203,14 +221,7 @@ export function ogrenciListeFiltresi(
       sinif: { contains: filtreler.sinif, mode: "insensitive" },
     });
   }
-  if (filtreler.ara) {
-    kosullar.push({
-      OR: [
-        { ad: { contains: filtreler.ara, mode: "insensitive" } },
-        { soyad: { contains: filtreler.ara, mode: "insensitive" } },
-      ],
-    });
-  }
+  if (filtreler.ara) kosullar.push(...adSoyadAramaKosullari(filtreler.ara));
   /*
    * PROFİLDE ARAMA: seçilen grubun kapsadığı tiplerden EN AZ BİRİ kişide
    * varsa satır listede kalır. Tanınmayan kod süzgeci hiç uygulamıyor
@@ -353,14 +364,7 @@ export function ogretmenListeFiltresi(
   if (filtreler.brans) {
     kosullar.push({ brans: { contains: filtreler.brans, mode: "insensitive" } });
   }
-  if (filtreler.ara) {
-    kosullar.push({
-      OR: [
-        { ad: { contains: filtreler.ara, mode: "insensitive" } },
-        { soyad: { contains: filtreler.ara, mode: "insensitive" } },
-      ],
-    });
-  }
+  if (filtreler.ara) kosullar.push(...adSoyadAramaKosullari(filtreler.ara));
   if (filtreler.yalnizcaDanismanlar) {
     kosullar.push({
       roller: { some: { rolKodu: "DANISMAN", bitisTarihi: null } },

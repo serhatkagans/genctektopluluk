@@ -6,15 +6,18 @@ import {
   ChevronRight,
   Filter,
   Hourglass,
+  Search,
   UserPlus,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
-import { OtomatikSecimKutusu } from "@/components/SuzgecOtomatikSecim";
 import {
-  SutunMetinSuzgeci,
+  OtomatikMetinKutusu,
+  OtomatikSecimKutusu,
+} from "@/components/SuzgecOtomatikSecim";
+import {
   SutunSecimSuzgeci,
   SutunSuzgecBoslugu,
   SutunSuzgecDugmesi,
@@ -1472,6 +1475,30 @@ export default async function OgrencilerSayfasi({
           )}
         </div>
 
+        {/*
+          AD SOYAD ARAMASI KARTA GERİ ALINDI (13 Kasım 2026 · istek: "öğrenci
+          ararken bi de isim yazma filtresi ekleyebilir miyiz"). Sütun
+          başlığının altındaki dar kutu fark edilmiyordu; sütundaki kutu
+          SİLİNDİ (aynı `name` iki yerde olmasın — bkz. SutunSuzgeci.tsx).
+          Enter'da ya da kutudan çıkınca süzer.
+        */}
+        <label className="mb-4 block">
+          <span className={SINIF_ETIKET}>Ad soyad ile ara</span>
+          <div className="relative mt-1">
+            <Search
+              size={16}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-metin-yumusak"
+              aria-hidden
+            />
+            <OtomatikMetinKutusu
+              ad="ara"
+              deger={filtreler.ara}
+              ipucu="Öğrencinin adı, soyadı ya da ikisi (ör. Ayşe Yılmaz)"
+              sinif={`${SINIF_SECIM} !mt-0 !pl-9`}
+            />
+          </div>
+        </label>
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/*
             AD, İL, İLÇE, OKUL VE SINIF SÜZGEÇLERİ SÜTUN BAŞLIKLARINA TAŞINDI
@@ -1831,12 +1858,8 @@ export default async function OgrencilerSayfasi({
                 Sabit bir sayı yazsaydım tablo o kullanıcılarda kayardı.
               */}
               <SutunSuzgecSatiri>
-                <SutunMetinSuzgeci
-                  form={SUZGEC_FORMU}
-                  ad="ara"
-                  deger={filtreler.ara}
-                  ipucu="Ad veya soyad"
-                />
+                {/* Ad araması kartın en üstüne taşındı (13 Kasım 2026). */}
+                <SutunSuzgecBoslugu />
                 <SutunSecimSuzgeci
                   form={SUZGEC_FORMU}
                   ad="sinif"
