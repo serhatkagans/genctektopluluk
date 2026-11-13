@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
+  adSoyadDuzelt,
   aktiflikDegistir,
   geciciSifreVer,
   type IslemSonucu,
@@ -42,6 +43,14 @@ export async function kullaniciIslemiEylemi(
   switch (islem) {
     case "sifre":
       sonuc = await geciciSifreVer(yonetici.id, kullaniciId);
+      break;
+    case "ad":
+      sonuc = await adSoyadDuzelt(
+        yonetici.id,
+        kullaniciId,
+        String(veri.get("ad") ?? ""),
+        String(veri.get("soyad") ?? ""),
+      );
       break;
     case "kilit":
       sonuc = await kilidiAc(yonetici.id, kullaniciId);

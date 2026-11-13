@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, LockOpen, Trash2, UserCheck, UserX } from "lucide-react";
+import { KeyRound, LockOpen, Pencil, Trash2, UserCheck, UserX } from "lucide-react";
 import { useActionState, useState } from "react";
 import {
   kullaniciIslemiEylemi,
@@ -17,11 +17,15 @@ import { SILME_ONAY_KELIMESI } from "@/lib/kullanici-yonetimi/kurallar";
  */
 export function KullaniciIslemleri({
   kullaniciId,
+  ad,
+  soyad,
   aktif,
   sifreliMi,
   kilitliMi,
 }: {
   kullaniciId: number;
+  ad: string;
+  soyad: string;
   aktif: boolean;
   sifreliMi: boolean;
   kilitliMi: boolean;
@@ -31,6 +35,7 @@ export function KullaniciIslemleri({
     null,
   );
   const [silmeAcik, setSilmeAcik] = useState(false);
+  const [adAcik, setAdAcik] = useState(false);
 
   const kucukButon = `${SINIF_IKINCIL_BUTON} !px-3 !py-1.5 !text-xs`;
 
@@ -38,6 +43,14 @@ export function KullaniciIslemleri({
     <div className="space-y-3">
       <form action={gonder} data-cift-gonderim="serbest" className="flex flex-wrap gap-2">
         <input type="hidden" name="kullaniciId" value={kullaniciId} />
+        <button
+          type="button"
+          onClick={() => setAdAcik((acik) => !acik)}
+          className={kucukButon}
+        >
+          <Pencil size={14} aria-hidden />
+          Adı düzelt
+        </button>
         {sifreliMi && (
           <button
             type="submit"
@@ -81,6 +94,42 @@ export function KullaniciIslemleri({
           Kaydı sil
         </button>
       </form>
+
+      {adAcik && (
+        <form
+          action={gonder}
+          data-cift-gonderim="serbest"
+          className="flex flex-wrap items-end gap-2 rounded-kutu border border-cizgi p-3 text-sm"
+        >
+          <input type="hidden" name="kullaniciId" value={kullaniciId} />
+          <input type="hidden" name="islem" value="ad" />
+          <label className="block min-w-40 flex-1">
+            <span className="text-xs font-medium text-metin-yumusak">Ad</span>
+            <input
+              name="ad"
+              required
+              maxLength={100}
+              defaultValue={ad}
+              autoComplete="off"
+              className={`${SINIF_GIRDI} !py-1.5`}
+            />
+          </label>
+          <label className="block min-w-40 flex-1">
+            <span className="text-xs font-medium text-metin-yumusak">Soyad</span>
+            <input
+              name="soyad"
+              required
+              maxLength={100}
+              defaultValue={soyad}
+              autoComplete="off"
+              className={`${SINIF_GIRDI} !py-1.5`}
+            />
+          </label>
+          <button type="submit" disabled={bekliyor} className={kucukButon}>
+            Kaydet
+          </button>
+        </form>
+      )}
 
       {silmeAcik && (
         <form action={gonder} data-cift-gonderim="serbest" className="rounded-kutu border border-hata-cizgi/50 bg-hata-zemin p-3 text-sm text-hata-metin">

@@ -118,7 +118,7 @@ export default async function KullaniciYonetimiSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Kullanıcı Yönetimi"
-        aciklama="Hesap arama, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
+        aciklama="Hesap arama, ad soyad düzeltme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
         geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
       />
 
@@ -221,6 +221,8 @@ export default async function KullaniciYonetimiSayfasi({
                   ) : (
                     <KullaniciIslemleri
                       kullaniciId={kisi.id}
+                      ad={kisi.ad}
+                      soyad={kisi.soyad}
                       aktif={kisi.aktif}
                       sifreliMi={!!(kisi.kayitKimlik || kisi.disKimlik)}
                       kilitliMi={kilitliMi}

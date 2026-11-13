@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { prisma } from "../db";
 import { sifreOzetle } from "../dis-kimlik/sifre";
+import { AD_UST_SINIRI, adNormalle } from "../kayit/kurallar";
 import { kullaniciyiImhaEt } from "../kvkk/imha";
 import { erisimLogla } from "../yetki/log";
 
@@ -148,6 +149,48 @@ export async function geciciSifreVer(
     mesaj: `${hedef.ad} ${hedef.soyad} için geçici şifre oluşturuldu.`,
     geciciSifre: sifre,
   };
+}
+
+/**
+ * AD SOYAD DÜZELTME (13 Kasım 2026 · istek: "kullanıcı ismini yanlış girdi
+ * mi bu bilgileri değiştiremiyor"). Kayıtta yanlış yazılan adı proje
+ * yöneticisi düzeltir; kayıt formuyla aynı kural (boşluk temizliği, 100
+ * karakter sınırı). Eski ve yeni ad günlüğe yazılır.
+ */
+export async function adSoyadDuzelt(
+  yoneticiId: number,
+  hedefId: number,
+  adHam: string,
+  soyadHam: string,
+): Promise<IslemSonucu> {
+  const sonuc = await hedefiGetir(yoneticiId, hedefId);
+  if (!sonuc) return { olduMu: false, mesaj: "Kullanıcı bulunamadı." };
+  if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
+  const { hedef } = sonuc;
+
+  const ad = adNormalle(adHam);
+  const soyad = adNormalle(soyadHam);
+  if (!ad || !soyad) return { olduMu: false, mesaj: "Ad ve soyad zorunludur." };
+  if (ad.length > AD_UST_SINIRI || soyad.length > AD_UST_SINIRI) {
+    return {
+      olduMu: false,
+      mesaj: `Ad ve soyad en fazla ${AD_UST_SINIRI} karakter olabilir.`,
+    };
+  }
+  if (ad === hedef.ad && soyad === hedef.soyad) {
+    return { olduMu: false, mesaj: "Ad soyad zaten bu şekilde kayıtlı." };
+  }
+
+  await prisma.kullanici.update({ where: { id: hedef.id }, data: { ad, soyad } });
+
+  await erisimLogla({
+    kullaniciId: yoneticiId,
+    islem: "DEGISIKLIK",
+    hedefTip: "PROFIL",
+    hedefId: hedef.id,
+    detay: `Kullanıcı yönetimi: ad soyad düzeltildi (${hedef.ad} ${hedef.soyad} → ${ad} ${soyad})`,
+  });
+  return { olduMu: true, mesaj: `Ad soyad "${ad} ${soyad}" olarak düzeltildi.` };
 }
 
 /** Hatalı denemeler yüzünden kilitlenen hesabı açar. */
