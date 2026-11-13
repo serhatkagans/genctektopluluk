@@ -3,13 +3,17 @@ import { prisma } from "../db";
 import { sifreOzetle } from "../dis-kimlik/sifre";
 import { AD_UST_SINIRI, adNormalle } from "../kayit/kurallar";
 import { kullaniciyiImhaEt } from "../kvkk/imha";
+import { type KullaniciYoneticisi, kullaniciSifresiYonetebilirMi } from "../yetki/izinler";
 import { erisimLogla } from "../yetki/log";
+import { yonetilebilirKullaniciFiltresi } from "./kapsam";
 
 /**
- * KULLANICI YÖNETİMİ İŞLEMLERİ (28 Ekim 2026) — yalnızca proje yöneticisi
- * (bkz. yetki/izinler.ts · kullaniciYonetebilirMi). Yetki sorusu eylemde
- * sorulur; buradaki işlevler yalnızca "hedef dokunulabilir mi" sorusunu
- * cevaplar.
+ * KULLANICI YÖNETİMİ İŞLEMLERİ (28 Ekim 2026) — proje yöneticisi ve 13 Kasım
+ * 2026'dan beri kendi ilinde il koordinatörü (bkz. yetki/izinler.ts ·
+ * kullaniciYoneticisiCoz). "Kim yapıyor" eylemde çözülür; buradaki işlevler
+ * "hedef bu kişinin kapsamında ve dokunulabilir mi" sorusunu cevaplar —
+ * koordinatörün il kısıtı BURADA da uygulanır, çünkü kişi id'si formdan
+ * geliyor.
  *
  * DOKUNULMAYAN HESAPLAR: kişinin kendisi ve başka bir proje yöneticisi.
  * Yönetici kendi hesabını silerse sistemi yöneticisiz bırakabilir; bir
@@ -29,15 +33,16 @@ type Hedef = {
   disKimlik: { kullaniciId: number } | null;
 };
 
-async function hedefiGetir(
-  yoneticiId: number,
+export async function hedefiGetir(
+  yonetici: KullaniciYoneticisi,
   hedefId: number,
 ): Promise<{ hata: string } | { hedef: Hedef } | null> {
   if (!Number.isInteger(hedefId)) return null;
-  if (hedefId === yoneticiId) return { hata: "Kendi hesabınızda bu işlem yapılamaz." };
+  if (hedefId === yonetici.id) return { hata: "Kendi hesabınızda bu işlem yapılamaz." };
 
-  const hedef = await prisma.kullanici.findUnique({
-    where: { id: hedefId },
+  // Kapsam dışındaki kişi "bulunamadı" sayılır: varlığı da sızmasın.
+  const hedef = await prisma.kullanici.findFirst({
+    where: { AND: [{ id: hedefId }, yonetilebilirKullaniciFiltresi(yonetici)] },
     select: {
       id: true,
       ad: true,
@@ -82,14 +87,17 @@ export function geciciSifreUret(): string {
  * olarak saklanmaz ve günlüğe yazılmaz.
  */
 export async function geciciSifreVer(
-  yoneticiId: number,
+  yonetici: KullaniciYoneticisi,
   hedefId: number,
 ): Promise<IslemSonucu> {
-  const sonuc = await hedefiGetir(yoneticiId, hedefId);
+  const sonuc = await hedefiGetir(yonetici, hedefId);
   if (!sonuc) return { olduMu: false, mesaj: "Kullanıcı bulunamadı." };
   if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
   const { hedef } = sonuc;
 
+  if (!kullaniciSifresiYonetebilirMi(yonetici)) {
+    return { olduMu: false, mesaj: "Geçici şifreyi proje yöneticisi verir." };
+  }
   if (!hedef.kayitKimlik && !hedef.disKimlik) {
     return {
       olduMu: false,
@@ -137,7 +145,7 @@ export async function geciciSifreVer(
   ]);
 
   await erisimLogla({
-    kullaniciId: yoneticiId,
+    kullaniciId: yonetici.id,
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: hedef.id,
@@ -158,12 +166,12 @@ export async function geciciSifreVer(
  * karakter sınırı). Eski ve yeni ad günlüğe yazılır.
  */
 export async function adSoyadDuzelt(
-  yoneticiId: number,
+  yonetici: KullaniciYoneticisi,
   hedefId: number,
   adHam: string,
   soyadHam: string,
 ): Promise<IslemSonucu> {
-  const sonuc = await hedefiGetir(yoneticiId, hedefId);
+  const sonuc = await hedefiGetir(yonetici, hedefId);
   if (!sonuc) return { olduMu: false, mesaj: "Kullanıcı bulunamadı." };
   if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
   const { hedef } = sonuc;
@@ -184,7 +192,7 @@ export async function adSoyadDuzelt(
   await prisma.kullanici.update({ where: { id: hedef.id }, data: { ad, soyad } });
 
   await erisimLogla({
-    kullaniciId: yoneticiId,
+    kullaniciId: yonetici.id,
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: hedef.id,
@@ -195,10 +203,10 @@ export async function adSoyadDuzelt(
 
 /** Hatalı denemeler yüzünden kilitlenen hesabı açar. */
 export async function kilidiAc(
-  yoneticiId: number,
+  yonetici: KullaniciYoneticisi,
   hedefId: number,
 ): Promise<IslemSonucu> {
-  const sonuc = await hedefiGetir(yoneticiId, hedefId);
+  const sonuc = await hedefiGetir(yonetici, hedefId);
   if (!sonuc) return { olduMu: false, mesaj: "Kullanıcı bulunamadı." };
   if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
   const { hedef } = sonuc;
@@ -208,7 +216,7 @@ export async function kilidiAc(
   await prisma.disKimlik.updateMany({ where: { kullaniciId: hedef.id }, data: sifirla });
 
   await erisimLogla({
-    kullaniciId: yoneticiId,
+    kullaniciId: yonetici.id,
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: hedef.id,
@@ -222,11 +230,11 @@ export async function kilidiAc(
  * açık oturumları düşer; verisi olduğu gibi durur (silmeden farkı budur).
  */
 export async function aktiflikDegistir(
-  yoneticiId: number,
+  yonetici: KullaniciYoneticisi,
   hedefId: number,
   aktif: boolean,
 ): Promise<IslemSonucu> {
-  const sonuc = await hedefiGetir(yoneticiId, hedefId);
+  const sonuc = await hedefiGetir(yonetici, hedefId);
   if (!sonuc) return { olduMu: false, mesaj: "Kullanıcı bulunamadı." };
   if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
   const { hedef } = sonuc;
@@ -237,7 +245,7 @@ export async function aktiflikDegistir(
   });
 
   await erisimLogla({
-    kullaniciId: yoneticiId,
+    kullaniciId: yonetici.id,
     islem: "DEGISIKLIK",
     hedefTip: "PROFIL",
     hedefId: hedef.id,
@@ -266,10 +274,10 @@ export async function aktiflikDegistir(
  * GERİ ALINAMAZ — ekran onay kelimesi ister.
  */
 export async function kaydiSil(
-  yoneticiId: number,
+  yonetici: KullaniciYoneticisi,
   hedefId: number,
 ): Promise<IslemSonucu> {
-  const sonuc = await hedefiGetir(yoneticiId, hedefId);
+  const sonuc = await hedefiGetir(yonetici, hedefId);
   if (!sonuc) return { olduMu: false, mesaj: "Kullanıcı bulunamadı." };
   if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
   const { hedef } = sonuc;
@@ -309,7 +317,7 @@ export async function kaydiSil(
   // Günlükte ad yazılır: kaydın kendisinde artık ad yok, "kimi sildik"
   // sorusunun tek cevabı burası.
   await erisimLogla({
-    kullaniciId: yoneticiId,
+    kullaniciId: yonetici.id,
     islem: "SILME",
     hedefTip: "PROFIL",
     hedefId: hedef.id,

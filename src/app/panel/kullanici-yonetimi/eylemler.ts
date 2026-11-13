@@ -11,7 +11,7 @@ import {
   kilidiAc,
 } from "@/lib/kullanici-yonetimi/islemler";
 import { SILME_ONAY_KELIMESI } from "@/lib/kullanici-yonetimi/kurallar";
-import { kullaniciYonetebilirMi } from "@/lib/yetki/izinler";
+import { kullaniciYoneticisiCoz } from "@/lib/yetki/izinler";
 
 /**
  * Kullanıcı yönetimi eylemleri (28 Ekim 2026). Tek giriş kapısı: formdaki
@@ -26,14 +26,16 @@ export async function kullaniciIslemiEylemi(
   _onceki: YonetimDurumu,
   veri: FormData,
 ): Promise<YonetimDurumu> {
-  const yonetici = await oturumKullanicisiZorunlu();
+  const oturum = await oturumKullanicisiZorunlu();
   const kullaniciId = Number.parseInt(String(veri.get("kullaniciId") ?? ""), 10);
 
-  if (!kullaniciYonetebilirMi(yonetici)) {
+  // Proje yöneticisi ya da kendi ilinde il koordinatörü (13 Kasım 2026).
+  const yapan = kullaniciYoneticisiCoz(oturum);
+  if (!yapan) {
     return {
       kullaniciId,
       olduMu: false,
-      mesaj: "Kullanıcı yönetimi yalnızca proje yöneticisine açık.",
+      mesaj: "Kullanıcı yönetimi il koordinatörüne ve proje yöneticisine açık.",
     };
   }
 
@@ -42,24 +44,24 @@ export async function kullaniciIslemiEylemi(
 
   switch (islem) {
     case "sifre":
-      sonuc = await geciciSifreVer(yonetici.id, kullaniciId);
+      sonuc = await geciciSifreVer(yapan, kullaniciId);
       break;
     case "ad":
       sonuc = await adSoyadDuzelt(
-        yonetici.id,
+        yapan,
         kullaniciId,
         String(veri.get("ad") ?? ""),
         String(veri.get("soyad") ?? ""),
       );
       break;
     case "kilit":
-      sonuc = await kilidiAc(yonetici.id, kullaniciId);
+      sonuc = await kilidiAc(yapan, kullaniciId);
       break;
     case "pasif":
-      sonuc = await aktiflikDegistir(yonetici.id, kullaniciId, false);
+      sonuc = await aktiflikDegistir(yapan, kullaniciId, false);
       break;
     case "aktif":
-      sonuc = await aktiflikDegistir(yonetici.id, kullaniciId, true);
+      sonuc = await aktiflikDegistir(yapan, kullaniciId, true);
       break;
     case "sil": {
       const onay = String(veri.get("onay") ?? "").trim().toLocaleUpperCase("tr");
@@ -70,7 +72,7 @@ export async function kullaniciIslemiEylemi(
         };
         break;
       }
-      sonuc = await kaydiSil(yonetici.id, kullaniciId);
+      sonuc = await kaydiSil(yapan, kullaniciId);
       break;
     }
     default:

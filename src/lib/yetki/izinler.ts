@@ -1631,3 +1631,34 @@ export function faaliyetPaydasiYonetebilirMi(
 export function kullaniciYonetebilirMi(kullanici: OturumKullanicisi): boolean {
   return projeYoneticisiMi(kullanici);
 }
+
+/**
+ * KULLANICI YÖNETİMİ İL KOORDİNATÖRÜNE DE AÇIK (13 Kasım 2026 · istek:
+ * "koordinatörler için yönetim panelinde kullanıcı yönetimi aç, sadece kendi
+ * ilindeki öğrenci ve öğretmen kayıtlarını oradan düzenleyebilsin, tüm
+ * alanları düzenleme sayfası olsun").
+ *
+ * Koordinatör yalnızca kendi ilindeki öğrenci ve öğretmenlere dokunur (bkz.
+ * kullanici-yonetimi/kapsam.ts). İKİ İŞ MERKEZDE KALDI, çünkü ikisi de başka
+ * birinin hesabını ele geçirme yoludur: geçici şifre vermek ve şifre
+ * sıfırlama bağlantısının gittiği e-postayı değiştirmek
+ * (kullaniciSifresiYonetebilirMi).
+ *
+ * İli kayıtlı olmayan koordinatör hiçbir şey göremez: fail closed.
+ */
+export type KullaniciYoneticisi =
+  | { rol: "PROJE_YONETICISI"; id: number }
+  | { rol: "IL_KOORDINATOR"; id: number; ilKodu: string };
+
+export function kullaniciYoneticisiCoz(
+  kullanici: OturumKullanicisi,
+): KullaniciYoneticisi | null {
+  if (projeYoneticisiMi(kullanici)) return { rol: "PROJE_YONETICISI", id: kullanici.id };
+  const ilKodu = koordinatorIlKodu(kullanici);
+  return ilKodu ? { rol: "IL_KOORDINATOR", id: kullanici.id, ilKodu } : null;
+}
+
+/** Geçici şifre verme ve e-posta (şifre sıfırlama adresi) değiştirme. */
+export function kullaniciSifresiYonetebilirMi(yonetici: KullaniciYoneticisi): boolean {
+  return yonetici.rol === "PROJE_YONETICISI";
+}

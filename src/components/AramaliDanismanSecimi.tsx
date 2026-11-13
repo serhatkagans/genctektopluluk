@@ -29,10 +29,18 @@ export function AramaliDanismanSecimi({
   ad,
   secenekler,
   varsayilan,
+  aramaIpucu = "Danışmanın adını yazın…",
+  aramaEtiketi = "Danışman ara",
+  birim = "kişi",
 }: {
   ad: string;
   secenekler: DanismanSecenegi[];
   varsayilan: string;
+  /** Kullanıcı yönetiminde okul seçimi için de kullanılır (13 Kasım 2026). */
+  aramaIpucu?: string;
+  aramaEtiketi?: string;
+  /** Sonuç sayısının birimi: "kişi", "okul". */
+  birim?: string;
 }) {
   const [arama, setArama] = useState("");
   const [secili, setSecili] = useState(varsayilan);
@@ -72,8 +80,8 @@ export function AramaliDanismanSecimi({
             // Enter formu göndermesin: kişi henüz seçmedi, yalnızca arıyor.
             if (olay.key === "Enter") olay.preventDefault();
           }}
-          placeholder="Danışmanın adını yazın…"
-          aria-label="Danışman ara"
+          placeholder={aramaIpucu}
+          aria-label={aramaEtiketi}
           autoComplete="off"
           className={`${SINIF_GIRDI} !mt-0 !pl-9`}
         />
@@ -86,7 +94,7 @@ export function AramaliDanismanSecimi({
         className={`${SINIF_GIRDI} !mt-0`}
       >
         <option value="">
-          {arama && bulunan === 0 ? "Eşleşen kimse yok" : "Seçiniz"}
+          {arama && bulunan === 0 ? "Eşleşen yok" : "Seçiniz"}
         </option>
         {gruplar.map(([grup, liste]) => (
           <optgroup key={grup} label={grup}>
@@ -100,7 +108,7 @@ export function AramaliDanismanSecimi({
       </select>
       {arama && (
         <p className="text-xs text-metin-yumusak">
-          {bulunan === 0 ? "Bu adla eşleşen kimse yok." : `${bulunan} kişi eşleşti.`}
+          {bulunan === 0 ? "Bu adla eşleşen yok." : `${bulunan} ${birim} eşleşti.`}
         </p>
       )}
     </div>

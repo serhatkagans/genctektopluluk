@@ -1,4 +1,5 @@
-import { Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { KullaniciIslemleri } from "@/components/KullaniciIslemleri";
 import { RolEtiketi } from "@/components/RolEtiketi";
@@ -9,11 +10,12 @@ import {
   SINIF_GIRDI,
   SINIF_IKINCIL_BUTON,
 } from "@/components/ui";
+import { yonetilebilirKullaniciFiltresi } from "@/lib/kullanici-yonetimi/kapsam";
 import type { Prisma } from "@/generated/prisma/client";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { tarihSaatYaz } from "@/lib/tarih";
-import { kullaniciYonetebilirMi } from "@/lib/yetki/izinler";
+import { kullaniciSifresiYonetebilirMi, kullaniciYoneticisiCoz } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
@@ -30,27 +32,57 @@ const SAYFA_BOYU = 50;
  * en son açılan hesaplar listelenir — yanlış/deneme kayıtlarını temizlemek
  * için en sık bakılan yer orası.
  *
- * Kapı dar: yalnızca proje yöneticisi; yetkisi olmayana 404 (ekranın varlığı
- * bile sızmasın).
+ * Kapı dar: proje yöneticisi ve — 13 Kasım 2026'dan beri — il koordinatörü;
+ * yetkisi olmayana 404 (ekranın varlığı bile sızmasın).
+ *
+ * İL KOORDİNATÖRÜ (istek: "koordinatörler için yönetim panelinde kullanıcı
+ * yönetimi aç, sadece kendi ilindeki öğrenci ve öğretmen kayıtlarını oradan
+ * düzenleyebilsin"): liste kendi ilinin öğrenci ve öğretmenleriyle sınırlı
+ * (kullanici-yonetimi/kapsam.ts). T.C. numarası ona gösterilmez; T.C. ile
+ * yalnızca 11 hanenin tamamı yazılınca bulunur — baş harflerle tarama yok.
+ * Geçici şifre düğmesi ona çıkmaz.
  */
 export default async function KullaniciYonetimiSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ ara?: string; durum?: string }>;
+  searchParams: Promise<{ ara?: string; durum?: string; rol?: string }>;
 }) {
   const yonetici = await oturumKullanicisiZorunlu();
-  if (!kullaniciYonetebilirMi(yonetici)) notFound();
+  const yapan = kullaniciYoneticisiCoz(yonetici);
+  if (!yapan) notFound();
+  const merkezMi = yapan.rol === "PROJE_YONETICISI";
+  const sifreYetkisi = kullaniciSifresiYonetebilirMi(yapan);
 
-  const { ara: hamAra, durum: hamDurum } = await searchParams;
+  const { ara: hamAra, durum: hamDurum, rol: hamRol } = await searchParams;
   const ara = (hamAra ?? "").trim().slice(0, 100);
   const durum = hamDurum === "aktif" || hamDurum === "pasif" ? hamDurum : "tumu";
+  const rol = hamRol === "ogrenci" || hamRol === "ogretmen" ? hamRol : "tumu";
 
-  const kosullar: Prisma.KullaniciWhereInput[] = [{ anonimlestirmeTarihi: null }];
+  const kosullar: Prisma.KullaniciWhereInput[] = [
+    { anonimlestirmeTarihi: null },
+    yonetilebilirKullaniciFiltresi(yapan),
+  ];
   if (durum !== "tumu") kosullar.push({ aktif: durum === "aktif" });
+  if (rol === "ogrenci") {
+    kosullar.push({ roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } } });
+  }
+  if (rol === "ogretmen") {
+    kosullar.push({
+      roller: {
+        none: {
+          bitisTarihi: null,
+          rolKodu: { in: ["OGRENCI", "PROJE_YONETICISI", "MEZUN", "PAYDAS_TEMSILCISI"] },
+        },
+      },
+      disKimlik: { is: null },
+    });
+  }
 
   if (ara) {
     const rakam = ara.replace(/\s+/g, "");
-    if (/^\d{3,11}$/.test(rakam)) {
+    if (!merkezMi && /^\d+$/.test(rakam)) {
+      kosullar.push({ authProviderId: rakam });
+    } else if (/^\d{3,11}$/.test(rakam)) {
       kosullar.push({ authProviderId: { startsWith: rakam } });
     } else if (ara.includes("@")) {
       const eposta = { contains: ara, mode: "insensitive" as const };
@@ -118,7 +150,11 @@ export default async function KullaniciYonetimiSayfasi({
     <div className="space-y-6">
       <SayfaBasligi
         baslik="Kullanıcı Yönetimi"
-        aciklama="Hesap arama, ad soyad düzeltme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
+        aciklama={
+          merkezMi
+            ? "Hesap arama, bilgileri düzenleme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
+            : "İlinizdeki öğrenci ve öğretmen kayıtları: bilgileri düzenleme, kilit açma, pasife alma ve kayıt silme"
+        }
         geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
       />
 
@@ -126,9 +162,19 @@ export default async function KullaniciYonetimiSayfasi({
         <form className="flex flex-wrap items-end gap-3">
           <label className="block min-w-60 flex-1">
             <span className="text-sm font-medium text-metin-yumusak">
-              Ad soyad, T.C. kimlik no ya da e-posta
+              {merkezMi
+                ? "Ad soyad, T.C. kimlik no ya da e-posta"
+                : "Ad soyad, e-posta ya da T.C. kimlik no (11 hane)"}
             </span>
             <input name="ara" defaultValue={ara} className={SINIF_GIRDI} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-metin-yumusak">Kim</span>
+            <select name="rol" defaultValue={rol} className={SINIF_GIRDI}>
+              <option value="tumu">Tümü</option>
+              <option value="ogrenci">Öğrenci</option>
+              <option value="ogretmen">Öğretmen</option>
+            </select>
           </label>
           <label className="block">
             <span className="text-sm font-medium text-metin-yumusak">Durum</span>
@@ -154,7 +200,7 @@ export default async function KullaniciYonetimiSayfasi({
 
       <ul className="space-y-3">
         {kisiler.map((kisi) => {
-          const merkezMi = kisi.roller.some((rol) => rol.rolKodu === "PROJE_YONETICISI");
+          const hedefMerkezMi = kisi.roller.some((r) => r.rolKodu === "PROJE_YONETICISI");
           const kendisiMi = kisi.id === yonetici.id;
           const eposta =
             kisi.ogrenciProfil?.eposta ??
@@ -184,7 +230,7 @@ export default async function KullaniciYonetimiSayfasi({
                     </p>
                     <p className="mt-0.5 text-sm text-metin-yumusak">
                       {[
-                        /^\d{11}$/.test(kisi.authProviderId)
+                        merkezMi && /^\d{11}$/.test(kisi.authProviderId)
                           ? `T.C. ${kisi.authProviderId}`
                           : null,
                         kisi.il?.ad,
@@ -198,8 +244,8 @@ export default async function KullaniciYonetimiSayfasi({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {kisi.roller.map((rol) => (
-                      <RolEtiketi key={rol.rolKodu} rolKodu={rol.rolKodu} />
+                    {kisi.roller.map((r) => (
+                      <RolEtiketi key={r.rolKodu} rolKodu={r.rolKodu} />
                     ))}
                     {!kisi.aktif && <Rozet cesit="hata">Pasif</Rozet>}
                     {kilitliMi && <Rozet cesit="uyari">Kilitli</Rozet>}
@@ -214,19 +260,26 @@ export default async function KullaniciYonetimiSayfasi({
                 <div className="mt-3 border-t border-cizgi pt-3">
                   {kendisiMi ? (
                     <p className="text-sm text-metin-yumusak">Bu sizin hesabınız.</p>
-                  ) : merkezMi ? (
+                  ) : hedefMerkezMi ? (
                     <p className="text-sm text-metin-yumusak">
                       Proje yöneticisi hesapları bu ekrandan değiştirilmez.
                     </p>
                   ) : (
-                    <KullaniciIslemleri
-                      kullaniciId={kisi.id}
-                      ad={kisi.ad}
-                      soyad={kisi.soyad}
-                      aktif={kisi.aktif}
-                      sifreliMi={!!(kisi.kayitKimlik || kisi.disKimlik)}
-                      kilitliMi={kilitliMi}
-                    />
+                    <div className="space-y-3">
+                      <Link
+                        href={`/panel/kullanici-yonetimi/${kisi.id}`}
+                        className={`${SINIF_IKINCIL_BUTON} !px-3 !py-1.5 !text-xs`}
+                      >
+                        <Pencil size={14} aria-hidden />
+                        Bilgileri düzenle
+                      </Link>
+                      <KullaniciIslemleri
+                        kullaniciId={kisi.id}
+                        aktif={kisi.aktif}
+                        sifreliMi={sifreYetkisi && !!(kisi.kayitKimlik || kisi.disKimlik)}
+                        kilitliMi={kilitliMi}
+                      />
+                    </div>
                   )}
                 </div>
               </Kart>

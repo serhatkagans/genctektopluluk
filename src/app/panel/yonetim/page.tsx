@@ -63,6 +63,7 @@ import {
   ilKoordinatoruMu,
   koordinatorIlKodu,
   kullaniciYonetebilirMi,
+  kullaniciYoneticisiCoz,
   kvkkBasvurulariniYanitlayabilirMi,
   ogrenciEnvanteriGorebilirMi,
   okulEslestirebilirMi,
@@ -693,10 +694,14 @@ export default async function YonetimSayfasi({
             yönetim panelinde kullanıcı yönetimi diye bölüm ekle, kullanıcı
             kaydı silme şifre yenileme gibi kısımlar olsun").
           */}
-          {kullaniciYonetebilirMi(kullanici) && (
+          {kullaniciYoneticisiCoz(kullanici) && (
             <KisayolKarti
               baslik="Kullanıcı Yönetimi"
-              aciklama="Hesap arama, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
+              aciklama={
+                kullaniciYonetebilirMi(kullanici)
+                  ? "Hesap arama, bilgileri düzenleme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
+                  : "İlinizdeki öğrenci ve öğretmen kayıtlarını düzenleme, pasife alma ve silme"
+              }
               Ikon={UserRoundCog}
               yol="/panel/kullanici-yonetimi"
               ton="notr"
