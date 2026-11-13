@@ -111,6 +111,18 @@ export default async function OkulEslestirmeSayfasi({
       .filter((satir) => satir.sayi > 0)
       .sort((a, b) => b.sayi - a.sayi || a.ad.localeCompare(b.ad, "tr"));
     const toplam = satirlar.reduce((t, s) => t + s.sayi, 0);
+    const okulSayilari = await prisma.kurum.groupBy({
+      by: ["ilKodu"],
+      where: { aktif: true },
+      _count: { _all: true },
+    });
+    const okulluIller = ILLER.map((kayit) => ({
+      ...kayit,
+      okul:
+        okulSayilari.find((satir) => satir.ilKodu === kayit.ilKodu)?._count._all ?? 0,
+    }))
+      .filter((satir) => satir.okul > 0)
+      .sort((a, b) => a.ad.localeCompare(b.ad, "tr"));
     return (
       <div className="space-y-6">
         {baslik}
@@ -140,6 +152,34 @@ export default async function OkulEslestirmeSayfasi({
             </ul>
           )}
         </Kart>
+        {/*
+          Okulu olan iller (13 Kasım 2026): yukarıdaki liste yalnızca
+          eşleşmemiş kişisi kalan illeri gösteriyor. Eşleştirmesi bitmiş bir
+          ilde iki kez eklenen okulu birleştirmek ya da adını düzeltmek için
+          proje yöneticisi o ile buradan girer.
+        */}
+        {okulluIller.length > 0 && (
+          <Kart>
+            <KartBasligi
+              baslik="Kayıtlı okulu olan iller"
+              aciklama="Okul adını düzeltmek ya da iki kez eklenen okulu birleştirmek için ili seçin."
+              Ikon={School}
+            />
+            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {okulluIller.map((satir) => (
+                <li key={satir.ilKodu}>
+                  <Link
+                    href={`${YOL}?il=${satir.ilKodu}`}
+                    className="flex items-center justify-between rounded-kutu border border-cizgi px-3 py-2 text-sm text-metin transition hover:border-vurgu hover:bg-zemin"
+                  >
+                    <span>{satir.ad}</span>
+                    <span className="text-metin-yumusak">{satir.okul} okul</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Kart>
+        )}
       </div>
     );
   }
