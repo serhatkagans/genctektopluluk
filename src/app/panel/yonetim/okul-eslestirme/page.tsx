@@ -109,7 +109,9 @@ export default async function OkulEslestirmeSayfasi({
       sayi: sayilar.get(kayit.ilKodu) ?? 0,
     }))
       .filter((satir) => satir.sayi > 0)
-      .sort((a, b) => b.sayi - a.sayi || a.ad.localeCompare(b.ad, "tr"));
+      // Harf sırası (13 Kasım 2026 · istek: "sırayı harflere göre yap, il
+      // isimleri dağınık"); önceki sıra kişi sayısına göreydi.
+      .sort((a, b) => a.ad.localeCompare(b.ad, "tr"));
     const toplam = satirlar.reduce((t, s) => t + s.sayi, 0);
     const okulSayilari = await prisma.kurum.groupBy({
       by: ["ilKodu"],
