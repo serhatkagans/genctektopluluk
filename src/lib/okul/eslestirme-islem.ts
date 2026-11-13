@@ -354,3 +354,73 @@ export async function okulAdiniDegistir(
   });
   return { olurMu: true, deger: null };
 }
+
+/**
+ * OKUL BİRLEŞTİRME (13 Kasım 2026 · istek: "Uşak Eşme ilçesi için 2 okul
+ * girilmiş ama ikisi aynı okulmuş"). Ekrandan iki kez (farklı yazımla)
+ * eklenmiş okulun her şeyi doğru okula taşınır: bağlı kişiler, roller
+ * (danışmanlık, okul temsilciliği), öğrenci görevleri, faaliyetler, ekipler
+ * ve mezun başvuruları. Tekrar eden kayıt silinmez, PASİFE alınır — listeden
+ * düşer, günlük ve eski bağlantılar ona bakmaya devam edebilir.
+ *
+ * Yalnızca GEÇİCİ KODLU okul birleştirilerek kaldırılır; MEB kodlu okul
+ * resmî listeden gelir. İki okul aynı ilde olmalı; taşınan kişilerin ilçesi
+ * hedef okulun ilçesi olur.
+ */
+export async function okullariBirlestir(
+  kaynakKodu: number,
+  hedefKodu: number,
+  yapanId: number,
+): Promise<IslemSonucu<{ kisi: number }>> {
+  if (kaynakKodu === hedefKodu) {
+    return { olurMu: false, neden: "Okul kendisiyle birleştirilemez." };
+  }
+  const secim = {
+    kurumKodu: true,
+    ad: true,
+    ilKodu: true,
+    ilceKodu: true,
+    aktif: true,
+  } as const;
+  const [kaynak, hedef] = await Promise.all([
+    prisma.kurum.findUnique({ where: { kurumKodu: kaynakKodu }, select: secim }),
+    prisma.kurum.findUnique({ where: { kurumKodu: hedefKodu }, select: secim }),
+  ]);
+  if (!kaynak || !kaynak.aktif) return { olurMu: false, neden: "Okul bulunamadı." };
+  if (!hedef || !hedef.aktif) {
+    return { olurMu: false, neden: "Birleştirilecek okulu listeden seçin." };
+  }
+  if (kaynak.ilKodu !== hedef.ilKodu) {
+    return { olurMu: false, neden: "İki okul aynı ilde olmalı." };
+  }
+  if (kaynak.kurumKodu <= GECICI_KURUM_KODU_TABANI) {
+    return { olurMu: false, neden: "MEB kodlu okul birleştirilerek kaldırılamaz." };
+  }
+
+  const yeni = { kurumKodu: hedef.kurumKodu };
+  const kaynagin = { kurumKodu: kaynak.kurumKodu };
+  const [kisiler] = await prisma.$transaction([
+    prisma.kullanici.updateMany({
+      where: kaynagin,
+      data: { ...yeni, ilceKodu: hedef.ilceKodu },
+    }),
+    prisma.kullaniciRol.updateMany({ where: kaynagin, data: yeni }),
+    prisma.ogrenciGorevRolu.updateMany({ where: kaynagin, data: yeni }),
+    prisma.faaliyet.updateMany({ where: kaynagin, data: yeni }),
+    prisma.ekip.updateMany({ where: kaynagin, data: yeni }),
+    prisma.disKullaniciBasvurusu.updateMany({
+      where: { mezunKurumKodu: kaynak.kurumKodu },
+      data: { mezunKurumKodu: hedef.kurumKodu },
+    }),
+    prisma.kurum.update({ where: kaynagin, data: { aktif: false } }),
+  ]);
+
+  await erisimLogla({
+    kullaniciId: yapanId,
+    islem: "DEGISIKLIK",
+    hedefTip: "SISTEM_AYARI",
+    hedefId: kaynak.kurumKodu,
+    detay: `Okul birleştirildi: ${kaynak.ad} (${kaynak.kurumKodu}) → ${hedef.ad} (${hedef.kurumKodu}); ${kisiler.count} kişi taşındı, eski kayıt pasife alındı`,
+  });
+  return { olurMu: true, deger: { kisi: kisiler.count } };
+}

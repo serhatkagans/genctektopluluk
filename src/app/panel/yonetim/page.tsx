@@ -617,7 +617,7 @@ export default async function YonetimSayfasi({
           {okulEslestirebilirMi(kullanici) && (
             <KisayolKarti
               baslik="Okul eşleştirme"
-              aciklama="Okulunu elle yazanları gerçek okuluna bağlayın"
+              aciklama="Okulunu elle yazanları gerçek okuluna bağlayın; iki kez girilen okulu birleştirin"
               Ikon={School}
               yol="/panel/yonetim/okul-eslestirme"
               bekleyen={okulsuzSayisi}

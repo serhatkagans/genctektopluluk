@@ -10,6 +10,7 @@ import {
   kisiyiOkuldanAyir,
   okulAdiniDegistir,
   okulEkle,
+  okullariBirlestir,
 } from "@/lib/okul/eslestirme-islem";
 import { okulEslestirebilirMi } from "@/lib/yetki/izinler";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
@@ -144,4 +145,36 @@ export async function okulAdiDegistirEylemi(veri: FormData): Promise<void> {
   yenile();
   if (!sonuc.olurMu) geriDon(okul.ilKodu, { hata: sonuc.neden });
   geriDon(okul.ilKodu, { durum: "Okulun adı güncellendi." });
+}
+
+/**
+ * Aynı okulun iki kaydını birleştirir: geçici kodlu kayıttaki her şey seçilen
+ * okula taşınır, eski kayıt pasife alınır. Geri alınamaz; onay kutusu ister.
+ * Hedefin de aynı ilde olduğunu okullariBirlestir denetler.
+ */
+export async function okulBirlestirEylemi(veri: FormData): Promise<void> {
+  const kurumKodu = Number.parseInt(metin(veri, "kurumKodu"), 10);
+  const okul = Number.isInteger(kurumKodu)
+    ? await prisma.kurum.findUnique({
+        where: { kurumKodu },
+        select: { ilKodu: true },
+      })
+    : null;
+  const kullanici = await yetkiliKullanici(okul?.ilKodu ?? null);
+  if (!okul) throw new YetkiHatasi("Okul bulunamadı.");
+
+  const hedefKodu = Number.parseInt(metin(veri, "hedefKodu"), 10);
+  if (!Number.isInteger(hedefKodu)) {
+    geriDon(okul.ilKodu, { hata: "Birleştirilecek asıl okulu seçin." });
+  }
+  if (metin(veri, "onay") !== "evet") {
+    geriDon(okul.ilKodu, { hata: "Birleştirmek için onay kutusunu işaretleyin." });
+  }
+
+  const sonuc = await okullariBirlestir(kurumKodu, hedefKodu, kullanici.id);
+  yenile();
+  if (!sonuc.olurMu) geriDon(okul.ilKodu, { hata: sonuc.neden });
+  geriDon(okul.ilKodu, {
+    durum: `Okullar birleştirildi; ${sonuc.deger.kisi} kişi taşındı, tekrar eden kayıt listeden kaldırıldı.`,
+  });
 }

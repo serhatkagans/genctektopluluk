@@ -1,4 +1,4 @@
-import { Link2, School, Unlink, UsersRound } from "lucide-react";
+import { Link2, Merge, School, Unlink, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { ILLER } from "../../../../../prisma/veri/iller";
 import {
@@ -35,6 +35,7 @@ import {
 import {
   okulaBaglaEylemi,
   okulAdiDegistirEylemi,
+  okulBirlestirEylemi,
   okuldanAyirEylemi,
 } from "./eylemler";
 
@@ -372,6 +373,57 @@ export default async function OkulEslestirmeSayfasi({
                           <button type="submit" className={SINIF_IKINCIL_BUTON}>
                             Adı kaydet
                           </button>
+                        </form>
+                      )}
+                      {gecici && okullar.length > 1 && (
+                        <form
+                          action={okulBirlestirEylemi}
+                          className="space-y-2 rounded-kutu border border-cizgi p-3"
+                        >
+                          <input type="hidden" name="kurumKodu" value={okul.kurumKodu} />
+                          <p className="text-xs text-metin-yumusak">
+                            Bu okul listede iki kez mi var? Asıl kaydı seçin: bu
+                            okuldaki kişiler, roller, faaliyetler ve ekipler oraya
+                            taşınır, bu kayıt listeden kalkar. Geri alınamaz.
+                          </p>
+                          <div className="flex flex-wrap items-end gap-2">
+                            <label className="block min-w-64 flex-1">
+                              <span className="text-xs font-medium text-metin-yumusak">
+                                Asıl okul
+                              </span>
+                              <select
+                                name="hedefKodu"
+                                required
+                                defaultValue=""
+                                className={SINIF_GIRDI}
+                              >
+                                <option value="" disabled>
+                                  Seçin
+                                </option>
+                                {okullar
+                                  .filter((diger) => diger.kurumKodu !== okul.kurumKodu)
+                                  .sort(
+                                    (a, b) =>
+                                      Number(b.ilceKodu === okul.ilceKodu) -
+                                      Number(a.ilceKodu === okul.ilceKodu),
+                                  )
+                                  .map((diger) => (
+                                    <option key={diger.kurumKodu} value={diger.kurumKodu}>
+                                      {diger.ad} · {diger.ilce?.ad ?? "—"} ·{" "}
+                                      {diger.kisiler.length} kişi
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                            <label className="flex items-center gap-1.5 py-2 text-xs text-metin">
+                              <input type="checkbox" name="onay" value="evet" required />
+                              Aynı okul, birleştir
+                            </label>
+                            <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                              <Merge size={16} aria-hidden />
+                              Birleştir
+                            </button>
+                          </div>
                         </form>
                       )}
                       {okul.kisiler.length === 0 ? (
