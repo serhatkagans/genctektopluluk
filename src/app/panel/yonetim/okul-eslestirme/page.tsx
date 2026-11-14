@@ -13,11 +13,11 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { okulAdiSadele } from "@/lib/okul/benzerlik";
 import {
   enSikDeger,
   geciciKurumKoduMu,
   kisileriGrupla,
-  okulAdiDuzelt,
   okulOnerisi,
   okulTuruTahmin,
 } from "@/lib/okul/eslestirme";
@@ -284,7 +284,8 @@ export default async function OkulEslestirmeSayfasi({
                                 “{kisi.beyanOkulAdi}”
                               </dd>
                               <dd className="mt-1">
-                                {okulAdiDuzelt(kisi.beyanOkulAdi) === grup.okulAdi ? (
+                                {/* Büyük-küçük harf, ç/c gibi farklar ve noktalama "aynı" sayılır. */}
+                                {okulAdiSadele(kisi.beyanOkulAdi) === okulAdiSadele(grup.okulAdi) ? (
                                   <span className="inline-block rounded bg-olumlu-zemin px-1.5 py-0.5 text-olumlu-metin">
                                     Başlıkla aynı
                                   </span>
