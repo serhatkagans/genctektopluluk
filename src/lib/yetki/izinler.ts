@@ -1639,10 +1639,10 @@ export function kullaniciYonetebilirMi(kullanici: OturumKullanicisi): boolean {
  * alanları düzenleme sayfası olsun").
  *
  * Koordinatör yalnızca kendi ilindeki öğrenci ve öğretmenlere dokunur (bkz.
- * kullanici-yonetimi/kapsam.ts). İKİ İŞ MERKEZDE KALDI, çünkü ikisi de başka
- * birinin hesabını ele geçirme yoludur: geçici şifre vermek ve şifre
- * sıfırlama bağlantısının gittiği e-postayı değiştirmek
- * (kullaniciSifresiYonetebilirMi).
+ * kullanici-yonetimi/kapsam.ts). Şifre sıfırlama bağlantısının gittiği
+ * e-postayı değiştirmek merkezde kaldı (kullaniciSifresiYonetebilirMi).
+ * Geçici şifre vermek 14 Kasım 2026'dan beri koordinatöre de açık
+ * (geciciSifreVerebilirMi).
  *
  * İli kayıtlı olmayan koordinatör hiçbir şey göremez: fail closed.
  */
@@ -1658,7 +1658,17 @@ export function kullaniciYoneticisiCoz(
   return ilKodu ? { rol: "IL_KOORDINATOR", id: kullanici.id, ilKodu } : null;
 }
 
-/** Geçici şifre verme ve e-posta (şifre sıfırlama adresi) değiştirme. */
+/**
+ * GEÇİCİ ŞİFRE KOORDİNATÖRE DE AÇIK (14 Kasım 2026 · istek: "koordinatörlerin
+ * şifre yenileme yetkisi yok kendi alt kullanıcıları için"). Kapsam
+ * hedefiGetir'de sunucuda denetlenir: koordinatör yalnızca kendi ilindeki
+ * öğrenci ve öğretmene şifre verir; her işlem erişim günlüğüne yazılır.
+ */
+export function geciciSifreVerebilirMi(yonetici: KullaniciYoneticisi): boolean {
+  return yonetici.rol === "PROJE_YONETICISI" || yonetici.rol === "IL_KOORDINATOR";
+}
+
+/** E-posta (şifre sıfırlama adresi) değiştirme: yalnızca merkez. */
 export function kullaniciSifresiYonetebilirMi(yonetici: KullaniciYoneticisi): boolean {
   return yonetici.rol === "PROJE_YONETICISI";
 }

@@ -15,7 +15,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { tarihSaatYaz } from "@/lib/tarih";
-import { kullaniciSifresiYonetebilirMi, kullaniciYoneticisiCoz } from "@/lib/yetki/izinler";
+import { geciciSifreVerebilirMi, kullaniciYoneticisiCoz } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +51,7 @@ export default async function KullaniciYonetimiSayfasi({
   const yapan = kullaniciYoneticisiCoz(yonetici);
   if (!yapan) notFound();
   const merkezMi = yapan.rol === "PROJE_YONETICISI";
-  const sifreYetkisi = kullaniciSifresiYonetebilirMi(yapan);
+  const sifreYetkisi = geciciSifreVerebilirMi(yapan);
 
   const { ara: hamAra, durum: hamDurum, rol: hamRol } = await searchParams;
   const ara = (hamAra ?? "").trim().slice(0, 100);
@@ -153,7 +153,7 @@ export default async function KullaniciYonetimiSayfasi({
         aciklama={
           merkezMi
             ? "Hesap arama, bilgileri düzenleme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
-            : "İlinizdeki öğrenci ve öğretmen kayıtları: bilgileri düzenleme, kilit açma, pasife alma ve kayıt silme"
+            : "İlinizdeki öğrenci ve öğretmen kayıtları: bilgileri düzenleme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
         }
         geri={{ yol: "/panel/yonetim", etiket: "Yönetim Paneli" }}
       />

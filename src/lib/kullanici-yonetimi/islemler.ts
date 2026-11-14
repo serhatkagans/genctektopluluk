@@ -3,7 +3,7 @@ import { prisma } from "../db";
 import { sifreOzetle } from "../dis-kimlik/sifre";
 import { AD_UST_SINIRI, adNormalle } from "../kayit/kurallar";
 import { kullaniciyiImhaEt } from "../kvkk/imha";
-import { type KullaniciYoneticisi, kullaniciSifresiYonetebilirMi } from "../yetki/izinler";
+import { geciciSifreVerebilirMi, type KullaniciYoneticisi } from "../yetki/izinler";
 import { erisimLogla } from "../yetki/log";
 import { yonetilebilirKullaniciFiltresi } from "./kapsam";
 
@@ -95,7 +95,7 @@ export async function geciciSifreVer(
   if ("hata" in sonuc) return { olduMu: false, mesaj: sonuc.hata };
   const { hedef } = sonuc;
 
-  if (!kullaniciSifresiYonetebilirMi(yonetici)) {
+  if (!geciciSifreVerebilirMi(yonetici)) {
     return { olduMu: false, mesaj: "Geçici şifreyi proje yöneticisi verir." };
   }
   if (!hedef.kayitKimlik && !hedef.disKimlik) {

@@ -700,7 +700,7 @@ export default async function YonetimSayfasi({
               aciklama={
                 kullaniciYonetebilirMi(kullanici)
                   ? "Hesap arama, bilgileri düzenleme, şifre yenileme, kilit açma, pasife alma ve kayıt silme"
-                  : "İlinizdeki öğrenci ve öğretmen kayıtlarını düzenleme, pasife alma ve silme"
+                  : "İlinizdeki öğrenci ve öğretmen kayıtlarını düzenleme, şifre yenileme, pasife alma ve silme"
               }
               Ikon={UserRoundCog}
               yol="/panel/kullanici-yonetimi"
