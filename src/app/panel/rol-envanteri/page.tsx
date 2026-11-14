@@ -130,6 +130,13 @@ export default async function RolEnvanteriSayfasi({
   const secilenIl = tekil(parametreler.il);
   const siralama = siralamaCoz(tekil(parametreler.sirala));
   const gorunum = gorunumCoz(tekil(parametreler.goster));
+  /*
+   * İSİM SÜZGECİ (14 Kasım 2026 · istek: "il koordinatörlerine de isim
+   * filtresi ekleyelim"). Koordinatörün adında/soyadında ya da il adında
+   * geçen metin; Türkçe büyük-küçük harf farkı gözetilmez.
+   */
+  const ara = (tekil(parametreler.ara) ?? "").trim().slice(0, 100);
+  const araKucuk = ara.toLocaleLowerCase("tr-TR");
   const hata = tekil(parametreler.hata);
   const durum = tekil(parametreler.durum);
 
@@ -188,6 +195,7 @@ export default async function RolEnvanteriSayfasi({
     if (il) parca.set("il", il);
     if (siralama !== "il-az") parca.set("sirala", siralama);
     if (gorunum !== "tumu") parca.set("goster", gorunum);
+    if (ara) parca.set("ara", ara);
     const sorgu = parca.toString();
     return uygulamaYolu(
       `/panel/rol-envanteri${sorgu ? `?${sorgu}` : ""}${il ? `#il-${il}` : ""}`,
@@ -200,6 +208,16 @@ export default async function RolEnvanteriSayfasi({
       if (gorunum === "bos") return !il.koordinator;
       if (gorunum === "dolu") return il.koordinator !== null;
       return true;
+    })
+    .filter((il) => {
+      if (!araKucuk) return true;
+      const metin = [
+        il.ilAdi,
+        il.koordinator ? `${il.koordinator.ad} ${il.koordinator.soyad}` : "",
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR");
+      return metin.includes(araKucuk);
     })
     .sort((a, b) => {
       const tersMi = siralama.endsWith("-za");
@@ -352,6 +370,15 @@ export default async function RolEnvanteriSayfasi({
         */}
         <form method="get" className="mb-4 flex flex-wrap items-end gap-3">
           {secilenIl && <input type="hidden" name="il" value={secilenIl} />}
+          <label className="block min-w-56 flex-1 sm:flex-none">
+            <span className={SINIF_ETIKET}>Koordinatör adı ya da il</span>
+            <input
+              name="ara"
+              defaultValue={ara}
+              placeholder="Örn. Deniz Kaya ya da İzmir"
+              className="mt-1 w-full rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+            />
+          </label>
           <label className="block">
             <span className={SINIF_ETIKET}>Sırala</span>
             <select
