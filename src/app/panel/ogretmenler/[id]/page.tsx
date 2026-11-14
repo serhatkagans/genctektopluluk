@@ -5,6 +5,7 @@ import {
   Mail,
   Phone,
   Sparkles,
+  UserPlus,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,8 +21,10 @@ import {
   Kart,
   KartBasligi,
   SayfaBasligi,
+  SINIF_BIRINCIL_BUTON,
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
+import { danismanAtayaniCoz } from "@/lib/danisman/atama";
 import { prisma } from "@/lib/db";
 import { KAPSAM_ETIKETLERI } from "@/lib/faaliyet/kurallar";
 import { SALT_OKUNUR_ACIKLAMASI } from "@/lib/kullanici/salt-okunur";
@@ -35,6 +38,7 @@ import {
   ogretmenKapsamFiltresi,
 } from "@/lib/yetki/kapsam";
 import { erisimLogla } from "@/lib/yetki/log";
+import { ogretmeneOgrenciAtaEylemi } from "./eylemler";
 
 export const dynamic = "force-dynamic";
 
@@ -60,13 +64,24 @@ function Alan({ etiket, deger }: { etiket: string; deger: string | null }) {
   );
 }
 
+const DURUM_MESAJLARI: Record<string, string> = {
+  "ogrenci-atandi": "Öğrenci bu öğretmene atandı; öğrenciye bildirim gönderildi.",
+  "ogrenci-zaten": "Öğrenci zaten bu öğretmenin danışmanlığında.",
+};
+
+/** Atama listesinin üst sınırı: bir ilin öğrencileri tek açılır listede. */
+const ADAY_UST_SINIRI = 1000;
+
 export default async function OgretmenDetaySayfasi({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ durum?: string; hata?: string }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
   const { id } = await params;
+  const { durum, hata } = await searchParams;
 
   if (!ogretmenEnvanteriGorebilirMi(kullanici)) notFound();
 
@@ -82,7 +97,9 @@ export default async function OgretmenDetaySayfasi({
       brans: true,
       egitimOgretimYili: true,
       aktif: true,
-      kurum: { select: { ad: true, okulTuru: true } },
+      kurumKodu: true,
+      ilKodu: true,
+      kurum: { select: { ad: true, okulTuru: true, ilKodu: true } },
       beyanOkulAdi: true,
       il: { select: { ad: true } },
       ilce: { select: { ad: true } },
@@ -167,6 +184,88 @@ export default async function OgretmenDetaySayfasi({
   });
 
   const aktifRoller = ogretmen.roller.filter((rol) => rol.bitisTarihi === null);
+
+  /*
+   * ÖĞRENCİ ATAMA (14 Kasım 2026 · istek: "öğrenci adına tıklayıp danışman
+   * ata seçiliyor ama öğretmen adına tıklayınca danışman ata yok"). Öğrenci
+   * sayfasındaki atamanın ters yönü, aynı kural: öğretmen etkin bir danışman
+   * olmalı, öğrenci öğretmenin ilinde ve bakanın kapsamında olmalı;
+   * koordinatör yalnızca kendi ilinde atar (sunucuda yoneticiDanismanAta
+   * yeniden denetler).
+   */
+  const atayan = danismanAtayaniCoz(kullanici);
+  const ogretmenIli = ogretmen.kurum?.ilKodu ?? ogretmen.ilKodu;
+  const danismanMi =
+    aktifRoller.some((rol) => rol.rolKodu === "DANISMAN") &&
+    !aktifRoller.some((rol) => rol.rolKodu === "IL_KOORDINATOR");
+  const atamaAcik =
+    atayan !== null &&
+    ogretmen.aktif &&
+    danismanMi &&
+    ogretmenIli !== null &&
+    (atayan.rol === "PROJE_YONETICISI" || atayan.ilKodu === ogretmenIli);
+  const adaylar =
+    atamaAcik && ogretmenIli
+      ? await prisma.kullanici.findMany({
+          where: {
+            AND: [
+              ogrenciKapsamFiltresi(kullanici),
+              {
+                aktif: true,
+                roller: { some: { rolKodu: "OGRENCI", bitisTarihi: null } },
+                OR: [{ kurum: { ilKodu: ogretmenIli } }, { ilKodu: ogretmenIli }],
+                ogrenciAtamalari: {
+                  none: { danismanKullaniciId: ogretmen.id, bitisTarihi: null },
+                },
+              },
+            ],
+          },
+          select: {
+            id: true,
+            ad: true,
+            soyad: true,
+            sinif: true,
+            kurumKodu: true,
+            beyanOkulAdi: true,
+            kurum: { select: { ad: true } },
+            ogrenciAtamalari: {
+              where: { bitisTarihi: null },
+              select: { danisman: { select: { ad: true, soyad: true } } },
+              take: 1,
+            },
+          },
+          orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+          take: ADAY_UST_SINIRI,
+        })
+      : [];
+  const adayEtiketi = (aday: (typeof adaylar)[number]) => {
+    const danisman = aday.ogrenciAtamalari[0]?.danisman;
+    return [
+      `${aday.ad} ${aday.soyad}`,
+      aday.sinif ? `${aday.sinif}. sınıf` : null,
+      aday.kurum?.ad ??
+        (aday.beyanOkulAdi ? `${aday.beyanOkulAdi} (listede yok)` : null),
+      danisman ? `şu an: ${danisman.ad} ${danisman.soyad}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
+  const ayniOkul = adaylar.filter(
+    (aday) =>
+      ogretmen.kurumKodu !== null && aday.kurumKodu === ogretmen.kurumKodu,
+  );
+  const digerleri = adaylar.filter((aday) => !ayniOkul.includes(aday));
+  const adayGruplari = [
+    { etiket: "Aynı okuldaki öğrenciler", liste: ayniOkul },
+    {
+      etiket: "İldeki danışmanı olmayan öğrenciler",
+      liste: digerleri.filter((aday) => aday.ogrenciAtamalari.length === 0),
+    },
+    {
+      etiket: "İldeki danışmanı olan öğrenciler (danışmanı değişir)",
+      liste: digerleri.filter((aday) => aday.ogrenciAtamalari.length > 0),
+    },
+  ].filter((grup) => grup.liste.length > 0);
   const yillar = gorevYillari(ogretmen.roller);
   const iletisim = ogretmen.ogretmenProfil;
 
@@ -205,6 +304,11 @@ export default async function OgretmenDetaySayfasi({
         */
         geri={null}
       />
+
+      {durum && DURUM_MESAJLARI[durum] && (
+        <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
+      )}
+      {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
 
       <Kart>
         <KartBasligi
@@ -319,6 +423,65 @@ export default async function OgretmenDetaySayfasi({
               </li>
             ))}
           </ul>
+        )}
+
+        {atamaAcik && (
+          <form
+            action={ogretmeneOgrenciAtaEylemi}
+            className="mt-4 space-y-3 border-t border-cizgi pt-4"
+          >
+            <input type="hidden" name="ogretmenId" value={ogretmen.id} />
+            <label className="block">
+              <span className="flex items-center gap-2 text-sm font-medium text-metin">
+                <UserPlus size={15} aria-hidden />
+                Öğrenci ata
+              </span>
+              <select
+                name="ogrenciId"
+                required
+                defaultValue=""
+                className="mt-1 w-full rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu"
+              >
+                <option value="" disabled>
+                  {adaylar.length === 0
+                    ? "Atanabilecek öğrenci yok"
+                    : "Öğrenci seçin"}
+                </option>
+                {adayGruplari.map((grup) => (
+                  <optgroup key={grup.etiket} label={grup.etiket}>
+                    {grup.liste.map((aday) => (
+                      <option key={aday.id} value={aday.id}>
+                        {adayEtiketi(aday)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <p className="text-xs text-metin-yumusak">
+              Öğrencinin başka bir danışmanı varsa o danışmanlık kapanır ve
+              öğrenci bu öğretmene geçer; öğrenciye ve önceki danışmana
+              bildirim gider.
+            </p>
+            <button
+              type="submit"
+              disabled={adaylar.length === 0}
+              className={SINIF_BIRINCIL_BUTON}
+            >
+              Öğrenciyi ata
+            </button>
+          </form>
+        )}
+        {atayan !== null && !atamaAcik && (
+          <p className="mt-4 border-t border-cizgi pt-4 text-sm text-metin-yumusak">
+            {!ogretmen.aktif
+              ? "Kayıt pasif olduğu için bu öğretmene öğrenci atanamaz."
+              : !danismanMi
+                ? "Bu öğretmenin açık bir danışman görevi yok; öğrenci atanamaz."
+                : ogretmenIli === null
+                  ? "Öğretmenin ili kayıtlı değil; önce okulunu ya da ilini düzeltin."
+                  : "Yalnızca kendi ilinizdeki öğretmenlere öğrenci atayabilirsiniz."}
+          </p>
         )}
       </Kart>
 
