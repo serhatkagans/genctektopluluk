@@ -38,7 +38,19 @@ export function ogretmenFiltreleriniCoz(
     yalnizcaGorevsizler: tekil(parametreler.gorevsiz) === "1",
     gorevYili: aralik ? gorevYili : null,
     gorevAraligi: aralik,
+    okulAra: tekil(parametreler.okulAra)?.trim().slice(0, 100) || null,
+    okulDurumu: secenekVeyaNull(tekil(parametreler.okulDurumu), ["bagli", "yok"] as const),
+    ogrenciDurumu: secenekVeyaNull(tekil(parametreler.ogrenci), ["var", "yok"] as const),
+    yalnizcaOkulSorumlulari: tekil(parametreler.sorumlu) === "1",
   };
+}
+
+/** Listede olmayan değer sessizce düşer: filtre yalnızca daraltır. */
+function secenekVeyaNull<T extends string>(
+  deger: string | null,
+  secenekler: readonly T[],
+): T | null {
+  return secenekler.includes(deger as T) ? (deger as T) : null;
 }
 
 export function ogretmenFiltresiVarMi(

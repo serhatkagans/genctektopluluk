@@ -344,6 +344,17 @@ export interface OgretmenListeFiltreleri {
    * bırakan öğretmen, 2024-2025 seçildiğinde listede olmalıdır.
    */
   gorevAraligi?: { baslangic: Date; bitis: Date } | null;
+  /**
+   * Okul adında geçen metin: kayıtlı okulun adı YA DA listede bulamayıp elle
+   * yazdığı ad (14 Kasım 2026).
+   */
+  okulAra?: string | null;
+  /** "bagli": kayıtlı bir okula bağlı · "yok": okulu listede yok/boş. */
+  okulDurumu?: "bagli" | "yok" | null;
+  /** "var": en az bir süren danışman ataması · "yok": hiç yok. */
+  ogrenciDurumu?: "var" | "yok" | null;
+  /** Yalnızca YEĞİTEK okul sorumlusu işaretini koyanlar. */
+  yalnizcaOkulSorumlulari?: boolean;
 }
 
 export function ogretmenListeFiltresi(
@@ -354,9 +365,48 @@ export function ogretmenListeFiltresi(
     ogretmenKapsamFiltresi(kullanici),
   ];
 
-  if (filtreler.ilKodu) kosullar.push({ ilKodu: filtreler.ilKodu });
-  if (filtreler.ilceKodu) kosullar.push({ ilceKodu: filtreler.ilceKodu });
+  /*
+   * İL VE İLÇE OKULDAN DA OKUNUR (14 Kasım 2026): çoğu öğretmenin kendi
+   * kaydında il/ilçe boş, yer bilgisi okulun kaydında (listedeki "İl / İlçe"
+   * sütunu da önce kişiye, yoksa okula bakıyor). Yalnızca kişinin alanına
+   * bakılsaydı il seçildiğinde bu öğretmenler listeden düşerdi.
+   */
+  if (filtreler.ilKodu) {
+    kosullar.push({
+      OR: [
+        { ilKodu: filtreler.ilKodu },
+        { ilKodu: null, kurum: { ilKodu: filtreler.ilKodu } },
+      ],
+    });
+  }
+  if (filtreler.ilceKodu) {
+    kosullar.push({
+      OR: [
+        { ilceKodu: filtreler.ilceKodu },
+        { ilceKodu: null, kurum: { ilceKodu: filtreler.ilceKodu } },
+      ],
+    });
+  }
   if (filtreler.kurumKodu) kosullar.push({ kurumKodu: filtreler.kurumKodu });
+  if (filtreler.okulAra) {
+    kosullar.push({
+      OR: [
+        { kurum: { ad: { contains: filtreler.okulAra, mode: "insensitive" } } },
+        { beyanOkulAdi: { contains: filtreler.okulAra, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (filtreler.okulDurumu === "bagli") kosullar.push({ kurumKodu: { not: null } });
+  if (filtreler.okulDurumu === "yok") kosullar.push({ kurumKodu: null });
+  if (filtreler.ogrenciDurumu === "var") {
+    kosullar.push({ danismanAtamalari: { some: { bitisTarihi: null } } });
+  }
+  if (filtreler.ogrenciDurumu === "yok") {
+    kosullar.push({ danismanAtamalari: { none: { bitisTarihi: null } } });
+  }
+  if (filtreler.yalnizcaOkulSorumlulari) {
+    kosullar.push({ ogretmenProfil: { is: { yegitekOkulSorumlusu: true } } });
+  }
   if (filtreler.okulTuru) {
     /* "Diğer" = standart listede olmayan türler (bkz. lib/okul/turler.ts). */
     kosullar.push({ kurum: okulTuruKosulu(filtreler.okulTuru) });

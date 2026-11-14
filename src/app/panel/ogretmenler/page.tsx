@@ -8,15 +8,6 @@ import {
 import Link from "next/link";
 import { DisaAktarmaBagi } from "@/components/DisaAktarmaBagi";
 import {
-  SutunMetinSuzgeci,
-  SutunSecimSuzgeci,
-  SutunSuzgecBoslugu,
-  SutunSuzgecDugmesi,
-  SutunSuzgecHucresi,
-  SutunSuzgecSatiri,
-  SuzgecSecimKutusu,
-} from "@/components/SutunSuzgeci";
-import {
   Kart,
   KartBasligi,
   KirintiYolu,
@@ -352,21 +343,144 @@ export default async function OgretmenlerSayfasi({
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/*
-            İL, İLÇE, OKUL, OKUL TÜRÜ, BRANŞ VE AD SÜZGEÇLERİ SÜTUN
-            BAŞLIKLARINA TAŞINDI (31 Ağustos 2026 · istek: "bu sayfada aynı" —
-            Okullar ekranındaki sütun süzgeçlerinin aynısı).
+        {/*
+          FİLTRELER YENİDEN KARTTA (14 Kasım 2026 · istek: "burada filtreler
+          ekle isim dahil"). 31 Ağustos'ta ad, branş, il, ilçe, okul türü ve
+          okul süzgeçleri tablo başlığının altındaki dar bir satıra
+          taşınmıştı; orada etiketsiz küçük kutular olarak görünmüyorlardı ve
+          kartta yalnızca "Görev aldığı yıl" kalmıştı. Hepsi etiketli olarak
+          buraya geri geldi; sütun süzgeç satırı kaldırıldı (aynı `name` iki
+          denetimde olursa form ikisini de gönderir).
 
-            KARTTAN SİLİNDİLER, KOPYALANMADILAR: aynı `name` iki denetimde
-            bulunsaydı form ikisini de gönderir ve sütundaki kutuya yazan kişi
-            karttaki boş kutunun kazandığını görürdü (gerekçenin tamamı
-            components/SutunSuzgeci.tsx içinde).
-
-            KARTTA YALNIZCA SÜTUNU OLMAYAN SÜZGEÇ KALIYOR: "Görev aldığı yıl"
-            bir sütunu süzmüyor — görev yılları sütunu 27 Ağustos'ta listeden
-            kalktı ve bilgi öğretmenin kendi katkı kartında duruyor.
-          */}
+          İlçe ve okul listeleri seçili ilden türer: il seçip Filtrele'ye
+          basınca dolar (koordinatörde il zaten seçili gelir).
+        */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block">
+            <span className={SINIF_ETIKET}>Ad soyad</span>
+            <input
+              name="ara"
+              defaultValue={filtreler.ara ?? ""}
+              placeholder="Örn. Ayşe Yılmaz"
+              className={SINIF_SECIM}
+            />
+          </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Branş</span>
+            <input
+              name="brans"
+              defaultValue={filtreler.brans ?? ""}
+              placeholder="Örn. Bilişim"
+              className={SINIF_SECIM}
+            />
+          </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Okul adı</span>
+            <input
+              name="okulAra"
+              defaultValue={filtreler.okulAra ?? ""}
+              placeholder="Adında geçen kelime"
+              className={SINIF_SECIM}
+            />
+          </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Okul türü</span>
+            <select
+              name="okulTuru"
+              defaultValue={filtreler.okulTuru ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Tüm okul türleri</option>
+              {okulTuruSecenekleri(okulTurleri)
+                .filter((tur) => tur !== "")
+                .map((tur) => (
+                  <option key={tur} value={tur}>
+                    {tur}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {iller.length > 0 && (
+            <label className="block">
+              <span className={SINIF_ETIKET}>İl</span>
+              <select
+                name="il"
+                defaultValue={filtreler.ilKodu ?? ""}
+                disabled={iller.length <= 1}
+                className={SINIF_SECIM}
+              >
+                <option value="">
+                  {iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"}
+                </option>
+                {iller.length > 1 &&
+                  iller.map((il) => (
+                    <option key={il.ilKodu} value={il.ilKodu}>
+                      {il.ad}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
+          <label className="block">
+            <span className={SINIF_ETIKET}>İlçe</span>
+            <select
+              name="ilce"
+              defaultValue={filtreler.ilceKodu ?? ""}
+              disabled={ilceler.length === 0}
+              className={SINIF_SECIM}
+            >
+              <option value="">
+                {ilceler.length === 0 ? "Önce il seçip Filtrele'ye basın" : "Tüm ilçeler"}
+              </option>
+              {ilceler.map((ilce) => (
+                <option key={ilce.ilceKodu} value={ilce.ilceKodu}>
+                  {ilce.ad}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Okul</span>
+            <select
+              name="okul"
+              defaultValue={filtreler.kurumKodu ? String(filtreler.kurumKodu) : ""}
+              disabled={okullar.length === 0}
+              className={SINIF_SECIM}
+            >
+              <option value="">
+                {okullar.length === 0 ? "Önce il seçip Filtrele'ye basın" : "Tüm okullar"}
+              </option>
+              {okullar.map((okul) => (
+                <option key={okul.kurumKodu} value={String(okul.kurumKodu)}>
+                  {okul.ad}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Okul kaydı</span>
+            <select
+              name="okulDurumu"
+              defaultValue={filtreler.okulDurumu ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Hepsi</option>
+              <option value="bagli">Okula bağlı</option>
+              <option value="yok">Okulu listede yok / boş</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className={SINIF_ETIKET}>Danışmanlık yaptığı öğrenci</span>
+            <select
+              name="ogrenci"
+              defaultValue={filtreler.ogrenciDurumu ?? ""}
+              className={SINIF_SECIM}
+            >
+              <option value="">Hepsi</option>
+              <option value="var">Öğrencisi olanlar</option>
+              <option value="yok">Öğrencisi olmayanlar</option>
+            </select>
+          </label>
           <label className="block">
             <span className={SINIF_ETIKET}>Görev aldığı yıl</span>
             <select
@@ -382,7 +496,15 @@ export default async function OgretmenlerSayfasi({
               ))}
             </select>
           </label>
-
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-metin">
+            <input
+              type="checkbox"
+              name="sorumlu"
+              value="1"
+              defaultChecked={filtreler.yalnizcaOkulSorumlulari}
+            />
+            Yalnızca YEĞİTEK okul sorumluları
+          </label>
         </div>
 
         {/*
@@ -459,94 +581,6 @@ export default async function OgretmenlerSayfasi({
                 <th className="px-4 py-3 font-medium">E-posta</th>
               </tr>
 
-              {/*
-                SÜZGEÇ SATIRI. Süzgeci olan sütunlar Okullar ekranıyla aynı
-                mantıkla seçildi: kişiyi ve okulunu DARALTAN alanlar. Öğrenci
-                sayısı, okul sorumlusu, telefon ve e-posta boş kalıyor —
-                sayıyı süzmek karşılaştırma gerektirir, iletişim alanları ise
-                aramanın değil ulaşmanın konusu.
-
-                İL/İLÇE TEK HÜCREDE İKİ KUTU: sütun başlığı da tek ("İl /
-                İlçe"). İl seçilmeden ilçe kapalı — ilçe listesi ilden türüyor.
-
-                OKUL BİR AÇILIR LİSTE, metin kutusu değil: filtre kurum
-                KODUYLA çalışıyor (`okul` parametresi bir sayıdır, bkz.
-                filtreler.ts) ve okul adı yazdırmak, aynı adı taşıyan iki
-                okulu ayırt edemezdi.
-              */}
-              <SutunSuzgecSatiri>
-                <SutunMetinSuzgeci
-                  form={SUZGEC_FORMU}
-                  ad="ara"
-                  deger={filtreler.ara}
-                  ipucu="Ad veya soyad"
-                />
-                <SutunMetinSuzgeci
-                  form={SUZGEC_FORMU}
-                  ad="brans"
-                  deger={filtreler.brans}
-                  ipucu="Branş"
-                />
-                {yerFiltresiVar ? (
-                  <SutunSuzgecHucresi>
-                    <SuzgecSecimKutusu
-                      form={SUZGEC_FORMU}
-                      ad="il"
-                      deger={filtreler.ilKodu}
-                      bosEtiket={
-                        iller.length <= 1 ? (iller[0]?.ad ?? "—") : "Tüm iller"
-                      }
-                      etiket="İl"
-                      devreDisi={iller.length <= 1}
-                      secenekler={iller.map((il) => ({
-                        deger: il.ilKodu,
-                        etiket: il.ad,
-                      }))}
-                    />
-                    <SuzgecSecimKutusu
-                      form={SUZGEC_FORMU}
-                      ad="ilce"
-                      deger={filtreler.ilceKodu}
-                      bosEtiket={
-                        ilceler.length === 0 ? "Önce il seçin" : "Tüm ilçeler"
-                      }
-                      etiket="İlçe"
-                      devreDisi={ilceler.length === 0}
-                      secenekler={ilceler.map((ilce) => ({
-                        deger: ilce.ilceKodu,
-                        etiket: ilce.ad,
-                      }))}
-                    />
-                  </SutunSuzgecHucresi>
-                ) : (
-                  <SutunSuzgecBoslugu />
-                )}
-                <SutunSecimSuzgeci
-                  form={SUZGEC_FORMU}
-                  ad="okulTuru"
-                  deger={filtreler.okulTuru}
-                  bosEtiket="Tüm okul türleri"
-                  etiket="Okul türü"
-                  secenekler={okulTuruSecenekleri(okulTurleri)
-                    .filter((tur) => tur !== "")
-                    .map((tur) => ({ deger: tur, etiket: tur }))}
-                />
-                <SutunSecimSuzgeci
-                  form={SUZGEC_FORMU}
-                  ad="okul"
-                  deger={
-                    filtreler.kurumKodu ? String(filtreler.kurumKodu) : null
-                  }
-                  bosEtiket={okullar.length === 0 ? "Önce il seçin" : "Tüm okullar"}
-                  etiket="Okul"
-                  devreDisi={okullar.length === 0}
-                  secenekler={okullar.map((okul) => ({
-                    deger: String(okul.kurumKodu),
-                    etiket: okul.ad,
-                  }))}
-                />
-                <SutunSuzgecDugmesi form={SUZGEC_FORMU} colSpan={4} />
-              </SutunSuzgecSatiri>
             </thead>
             <tbody>
               {ogretmenler.map((ogretmen) => {
