@@ -215,7 +215,10 @@ export default async function OkulEslestirmeSayfasi({
 
       <BilgiKutusu>
         <strong>{ilAdi(ilKodu)}</strong> · {kisiler.length} kişinin okulu
-        eşleşmemiş, {gruplar.length} grup. Grupta yanlış kişi varsa işaretini
+        eşleşmemiş, {gruplar.length} grup. Gruplar kişinin kayıtta{" "}
+        <strong>elle yazdığı okul adına</strong> göre yapılır; ilçe gruplamada
+        kullanılmaz. Her kartta kişinin yazdığı ad görünür: “Farklı yazım”
+        işaretlileri kontrol edin. Grupta yanlış kişi varsa işaretini
         kaldırın; o kişi listede kalır. Bağlanan kişinin ilçesi okulun ilçesi
         olur. Eklediğiniz okul kayıt ekranındaki okul listesinde de çıkar.
       </BilgiKutusu>
@@ -253,7 +256,15 @@ export default async function OkulEslestirmeSayfasi({
                           defaultChecked
                           className="mt-1"
                         />
-                        <span className="min-w-0">
+                        {/*
+                          AYRINTILI KART (14 Kasım 2026 · istek: "orası sıkışık
+                          o yüzden emin olamıyorlar, orayı detaylandırabilir
+                          miyiz"). İlçe okul adı sanılıyordu ve "yazdığı"
+                          yalnızca farklı yazımda çıktığı için adı başlıkla
+                          aynı yazanların okulu görünmüyordu. Artık her
+                          kartta etiketli satırlar ve yazılan ad var.
+                        */}
+                        <span className="min-w-0 flex-1">
                           <span className="font-medium">
                             {kisi.ad} {kisi.soyad}
                           </span>
@@ -261,15 +272,30 @@ export default async function OkulEslestirmeSayfasi({
                             {kisi.rol}
                             {kisi.sinif ? ` · ${kisi.sinif}. sınıf` : ""}
                             {kisi.brans ? ` · ${kisi.brans}` : ""}
-                            {ilceAdi(kisi.ilceKodu)
-                              ? ` · ${ilceAdi(kisi.ilceKodu)}`
-                              : " · ilçe yok"}
                           </span>
-                          {okulAdiDuzelt(kisi.beyanOkulAdi) !== grup.okulAdi ? (
-                            <span className="block break-words text-xs text-metin-yumusak">
-                              yazdığı: “{kisi.beyanOkulAdi}”
-                            </span>
-                          ) : null}
+                          <dl className="mt-1.5 space-y-1 border-t border-cizgi pt-1.5 text-xs">
+                            <div className="flex gap-1">
+                              <dt className="shrink-0 text-metin-yumusak">İlçe:</dt>
+                              <dd>{ilceAdi(kisi.ilceKodu) ?? "seçilmemiş"}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-metin-yumusak">Yazdığı okul:</dt>
+                              <dd className="break-words font-medium">
+                                “{kisi.beyanOkulAdi}”
+                              </dd>
+                              <dd className="mt-1">
+                                {okulAdiDuzelt(kisi.beyanOkulAdi) === grup.okulAdi ? (
+                                  <span className="inline-block rounded bg-olumlu-zemin px-1.5 py-0.5 text-olumlu-metin">
+                                    Başlıkla aynı
+                                  </span>
+                                ) : (
+                                  <span className="inline-block rounded bg-uyari-zemin px-1.5 py-0.5 text-uyari-metin">
+                                    Farklı yazım, kontrol edin
+                                  </span>
+                                )}
+                              </dd>
+                            </div>
+                          </dl>
                         </span>
                       </label>
                     </li>
