@@ -23,6 +23,9 @@ const TUR_ESLEME: Record<string, string> = {
   "Mesleki Eğitim Merkezi": "Mesleki ve Teknik Eğitim Merkezi",
   "Özel Eğitim Meslek Okulu (Zihinsel Engelliler)": "Özel Eğitim Meslek Lisesi",
   "Özel Eğitim Meslek Okulu": "Özel Eğitim Meslek Lisesi",
+  "Hazırlık Sınıfı Bulunan Fen Lisesi": "Fen Lisesi",
+  // Bizde ayrı türü yok; en yakını Güzel Sanatlar Lisesi (sanat liseleri).
+  "Müzik ve Sahne Sanatları Lisesi": "Güzel Sanatlar Lisesi",
 };
 
 /**
@@ -34,7 +37,15 @@ const TUR_ESLEME: Record<string, string> = {
  * tür adla çelişirse okulunu listede bulamazdı.
  */
 export function mebbisTurunuCevir(mebbisTuru: string, ad: string): string | null {
-  let tur = TUR_ESLEME[mebbisTuru.trim()] ?? mebbisTuru.trim();
+  const ham = mebbisTuru.trim();
+  /*
+   * PARANTEZ İÇİ EK YOK SAYILIR (17 Kasım 2026): "Anadolu İmam Hatip
+   * Lisesi(Yabancı Uyruklular)", "Özel Eğitim Meslek Lisesi(İşitme
+   * Engelliler)" gibi 55 resmî okul ilk yüklemede tür tanınmadığı için
+   * atlanmıştı (ör. Uluslararası Seferihisar Borsa İstanbul AİHL).
+   */
+  const sade = ham.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  let tur = TUR_ESLEME[ham] ?? TUR_ESLEME[sade] ?? sade;
   if (
     tur === "İmam Hatip Lisesi" &&
     ad.toLocaleLowerCase("tr-TR").includes("anadolu imam hatip")

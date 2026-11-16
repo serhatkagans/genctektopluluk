@@ -43,6 +43,20 @@ describe("MEBBİS türünü bizim türümüze çevirme", () => {
     );
   });
 
+  it("parantez içindeki ek yok sayılır (Yabancı Uyruklular, engel türü)", () => {
+    expect(
+      mebbisTurunuCevir("Anadolu İmam Hatip Lisesi(Yabancı Uyruklular)", "ULUSLARARASI X AİHL"),
+    ).toBe("Anadolu İmam Hatip Lisesi");
+    expect(mebbisTurunuCevir("Özel Eğitim Meslek Lisesi(İşitme Engelliler)", "X")).toBe(
+      "Özel Eğitim Meslek Lisesi",
+    );
+    expect(mebbisTurunuCevir("Özel Eğitim Meslek Okulu (Görme Engelliler)", "X")).toBe(
+      "Özel Eğitim Meslek Lisesi",
+    );
+    expect(mebbisTurunuCevir("Hazırlık Sınıfı Bulunan Fen Lisesi", "X")).toBe("Fen Lisesi");
+    expect(mebbisTurunuCevir("Müzik ve Sahne Sanatları Lisesi", "X")).toBe("Güzel Sanatlar Lisesi");
+  });
+
   it("lise düzeyi dışındaki kurumlar yüklenmez", () => {
     expect(mebbisTurunuCevir("İlkokul", "X İLKOKULU")).toBeNull();
     expect(mebbisTurunuCevir("Ortaokul", "X ORTAOKULU")).toBeNull();
