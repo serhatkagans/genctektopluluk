@@ -11,7 +11,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { mentorluguGetir } from "@/lib/mentor/veri";
-import { mentorlukBasvurabilirMi } from "@/lib/yetki/izinler";
+import { mentorlukBasvurabilirMi, ogrenciMi } from "@/lib/yetki/izinler";
 import {
   mentorlukBasvurEylemi,
   mentorluguBirakEylemi,
@@ -101,7 +101,13 @@ export default async function MentorBasvuruSayfasi({
         <span id="mentorlugum" className="block scroll-mt-24" />
         <KartBasligi
           baslik="Mentörlük başvurusu"
-          aciklama="Başvurunuz proje yöneticisinin onayından geçer; onaylanınca panodaki mentör havuzunda görünürsünüz."
+          aciklama={
+            /* Öğrencinin başvurusuna ilinin koordinatörü ve danışmanı da
+               karar verebiliyor (bkz. ogrenciMentorluguneKararVerebilirMi). */
+            ogrenciMi(kullanici)
+              ? "Başvurunuz il koordinatörünüzün, danışman öğretmeninizin ya da proje yöneticisinin onayından geçer; onaylanınca panodaki mentör havuzunda görünürsünüz."
+              : "Başvurunuz proje yöneticisinin onayından geçer; onaylanınca panodaki mentör havuzunda görünürsünüz."
+          }
           Ikon={GraduationCap}
         />
         <MentorlukDuzenleme

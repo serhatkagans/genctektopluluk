@@ -175,7 +175,14 @@ export type OgrenciGorevSuzgeci =
   | "IL_TEMSILCISI"
   | "ILCE_TEMSILCISI"
   | "OKUL_TEMSILCISI"
-  | "MENTOR";
+  | "MENTOR"
+  /**
+   * MENTÖRLÜK ONAYI BEKLEYEN (16 Kasım 2026 · istek: "öğrencim mentör olarak
+   * başvurdu, onayı bize düşecekti ama göremiyorum"). Panodaki koordinatör
+   * kartı bu süzgeçle Öğrenciler listesine gönderiyor; karar düğmesi o
+   * listenin Mentörlük sütununda.
+   */
+  | "MENTOR_BEKLIYOR";
 
 export function ogrenciGorevSuzgeciGecerliMi(
   deger: string,
@@ -184,7 +191,8 @@ export function ogrenciGorevSuzgeciGecerliMi(
     deger === "IL_TEMSILCISI" ||
     deger === "ILCE_TEMSILCISI" ||
     deger === "OKUL_TEMSILCISI" ||
-    deger === "MENTOR"
+    deger === "MENTOR" ||
+    deger === "MENTOR_BEKLIYOR"
   );
 }
 
@@ -253,6 +261,8 @@ export function ogrenciListeFiltresi(
    */
   if (filtreler.gorevRolu === "MENTOR") {
     kosullar.push({ mentorluk: { durum: "ONAYLANDI" } });
+  } else if (filtreler.gorevRolu === "MENTOR_BEKLIYOR") {
+    kosullar.push({ mentorluk: { durum: "BEKLIYOR" } });
   } else if (filtreler.gorevRolu) {
     kosullar.push({
       gorevRolleri: { some: { rolKodu: filtreler.gorevRolu } },

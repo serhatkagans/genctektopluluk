@@ -338,6 +338,12 @@ const BILDIRIM_SABLONLARI = [
       "Merhaba,\n\n{{basvuranAdSoyad}} mentörlük başvurusu yaptı ve onayınızı bekliyor.\n\nBaşvurduğu alanlar: {{kapsam}}\n\nBaşvuruyu Yönetim Paneli'ndeki Mentörlük kartından inceleyip onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek",
   },
   {
+    kod: "ONAY_BEKLEYEN_OGRENCI_MENTORLUK",
+    konu: "Onayınızı bekleyen öğrenci mentörlük başvurusu: {{basvuranAdSoyad}}",
+    govdeSablonu:
+      "Merhaba,\n\nİlinizdeki öğrenci {{basvuranAdSoyad}} mentörlük başvurusu yaptı ve onayınızı bekliyor.\n\nBaşvurduğu alanlar: {{kapsam}}\n\nBaşvuruyu Öğrenciler ekranında \"Görev / rol: Mentörlük onayı bekleyen\" süzgeciyle bulup Mentörlük sütunundan onaylayabilir ya da gerekçesiyle reddedebilirsiniz.\n\nGençTek",
+  },
+  {
     kod: "MENTORLUK_KARARI",
     konu: "Mentörlük başvurunuz {{sonuc}}",
     govdeSablonu:

@@ -27,6 +27,7 @@ import {
 import { KisayolKarti } from "@/components/YonetimKartlari";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { ogrenciListeFiltresi } from "@/lib/yetki/kapsam";
 import {
   PANO_ILANI_DURUM_ETIKETLERI,
   PANO_KATEGORILERI,
@@ -40,6 +41,7 @@ import type { RolKodu, TalepTuru } from "@/generated/prisma/enums";
 import { tarihYaz } from "@/lib/tarih";
 import {
   gencTekGoreviYonetebilirMi,
+  ilKoordinatoruMu,
   mentorlukOnaylayabilirMi,
   mentorlukBasvurabilirMi,
   panodaIlanAcabilirMi,
@@ -285,6 +287,27 @@ export default async function TaleplerSayfasi({
     : 0;
   const bekleyenGorevBasvurusu = bekleyenGorevSayisi;
 
+  /*
+   * ÖĞRENCİ MENTÖR ONAYLARI — İL KOORDİNATÖRÜ (16 Kasım 2026 · istek:
+   * "öğrencim mentör olarak başvurdu, onayı bize düşecekti ama göremiyorum").
+   *
+   * Merkezin kuyruğu (yukarıdaki kart) koordinatöre kapalı kalıyor — orada
+   * kendi başvurusu da dururdu (bkz. mentorlukOnaylayabilirMi). Koordinatörün
+   * kararı ilindeki ÖĞRENCİLER için ve Öğrenciler ekranının Mentörlük
+   * sütununda veriliyor; kart oraya, bekleyenler süzülmüş olarak gönderiyor.
+   * Sayı aynı kapsam filtresinden geçiyor, yani listeyle birebir tutuyor.
+   * Merkez kendi kartından tüm başvuruları zaten görüyor; ikinci kart yok.
+   */
+  const ogrenciMentorKartiGorunur =
+    ilKoordinatoruMu(kullanici) && !mentorlukOnaylayabilirMi(kullanici);
+  const bekleyenOgrenciMentorlugu = ogrenciMentorKartiGorunur
+    ? await prisma.kullanici.count({
+        where: ogrenciListeFiltresi(kullanici, {
+          gorevRolu: "MENTOR_BEKLIYOR",
+        }),
+      })
+    : 0;
+
   const filtreVar =
     Boolean(aramaMetni) || Number.isFinite(grupId) || Boolean(tur);
 
@@ -402,6 +425,19 @@ export default async function TaleplerSayfasi({
             }
             Ikon={Compass}
             yol="/panel/mentorluk"
+            ton="uyari"
+          />
+        )}
+        {ogrenciMentorKartiGorunur && (
+          <KisayolKarti
+            baslik="Öğrenci mentör onayları"
+            aciklama={
+              bekleyenOgrenciMentorlugu > 0
+                ? `${bekleyenOgrenciMentorlugu} başvuru kararınızı bekliyor`
+                : undefined
+            }
+            Ikon={Compass}
+            yol="/panel/ogrenciler?gorev=MENTOR_BEKLIYOR"
             ton="uyari"
           />
         )}

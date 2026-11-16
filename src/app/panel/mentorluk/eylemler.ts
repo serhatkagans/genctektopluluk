@@ -6,6 +6,7 @@ import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import {
   BILDIRIM_KODLARI,
   bildirimGonder,
+  ilKoordinatorlerineBildir,
   projeYoneticilerineBildir,
 } from "@/lib/bildirim/gonder";
 import { prisma } from "@/lib/db";
@@ -21,6 +22,7 @@ import {
 import {
   mentorlukBasvurabilirMi,
   mentorlukOnaylayabilirMi,
+  ogrenciMi,
 } from "@/lib/yetki/izinler";
 import { erisimLogla } from "@/lib/yetki/log";
 import { BulunamadiHatasi, YetkiHatasi } from "@/lib/yetki/tipler";
@@ -115,6 +117,25 @@ export async function mentorlukBasvurEylemi(veri: FormData): Promise<void> {
      */
     kapsam: mentorKapsamiYaz(seciliAdlar, karar.konular) || "—",
   });
+
+  /*
+   * ÖĞRENCİNİN BAŞVURUSU İLİNİN KOORDİNATÖRÜNE DE GİDER (16 Kasım 2026 ·
+   * istek: "öğrencim mentör olarak başvurdu, onayı bize düşecekti ama
+   * göremiyorum"). Koordinatör bu başvuruya Öğrenciler ekranından karar
+   * verebiliyor (bkz. ogrenciMentorluguneKararVerebilirMi) ama haberi
+   * olmuyordu. Öğrenci olmayanın başvurusu yalnızca merkezin işi; il
+   * koordinatörünün kendi başvurusu kendine düşmesin diye kural da bu.
+   */
+  if (ogrenciMi(kullanici)) {
+    await ilKoordinatorlerineBildir(
+      kullanici.ilKodu,
+      BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_MENTORLUK,
+      {
+        basvuranAdSoyad: `${kullanici.ad} ${kullanici.soyad}`,
+        kapsam: mentorKapsamiYaz(seciliAdlar, karar.konular) || "—",
+      },
+    );
+  }
 
   await erisimLogla({
     kullaniciId: kullanici.id,

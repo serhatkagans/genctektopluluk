@@ -1629,6 +1629,7 @@ export default async function OgrencilerSayfasi({
               <option value="ILCE_TEMSILCISI">İlçe temsilcisi</option>
               <option value="OKUL_TEMSILCISI">Okul temsilcisi</option>
               <option value="MENTOR">Mentör</option>
+              <option value="MENTOR_BEKLIYOR">Mentörlük onayı bekleyen</option>
             </select>
           </label>
 

@@ -166,6 +166,18 @@ export const BILDIRIM_KODLARI = {
    */
   ONAY_BEKLEYEN_MENTORLUK: "ONAY_BEKLEYEN_MENTORLUK",
   /**
+   * ÖĞRENCİNİN mentörlük başvurusu; öğrencinin İLİNİN KOORDİNATÖRÜNE gider
+   * (16 Kasım 2026 · istek: "öğrencim mentör olarak başvurdu, onayı bize
+   * düşecekti ama göremiyorum … koordinatörler mentör onayı verebilsin").
+   *
+   * Yukarıdaki "koordinatöre gitmez" kuralı merkezin KUYRUĞU için doğru
+   * kalıyor; ama 27 Ağustos 2026'dan beri koordinatör ilindeki öğrencinin
+   * mentörlüğüne karar verebiliyor (bkz. ogrenciMentorluguneKararVerebilirMi).
+   * Yani bu uyarının "yapacağı bir şey" var — Öğrenciler ekranındaki
+   * Mentörlük sütunu. Ayrı şablon, çünkü metin farklı ekrana gönderiyor.
+   */
+  ONAY_BEKLEYEN_OGRENCI_MENTORLUK: "ONAY_BEKLEYEN_OGRENCI_MENTORLUK",
+  /**
    * Mentörlük başvurusu karara bağlandı; BAŞVURANA gider (13 Ağustos 2026).
    *
    * Emsali `BAGLANTI_ISTEGI_KARARI`: onay/ret her iki uçta da duyurulur.
@@ -501,7 +513,14 @@ export const BILDIRIM_SABLON_TANIMLARI: readonly BildirimSablonTanimi[] = [
     kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_MENTORLUK,
     baslik: "Onay bekleyen mentörlük başvurusu",
     aciklama:
-      "Bir kullanıcı mentörlük başvurusu yaptığında proje yöneticilerine gider. Kararı yalnızca merkez verir; il koordinatörüne kopya çıkmaz.",
+      "Bir kullanıcı mentörlük başvurusu yaptığında proje yöneticilerine gider. Başvuran öğrenciyse ilinin koordinatörüne ayrıca ONAY_BEKLEYEN_OGRENCI_MENTORLUK gider.",
+    degiskenler: ["basvuranAdSoyad", "kapsam"],
+  },
+  {
+    kod: BILDIRIM_KODLARI.ONAY_BEKLEYEN_OGRENCI_MENTORLUK,
+    baslik: "Onay bekleyen öğrenci mentörlük başvurusu",
+    aciklama:
+      "Bir öğrenci mentörlük başvurusu yaptığında öğrencinin ilinin koordinatörüne gider. Karar Öğrenciler ekranındaki Mentörlük sütunundan verilir.",
     degiskenler: ["basvuranAdSoyad", "kapsam"],
   },
   {
