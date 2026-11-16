@@ -1,6 +1,6 @@
 import { prisma } from "../db";
 import { katilimSayilirMi } from "../kazanim/katilim-kurallar";
-import { ogrenciListeFiltresi } from "../yetki/kapsam";
+import { yolculukOgrenciFiltresi } from "../yetki/kapsam";
 import type { OturumKullanicisi } from "../yetki/tipler";
 import {
   PUAN_KAYNAKLARI,
@@ -101,7 +101,8 @@ export async function ogrencilerimYolculuguGetir(
   simdi: Date = new Date(),
 ): Promise<OgrencilerimYolculugu> {
   const ogrenciler = await prisma.kullanici.findMany({
-    where: ogrenciListeFiltresi(kullanici, {
+    /* Danışmanda okulun tamamı — bkz. yolculukOgrenciFiltresi. */
+    where: yolculukOgrenciFiltresi(kullanici, {
       ilKodu: yer.ilKodu ?? null,
       ilceKodu: yer.ilceKodu ?? null,
     }),

@@ -276,6 +276,41 @@ export function ogrenciListeFiltresi(
   return { AND: kosullar };
 }
 
+/**
+ * GENÇTEK YOLCULUĞU EKRANININ öğrenci kümesi (16 Kasım 2026 · istek:
+ * "danışman okulundaki tüm öğrencileri görsün").
+ *
+ * YALNIZCA O EKRAN İÇİN GENİŞ: danışman, kendi öğrencilerine ek olarak
+ * DANISMAN rolünün bağlı olduğu okul(lar)daki bütün aktif öğrencileri görür.
+ * `ogrenciKapsamFiltresi` BİLEREK değişmedi — o filtre profil, iletişim
+ * bilgisi ve CV'nin kapısı ve 6 Kasım 2026 güvenlik incelemesi onu kendi
+ * öğrencileriyle sınırladı (öğretmen okulunu kendisi seçebiliyor). Yolculuk
+ * ekranı ise yalnızca aşama, ad, sınıf ve okul gösteriyor; listedeki isim
+ * profile bağlanıyor ama profil sayfası dar kapsamdan yeniden geçiyor.
+ *
+ * Diğer roller için `ogrenciListeFiltresi` ile aynı: kapsam + yer süzgeci.
+ */
+export function yolculukOgrenciFiltresi(
+  kullanici: OturumKullanicisi,
+  yer: { ilKodu?: string | null; ilceKodu?: string | null } = {},
+): Prisma.KullaniciWhereInput {
+  const dar = ogrenciListeFiltresi(kullanici, yer);
+  if (
+    projeYoneticisiMi(kullanici) ||
+    koordinatorIlKodu(kullanici) !== null ||
+    !danismanMi(kullanici)
+  ) {
+    return dar;
+  }
+  const okullar = kullanici.roller
+    .filter((rol) => rol.rolKodu === "DANISMAN" && rol.kurumKodu !== null)
+    .map((rol) => rol.kurumKodu as number);
+  if (okullar.length === 0) return dar;
+  return {
+    OR: [dar, { AND: [AKTIF_OGRENCI, { kurumKodu: { in: okullar } }] }],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Öğretmen envanteri
 // ---------------------------------------------------------------------------

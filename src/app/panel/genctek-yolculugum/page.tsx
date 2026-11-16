@@ -12,6 +12,7 @@ import { SeviyeYildizlari } from "@/components/SeviyeYildizlari";
 import { YolculukSeridi } from "@/components/YolculukSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { ogrenciKapsamFiltresi } from "@/lib/yetki/kapsam";
 import {
   koordinatorIlKodu,
   ogrenciMi,
@@ -102,6 +103,8 @@ interface ListeOgrencisi {
   kurum: { ad: string } | null;
   il: { ad: string } | null;
   ilce: { ad: string } | null;
+  /** Profil sayfası bu öğrenciyi gösterebiliyor mu (dar kapsam). */
+  profilAcik: boolean;
 }
 
 /**
@@ -147,22 +150,42 @@ export default async function GencTekYolculugumSayfasi({
     const listeIdleri = seciliSeviye
       ? (ogrencilerim.seviyeOgrencileri[seciliSeviye.kod] ?? [])
       : [];
-    const liste: ListeOgrencisi[] =
+    const [listeSatirlari, profiliAcik] =
       listeIdleri.length > 0
-        ? await prisma.kullanici.findMany({
-            where: { id: { in: listeIdleri } },
-            orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-            select: {
-              id: true,
-              ad: true,
-              soyad: true,
-              sinif: true,
-              kurum: { select: { ad: true } },
-              il: { select: { ad: true } },
-              ilce: { select: { ad: true } },
-            },
-          })
-        : [];
+        ? await Promise.all([
+            prisma.kullanici.findMany({
+              where: { id: { in: listeIdleri } },
+              orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+              select: {
+                id: true,
+                ad: true,
+                soyad: true,
+                sinif: true,
+                kurum: { select: { ad: true } },
+                il: { select: { ad: true } },
+                ilce: { select: { ad: true } },
+              },
+            }),
+            /*
+             * Danışman bu ekranda okulun tamamını görüyor ama profil sayfası
+             * yalnızca kendi öğrencilerini açıyor; diğerlerinde ad bağlantısız.
+             */
+            prisma.kullanici.findMany({
+              where: {
+                AND: [
+                  { id: { in: listeIdleri } },
+                  ogrenciKapsamFiltresi(kullanici),
+                ],
+              },
+              select: { id: true },
+            }),
+          ])
+        : [[], []];
+    const acikIdler = new Set(profiliAcik.map((satir) => satir.id));
+    const liste: ListeOgrencisi[] = listeSatirlari.map((ogrenci) => ({
+      ...ogrenci,
+      profilAcik: acikIdler.has(ogrenci.id),
+    }));
 
     const adres = (seviye: string | null): string => {
       const sorgu = new URLSearchParams();
@@ -407,12 +430,16 @@ function OgretmenGorunumu({
                     >
                       <td className="px-3 py-2 font-medium text-metin">
                         {/* Hedef sayfa kapsamı yeniden denetliyor. */}
-                        <Link
-                          href={`/panel/ogrenciler/${ogrenci.id}`}
-                          className="hover:text-vurgu-metin hover:underline"
-                        >
-                          {ogrenci.ad} {ogrenci.soyad}
-                        </Link>
+                        {ogrenci.profilAcik ? (
+                          <Link
+                            href={`/panel/ogrenciler/${ogrenci.id}`}
+                            className="hover:text-vurgu-metin hover:underline"
+                          >
+                            {ogrenci.ad} {ogrenci.soyad}
+                          </Link>
+                        ) : (
+                          `${ogrenci.ad} ${ogrenci.soyad}`
+                        )}
                       </td>
                       <td className="px-3 py-2 text-metin-yumusak">
                         {ogrenci.sinif ?? "—"}
@@ -507,10 +534,7 @@ function OgrenciGorunumu({
 
   return (
     <div className="space-y-6">
-      <SayfaBasligi
-        baslik="GençTek Yolculuğum"
-        aciklama={yolculuk.seviye.ad}
-      />
+      <SayfaBasligi baslik="GençTek Yolculuğum" aciklama={yolculuk.seviye.ad} />
 
       {/*
         MEVCUT SEVİYE KARTI — sayfanın tek "vitrin"i. Poster bandı ölçüm
@@ -647,7 +671,6 @@ function OgrenciGorunumu({
           </ul>
         </Kart>
       </div>
-
     </div>
   );
 }
