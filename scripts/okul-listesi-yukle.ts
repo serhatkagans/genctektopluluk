@@ -80,7 +80,9 @@ function kelimeBasHarfi(kelime: string): string {
   // "PROF.DR." → "Prof.Dr.", "ZEYNEP-HASAN" → "Zeynep-Hasan"
   return kelime
     .toLocaleLowerCase("tr-TR")
-    .replace(/(^|[.\-/(])(\p{L})/gu, (_, on: string, harf: string) =>
+    // Kelime başı her zaman; nokta/tire sonrası yalnızca ardından harf ya da
+    // nokta geliyorsa ("İbn-i Sina" değil "Zeynep-Hasan", "Dr.M.").
+    .replace(/(^|[.\-/(])(\p{L})(?=\p{L}|\.|$)/gu, (_, on: string, harf: string) =>
       on + harf.toLocaleUpperCase("tr-TR"),
     );
 }
