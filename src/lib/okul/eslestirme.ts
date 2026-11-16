@@ -79,6 +79,9 @@ const KISALTMALAR: readonly [RegExp, string][] = [
   [/\bsbl\b/g, "sosyal bilimler lisesi"],
   [/\bbilsem\b/g, "bilim ve sanat merkezi"],
   [/\bmesleki teknik\b/g, "mesleki ve teknik"],
+  // BİST = Borsa İstanbul (16 Kasım 2026): İzmir'de "Seferihisar BİST AİHL"
+  // ile resmî "… Borsa İstanbul AİHL" bu kural olmadığı için eşleşmemişti.
+  [/\bbist\b/g, "borsa istanbul"],
   // "AL" / "FL" yalnızca adın SONUNDA: ortada bir kelime olabilir.
   [/\bal$/g, "anadolu lisesi"],
   [/\bfl$/g, "fen lisesi"],

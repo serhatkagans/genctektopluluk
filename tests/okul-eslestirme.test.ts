@@ -56,6 +56,13 @@ describe("kısaltma açılımı", () => {
     );
   });
 
+  test("BİST, Borsa İstanbul olarak açılır; kelimenin içindeki 'bist' dokunulmaz", () => {
+    expect(okulAdiAnahtari("Uluslararası Seferihisar BİST AİHL")).toBe(
+      okulAdiAnahtari("Uluslararası Seferihisar Borsa İstanbul Anadolu İmam Hatip Lisesi"),
+    );
+    expect(okulAdiAnahtari("Bistro Anadolu Lisesi")).toBe("bistro anadolu lisesi");
+  });
+
   test.each([
     ["Mimar Sinan MTAL", "mimar sinan mesleki teknik anadolu lisesi"],
     ["Şehit Osman karakuş Anadolu imam-hatip lisesi", "Şehit Osman Karakuş AİHL"],
