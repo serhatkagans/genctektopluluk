@@ -146,7 +146,9 @@ export function KayitOkulSecimi({
             className={SINIF_GIRDI}
           />
           <span className="mt-1 block text-xs text-metin-yumusak">
-            Okulunuz sonradan proje yöneticisi tarafından listeye eklenir.
+            Okulun TAM adını yazın, kısaltma kullanmayın (MTAL, AİHL gibi).
+            Yukarıda ilçenizi doğru seçin: aynı adlı okul başka ilçede de
+            olabilir. Okulunuz sonradan listeye eklenir.
           </span>
         </label>
       )}

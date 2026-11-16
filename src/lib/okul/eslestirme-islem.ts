@@ -39,6 +39,46 @@ function rolEtiketi(roller: { rolKodu: RolKodu }[]): string {
   return "Kullanıcı";
 }
 
+/**
+ * AYNI AD SOYAD (16 Kasım 2026 · Siirt koordinatörü: "aynı isim olunca işler
+ * çok karıştı. 3 tane aynı isim soyisimli öğrenci var … çözene kadar epey
+ * zaman geçti"). Kayıtta T.C. kimlik yok (SSO belirsiz), yani aynı adı taşıyan
+ * farklı kişileri sistem ayıramaz; yapılabilen, koordinatöre bunu SÖYLEMEK ve
+ * ayırt edecek bilgiyi kartın üstüne koymak: sınıf, kayıt zamanı, e-postanın
+ * maskeli hâli.
+ *
+ * Anahtar Türkçe küçük harf ve tek boşluk: "AHMET  Yılmaz" ile "Ahmet yılmaz"
+ * aynı kişi adıdır.
+ */
+export function adSoyadAnahtari(ad: string, soyad: string): string {
+  return `${ad} ${soyad}`.toLocaleLowerCase("tr-TR").replace(/\s+/g, " ").trim();
+}
+
+/** İldeki aktif kişilerde her ad soyadın kaç kez geçtiği. */
+async function ildekiAdSayilari(ilKodu: string): Promise<Map<string, number>> {
+  const kisiler = await prisma.kullanici.findMany({
+    where: { ilKodu, aktif: true },
+    select: { ad: true, soyad: true },
+  });
+  const sayilar = new Map<string, number>();
+  for (const kisi of kisiler) {
+    const anahtar = adSoyadAnahtari(kisi.ad, kisi.soyad);
+    sayilar.set(anahtar, (sayilar.get(anahtar) ?? 0) + 1);
+  }
+  return sayilar;
+}
+
+/**
+ * E-postanın ayırt etmeye yetecek kadarı: "ah***@gmail.com". Adresin tamamı
+ * eşleştirme ekranına taşınmıyor — işi kişiyi ayırmak, ona yazmak değil.
+ */
+export function epostaIpucu(eposta: string | null | undefined): string | null {
+  if (!eposta) return null;
+  const [yerel, alan] = eposta.split("@");
+  if (!yerel || !alan) return null;
+  return `${yerel.slice(0, 2)}***@${alan}`;
+}
+
 const okulsuzKosulu = {
   aktif: true,
   kurumKodu: null,
@@ -57,10 +97,15 @@ export type OkulsuzKisi = {
   sinif: string | null;
   brans: string | null;
   rol: string;
+  olusturmaTarihi: Date;
+  epostaIpucu: string | null;
+  /** İlde bu ad soyadla kaç aktif kayıt var (kendisi dahil). */
+  ayniAdSayisi: number;
 };
 
 /** İldeki okulsuz kişiler (okulunu elle yazmış olanlar). */
 export async function okulsuzKisiler(ilKodu: string): Promise<OkulsuzKisi[]> {
+  const adSayilari = await ildekiAdSayilari(ilKodu);
   const satirlar = await prisma.kullanici.findMany({
     where: { ...okulsuzKosulu, ilKodu },
     orderBy: [{ ad: "asc" }, { soyad: "asc" }],
@@ -74,13 +119,17 @@ export async function okulsuzKisiler(ilKodu: string): Promise<OkulsuzKisi[]> {
       beyanOkulTuru: true,
       sinif: true,
       brans: true,
+      olusturmaTarihi: true,
+      ogrenciProfil: { select: { eposta: true } },
       roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
     },
   });
-  return satirlar.map(({ roller, beyanOkulAdi, ...kisi }) => ({
+  return satirlar.map(({ roller, beyanOkulAdi, ogrenciProfil, ...kisi }) => ({
     ...kisi,
     beyanOkulAdi: beyanOkulAdi ?? "",
     rol: rolEtiketi(roller),
+    epostaIpucu: epostaIpucu(ogrenciProfil?.eposta),
+    ayniAdSayisi: adSayilari.get(adSoyadAnahtari(kisi.ad, kisi.soyad)) ?? 1,
   }));
 }
 
@@ -107,6 +156,7 @@ export async function okulsuzKisiSayisi(ilKodu: string | null): Promise<number> 
 
 /** İlin aktif okulları ve her okula bağlı kişiler. */
 export async function ildekiOkullar(ilKodu: string) {
+  const adSayilari = await ildekiAdSayilari(ilKodu);
   const okullar = await prisma.kurum.findMany({
     where: { ilKodu, aktif: true },
     orderBy: { ad: "asc" },
@@ -123,6 +173,8 @@ export async function ildekiOkullar(ilKodu: string) {
           id: true,
           ad: true,
           soyad: true,
+          sinif: true,
+          ogrenciProfil: { select: { eposta: true } },
           roller: { where: { bitisTarihi: null }, select: { rolKodu: true } },
         },
       },
@@ -130,9 +182,11 @@ export async function ildekiOkullar(ilKodu: string) {
   });
   return okullar.map(({ kullanicilar, ...okul }) => ({
     ...okul,
-    kisiler: kullanicilar.map(({ roller, ...kisi }) => ({
+    kisiler: kullanicilar.map(({ roller, ogrenciProfil, ...kisi }) => ({
       ...kisi,
       rol: rolEtiketi(roller),
+      epostaIpucu: epostaIpucu(ogrenciProfil?.eposta),
+      ayniAdSayisi: adSayilari.get(adSoyadAnahtari(kisi.ad, kisi.soyad)) ?? 1,
     })),
   }));
 }

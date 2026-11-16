@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
+import { tarihSaatYaz } from "@/lib/tarih";
 import { okulAdiSadele } from "@/lib/okul/benzerlik";
 import {
   enSikDeger,
@@ -268,10 +269,20 @@ export default async function OkulEslestirmeSayfasi({
                           <span className="font-medium">
                             {kisi.ad} {kisi.soyad}
                           </span>
+                          {/* Aynı ad soyad (16 Kasım 2026 · Siirt). */}
+                          {kisi.ayniAdSayisi > 1 && (
+                            <span className="ml-1.5 inline-block rounded bg-uyari-zemin px-1.5 py-0.5 text-xs text-uyari-metin">
+                              İlde aynı adla {kisi.ayniAdSayisi} kayıt
+                            </span>
+                          )}
                           <span className="block text-xs text-metin-yumusak">
                             {kisi.rol}
                             {kisi.sinif ? ` · ${kisi.sinif}. sınıf` : ""}
                             {kisi.brans ? ` · ${kisi.brans}` : ""}
+                          </span>
+                          <span className="block text-xs text-metin-yumusak">
+                            Kayıt: {tarihSaatYaz(kisi.olusturmaTarihi)}
+                            {kisi.epostaIpucu ? ` · ${kisi.epostaIpucu}` : ""}
                           </span>
                           <dl className="mt-1.5 space-y-1 border-t border-cizgi pt-1.5 text-xs">
                             <div className="flex gap-1">
@@ -511,7 +522,14 @@ export default async function OkulEslestirmeSayfasi({
                                 <span className="text-metin-yumusak">
                                   {" "}
                                   · {kisi.rol}
+                                  {kisi.sinif ? ` · ${kisi.sinif}` : ""}
                                 </span>
+                                {kisi.ayniAdSayisi > 1 && (
+                                  <span className="block text-xs text-uyari-metin">
+                                    İlde aynı adla {kisi.ayniAdSayisi} kayıt
+                                    {kisi.epostaIpucu ? ` · ${kisi.epostaIpucu}` : ""}
+                                  </span>
+                                )}
                               </span>
                               <form action={okuldanAyirEylemi}>
                                 <input type="hidden" name="kisiId" value={kisi.id} />
