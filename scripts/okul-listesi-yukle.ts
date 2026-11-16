@@ -131,6 +131,16 @@ function csvOku(yol: string): Satir[] {
 async function main() {
   const yol = process.argv[2];
   const yaz = process.argv.includes("--yaz");
+  /*
+   * BENZER EŞLEŞME VARSAYILAN OLARAK UYGULANMAZ (16 Kasım 2026 · istek:
+   * "çakışan ismi sistemde hatalı olan okullar olabilir, veri kaybı
+   * olmamalı"). Kelime benzerliğiyle bulunan okul YANLIŞ okul olabilir;
+   * yeniden adlandırılırsa o okuldaki kişiler başka bir okulun adı altında
+   * kalırdı. Varsayılan: benzer olan ne yeniden adlandırılır ne de yanına
+   * yeni okul eklenir (çift kayıt doğmasın) — gözden geçirme listesine
+   * yazılır. Siirt gibi tek tek bakılmış bir ilde --benzer-uygula verilir.
+   */
+  const benzerUygula = process.argv.includes("--benzer-uygula");
   if (!yol) throw new Error("CSV yolu verin.");
 
   const yonetici = await prisma.kullaniciRol.findFirst({
@@ -141,7 +151,15 @@ async function main() {
 
   const satirlar = csvOku(yol);
   const iller = [...new Set(satirlar.map((s) => s.ilKodu))];
-  const sayac = { var: 0, guncellendi: 0, benzer: 0, yeni: 0, belirsiz: 0, ilcesiz: 0 };
+  const sayac = {
+    var: 0,
+    guncellendi: 0,
+    benzer: 0,
+    benzerBekleyen: 0,
+    yeni: 0,
+    belirsiz: 0,
+    ilcesiz: 0,
+  };
 
   for (const ilKodu of iller) {
     const il = await prisma.il.findUnique({ where: { ilKodu }, select: { ad: true } });
@@ -222,6 +240,14 @@ async function main() {
         console.log(`  ? ${e.satir.ad} → ${e.yol} (dokunulmadı)`);
         continue;
       }
+      if (e.kurumKodu !== null && e.yol !== "birebir" && !benzerUygula) {
+        const mevcut = okullar.find((o) => o.kurumKodu === e.kurumKodu)!;
+        sayac.benzerBekleyen++;
+        console.log(
+          `  ≈ GÖZDEN GEÇİR: sistemde "${mevcut.ad}" [${mevcut.okulTuru}] ↔ MEBBİS "${e.satir.ad}" [${e.satir.tur}] (dokunulmadı)`,
+        );
+        continue;
+      }
       if (e.kurumKodu !== null) {
         const mevcut = okullar.find((o) => o.kurumKodu === e.kurumKodu)!;
         const degisecek = mevcut.ad !== e.satir.ad || mevcut.okulTuru !== e.satir.tur;
@@ -271,7 +297,7 @@ async function main() {
   }
 
   console.log(
-    `\nÖzet: birebir ${sayac.var}, benzer ${sayac.benzer} (güncellenecek ${sayac.guncellendi}), yeni ${sayac.yeni}, belirsiz ${sayac.belirsiz}, ilçesi bulunamayan ${sayac.ilcesiz}.`,
+    `\nÖzet: birebir ${sayac.var}, benzer uygulanan ${sayac.benzer}, benzer gözden geçirilecek ${sayac.benzerBekleyen}, ad/tür güncellenecek ${sayac.guncellendi}, yeni ${sayac.yeni}, belirsiz ${sayac.belirsiz}, ilçesi bulunamayan ${sayac.ilcesiz}.`,
   );
   console.log(yaz ? "Uygulandı." : "Yalnızca rapor; uygulamak için --yaz.");
 }
