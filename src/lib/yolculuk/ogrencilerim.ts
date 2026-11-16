@@ -68,7 +68,40 @@ export interface OgrencilerimYolculugu {
    * hesaplanmıyor, yani sayı ile liste ayrışamaz.
    */
   seviyeOgrencileri: Record<string, number[]>;
+  /**
+   * Öğrenci → seyir defteri (16 Kasım 2026 · istek: "her bir öğrencinin
+   * bireysel aldığı puanın nereden aldığını görmek istiyor"). Öğrencinin
+   * kendi ekranındaki Seyir Defteri'nin aynısı: kalem ve ADET; puan rakamı
+   * 28 Ağustos 2026'dan beri hiçbir ekranda gösterilmiyor.
+   */
+  ogrenciDokumleri: Record<number, OgrenciDokumSatiri[]>;
 }
+
+/** Bir öğrencinin seyir defteri satırı (öğretmen ekranı için kısa etiket). */
+export interface OgrenciDokumSatiri {
+  kod: string;
+  etiket: string;
+  adet: number;
+}
+
+/**
+ * Öğretmenin listesinde tek öğrencinin satırına sığan kısa adlar. Kaynak
+ * etiketleri ikinci tekil ("katıldın") ya da çoğul ("katıldılar") yazılı;
+ * tablo hücresinde ad biçimi okunuyor.
+ */
+const KISA_ETIKETLER: Record<string, string> = {
+  KAYIT: "Kayıt",
+  URUN: "Ürün / proje",
+  CALISMA_GRUBU: "Çalışma grubu",
+  KATILIM: "Etkinlik katılımı",
+  MENTORLUK: "Mentörlük",
+  DENEYIM: "Deneyim / sertifika / derece",
+  TEMSILCILIK: "Temsilcilik",
+  GENCTEK_GOREVI: "GençTek görevi",
+  AKRAN_EGITIMI: "Akran eğitimi",
+  EKIP: "Topluluk / ekip / kulüp",
+  ETKINLIK_DUZENLEME: "Etkinlik düzenleme",
+};
 
 /**
  * YER SÜZGECİ (16 Kasım 2026 · istek: "koordinatör ilinde seçtiği ilçedeki,
@@ -118,6 +151,7 @@ export async function ogrencilerimYolculuguGetir(
     })),
     dokum: [],
     seviyeOgrencileri: {},
+    ogrenciDokumleri: {},
   };
   if (idler.length === 0) return bos;
 
@@ -136,23 +170,25 @@ export async function ogrencilerimYolculuguGetir(
       "kullaniciId",
     );
 
-  const [calismaGruplari, temsilcilikler, gencTekGorevleri] = await Promise.all([
-    prisma.ogrenciCalismaGrubu.groupBy({
-      by: ["ogrenciId"],
-      where: { ogrenciId: { in: idler } },
-      _count: { _all: true },
-    }),
-    prisma.ogrenciGorevRolu.groupBy({
-      by: ["ogrenciId"],
-      where: { ogrenciId: { in: idler } },
-      _count: { _all: true },
-    }),
-    prisma.gencTekGorevBasvurusu.groupBy({
-      by: ["kullaniciId"],
-      where: { kullaniciId: { in: idler }, onayDurumu: "ONAYLANDI" },
-      _count: { _all: true },
-    }),
-  ]);
+  const [calismaGruplari, temsilcilikler, gencTekGorevleri] = await Promise.all(
+    [
+      prisma.ogrenciCalismaGrubu.groupBy({
+        by: ["ogrenciId"],
+        where: { ogrenciId: { in: idler } },
+        _count: { _all: true },
+      }),
+      prisma.ogrenciGorevRolu.groupBy({
+        by: ["ogrenciId"],
+        where: { ogrenciId: { in: idler } },
+        _count: { _all: true },
+      }),
+      prisma.gencTekGorevBasvurusu.groupBy({
+        by: ["kullaniciId"],
+        where: { kullaniciId: { in: idler }, onayDurumu: "ONAYLANDI" },
+        _count: { _all: true },
+      }),
+    ],
+  );
 
   const [ekipUyelikleri, mentorlukler, duzenlenenler] = await Promise.all([
     prisma.ekipUyesi.groupBy({
@@ -230,8 +266,11 @@ export async function ogrencilerimYolculuguGetir(
   };
   for (const belge of belgeler) {
     if (belge.katilimciId === null) continue;
-    adayAl(belge.katilimciId, belge.faaliyetId, belge.faaliyet.tarih).belgeVarMi =
-      true;
+    adayAl(
+      belge.katilimciId,
+      belge.faaliyetId,
+      belge.faaliyet.tarih,
+    ).belgeVarMi = true;
   }
   for (const basvuru of basvurular) {
     if (basvuru.katilimciId === null) continue;
@@ -247,7 +286,8 @@ export async function ogrencilerimYolculuguGetir(
   const katilimTablosu = new Map<number, number>();
   for (const [kullaniciId, kisininki] of adaylar) {
     let sayi = 0;
-    for (const aday of kisininki.values()) if (katilimSayilirMi(aday)) sayi += 1;
+    for (const aday of kisininki.values())
+      if (katilimSayilirMi(aday)) sayi += 1;
     katilimTablosu.set(kullaniciId, sayi);
   }
 
@@ -270,6 +310,7 @@ export async function ogrencilerimYolculuguGetir(
   );
   const kalemSayaci = new Map<string, number>();
   const seviyeOgrencileri: Record<string, number[]> = {};
+  const ogrenciDokumleri: Record<number, OgrenciDokumSatiri[]> = {};
 
   for (const ogrenciId of idler) {
     const durum = yolculukDurumu({
@@ -292,6 +333,11 @@ export async function ogrencilerimYolculuguGetir(
       (seviyeSayaci.get(durum.seviye.kod) ?? 0) + 1,
     );
     (seviyeOgrencileri[durum.seviye.kod] ??= []).push(ogrenciId);
+    ogrenciDokumleri[ogrenciId] = durum.dokum.map((satir) => ({
+      kod: satir.kod,
+      etiket: KISA_ETIKETLER[satir.kod] ?? satir.etiket,
+      adet: satir.adet,
+    }));
     /*
      * Defter ADETLERİ topluyor, puanı değil: "GençTek Vitrin'de ürün
      * sergilediler × 6" altı üründür, altı puan değil. Puanla toplansaydı
@@ -299,7 +345,10 @@ export async function ogrencilerimYolculuguGetir(
      * olmayan kayıtlar sayardı.
      */
     for (const satir of durum.dokum) {
-      kalemSayaci.set(satir.kod, (kalemSayaci.get(satir.kod) ?? 0) + satir.adet);
+      kalemSayaci.set(
+        satir.kod,
+        (kalemSayaci.get(satir.kod) ?? 0) + satir.adet,
+      );
     }
   }
 
@@ -315,5 +364,6 @@ export async function ogrencilerimYolculuguGetir(
       adet: kalemSayaci.get(kaynak.kod) ?? 0,
     })).filter((satir) => satir.adet > 0),
     seviyeOgrencileri,
+    ogrenciDokumleri,
   };
 }

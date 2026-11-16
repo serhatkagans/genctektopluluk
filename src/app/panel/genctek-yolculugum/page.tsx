@@ -24,6 +24,7 @@ import {
   seviyeAdiTirnakli,
 } from "@/lib/yolculuk/kurallar";
 import {
+  type OgrenciDokumSatiri,
   type OgrencilerimYolculugu,
   ogrencilerimYolculuguGetir,
 } from "@/lib/yolculuk/ogrencilerim";
@@ -105,6 +106,8 @@ interface ListeOgrencisi {
   ilce: { ad: string } | null;
   /** Profil sayfası bu öğrenciyi gösterebiliyor mu (dar kapsam). */
   profilAcik: boolean;
+  /** Seyir defteri: ilerlemesinin nereden geldiği (kalem × adet). */
+  dokum: OgrenciDokumSatiri[];
 }
 
 /**
@@ -185,6 +188,7 @@ export default async function GencTekYolculugumSayfasi({
     const liste: ListeOgrencisi[] = listeSatirlari.map((ogrenci) => ({
       ...ogrenci,
       profilAcik: acikIdler.has(ogrenci.id),
+      dokum: ogrencilerim.ogrenciDokumleri[ogrenci.id] ?? [],
     }));
 
     const adres = (seviye: string | null): string => {
@@ -420,6 +424,7 @@ function OgretmenGorunumu({
                     <th className="px-3 py-2 font-medium">Sınıf</th>
                     <th className="px-3 py-2 font-medium">Okul</th>
                     <th className="px-3 py-2 font-medium">İl / İlçe</th>
+                    <th className="px-3 py-2 font-medium">Seyir defteri</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -450,6 +455,32 @@ function OgretmenGorunumu({
                       <td className="px-3 py-2 text-metin-yumusak">
                         {ogrenci.il?.ad ?? "—"}
                         {ogrenci.ilce?.ad ? ` / ${ogrenci.ilce.ad}` : ""}
+                      </td>
+                      {/*
+                        SEYİR DEFTERİ (16 Kasım 2026 · istek: "her bir
+                        öğrencinin bireysel aldığı puanın nereden aldığını
+                        görmek istiyor"). Öğrencinin kendi ekranındakiyle aynı
+                        kalemler, ADETLE; puan rakamı gösterilmiyor (28 Ağustos
+                        2026 kararı). Kayıt satırı herkeste var, kalabalık
+                        etmesin diye yalnızca tek kalemse yazılıyor.
+                      */}
+                      <td className="px-3 py-2">
+                        <ul className="flex flex-wrap gap-1.5">
+                          {(ogrenci.dokum.length > 1
+                            ? ogrenci.dokum.filter(
+                                (satir) => satir.kod !== "KAYIT",
+                              )
+                            : ogrenci.dokum
+                          ).map((satir) => (
+                            <li
+                              key={satir.kod}
+                              className="rounded-full bg-zemin px-2 py-0.5 text-xs whitespace-nowrap text-metin"
+                            >
+                              {satir.etiket}
+                              {satir.adet > 1 ? ` × ${satir.adet}` : ""}
+                            </li>
+                          ))}
+                        </ul>
                       </td>
                     </tr>
                   ))}
