@@ -1,11 +1,25 @@
-import { BookOpen, Compass, Flame, Rocket, Users } from "lucide-react";
-import { Kart, KartBasligi, SayfaBasligi } from "@/components/ui";
+import { BookOpen, Compass, Filter, Flame, Rocket, Users } from "lucide-react";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { OtomatikSecimKutusu } from "@/components/SuzgecOtomatikSecim";
+import {
+  Kart,
+  KartBasligi,
+  SayfaBasligi,
+  SINIF_IKINCIL_BUTON,
+} from "@/components/ui";
 import { SeviyeYildizlari } from "@/components/SeviyeYildizlari";
 import { YolculukSeridi } from "@/components/YolculukSeridi";
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
-import { ogrenciMi } from "@/lib/yetki/izinler";
+import { prisma } from "@/lib/db";
+import {
+  koordinatorIlKodu,
+  ogrenciMi,
+  projeYoneticisiMi,
+} from "@/lib/yetki/izinler";
 import {
   PUAN_KAYNAKLARI,
+  YOLCULUK_SEVIYELERI,
   seviyeAdiTirnakli,
 } from "@/lib/yolculuk/kurallar";
 import {
@@ -70,12 +84,122 @@ export const dynamic = "force-dynamic";
  * alanlarda duruyor; şahıs ekini kodda çevirmeye çalışmak Türkçede sağlam
  * yapılamaz.
  */
-export default async function GencTekYolculugumSayfasi() {
+const SINIF_ETIKET = "text-sm font-medium text-metin-yumusak";
+const SINIF_SECIM =
+  "mt-1 w-full rounded-md border border-cizgi bg-kart px-3 py-2 text-sm text-metin outline-none focus:border-vurgu";
+
+function tekil(deger: string | string[] | undefined): string | null {
+  const ilk = Array.isArray(deger) ? deger[0] : deger;
+  return ilk && ilk.trim() !== "" ? ilk.trim() : null;
+}
+
+/** Aşama listesinde basılan öğrenci satırı. */
+interface ListeOgrencisi {
+  id: number;
+  ad: string;
+  soyad: string;
+  sinif: string | null;
+  kurum: { ad: string } | null;
+  il: { ad: string } | null;
+  ilce: { ad: string } | null;
+}
+
+/**
+ * YER SÜZGECİ ve AŞAMA LİSTESİ (16 Kasım 2026 · istekler: "144 öğrenci
+ * 1. aşamada, 1 öğrenci keşifte … keşifte kim varmış görmek istiyorum";
+ * "danışman okulundaki, koordinatör ilinde seçtiği ilçedeki, yönetici seçtiği
+ * il ve ilçedeki öğrencilerin durumlarını görsün").
+ *
+ *   · Proje yöneticisi: il + ilçe seçer.
+ *   · İl koordinatörü: il sabit (kendi ili), ilçe seçer.
+ *   · Danışman: yer seçimi yok — kapsamı zaten kendi öğrencileri.
+ *
+ * Süzgeç kapsamın üstüne eklenir (ogrenciListeFiltresi); adres çubuğuna
+ * yazılan başka bir il, kapsam dışındaki kimseyi göstermez.
+ */
+export default async function GencTekYolculugumSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const kullanici = await oturumKullanicisiZorunlu();
 
   if (!ogrenciMi(kullanici)) {
-    const ogrencilerim = await ogrencilerimYolculuguGetir(kullanici);
-    return <OgretmenGorunumu ogrencilerim={ogrencilerim} />;
+    const parametreler = await searchParams;
+    const merkez = projeYoneticisiMi(kullanici);
+    const koordinatorIli = merkez ? null : koordinatorIlKodu(kullanici);
+    const ilKodu = merkez ? tekil(parametreler.il) : koordinatorIli;
+    const ilceKodu = ilKodu ? tekil(parametreler.ilce) : null;
+    const seviyeKodu = tekil(parametreler.seviye);
+    const seciliSeviye =
+      YOLCULUK_SEVIYELERI.find((seviye) => seviye.kod === seviyeKodu) ?? null;
+    const yerSecebilir = merkez || koordinatorIli !== null;
+
+    const [ogrencilerim, iller, ilceler] = await Promise.all([
+      ogrencilerimYolculuguGetir(kullanici, { ilKodu, ilceKodu }),
+      merkez ? prisma.il.findMany({ orderBy: { ad: "asc" } }) : [],
+      ilKodu
+        ? prisma.ilce.findMany({ where: { ilKodu }, orderBy: { ad: "asc" } })
+        : [],
+    ]);
+
+    /* Liste, sayımı üreten aynı kimliklerden: sayı ile liste ayrışamaz. */
+    const listeIdleri = seciliSeviye
+      ? (ogrencilerim.seviyeOgrencileri[seciliSeviye.kod] ?? [])
+      : [];
+    const liste: ListeOgrencisi[] =
+      listeIdleri.length > 0
+        ? await prisma.kullanici.findMany({
+            where: { id: { in: listeIdleri } },
+            orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+            select: {
+              id: true,
+              ad: true,
+              soyad: true,
+              sinif: true,
+              kurum: { select: { ad: true } },
+              il: { select: { ad: true } },
+              ilce: { select: { ad: true } },
+            },
+          })
+        : [];
+
+    const adres = (seviye: string | null): string => {
+      const sorgu = new URLSearchParams();
+      if (merkez && ilKodu) sorgu.set("il", ilKodu);
+      if (ilceKodu) sorgu.set("ilce", ilceKodu);
+      if (seviye) sorgu.set("seviye", seviye);
+      const metin = sorgu.toString();
+      return `/panel/genctek-yolculugum${metin ? `?${metin}` : ""}`;
+    };
+    const listeBaglantilari = Object.fromEntries(
+      YOLCULUK_SEVIYELERI.map((seviye) => [
+        seviye.kod,
+        `${adres(seviye.kod)}#asama-listesi`,
+      ]),
+    );
+
+    return (
+      <OgretmenGorunumu
+        ogrencilerim={ogrencilerim}
+        suzgec={
+          yerSecebilir ? (
+            <YerSuzgeci
+              merkez={merkez}
+              ilKodu={ilKodu}
+              ilceKodu={ilceKodu}
+              seviyeKodu={seciliSeviye?.kod ?? null}
+              iller={iller}
+              ilceler={ilceler}
+            />
+          ) : null
+        }
+        listeBaglantilari={listeBaglantilari}
+        seciliSeviye={seciliSeviye}
+        liste={liste}
+        listeyiKapat={adres(null)}
+      />
+    );
   }
 
   const yolculuk = await yolculugumuGetir(kullanici);
@@ -89,10 +213,101 @@ export default async function GencTekYolculugumSayfasi() {
  * ve etkinlik düzenleme değil): ekranın öznesi öğrenciler olduğu için, onların
  * yolunu ilerleten şeyler yazılıyor.
  */
+function YerSuzgeci({
+  merkez,
+  ilKodu,
+  ilceKodu,
+  seviyeKodu,
+  iller,
+  ilceler,
+}: {
+  merkez: boolean;
+  ilKodu: string | null;
+  ilceKodu: string | null;
+  seviyeKodu: string | null;
+  iller: { ilKodu: string; ad: string }[];
+  ilceler: { ilceKodu: string; ad: string }[];
+}) {
+  return (
+    <form
+      method="get"
+      className="rounded-kart border border-cizgi bg-kart p-5 shadow-kart"
+    >
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-baslik">
+        <Filter size={16} className="text-vurgu-metin" aria-hidden />
+        Yer
+      </h2>
+      {seviyeKodu && <input type="hidden" name="seviye" value={seviyeKodu} />}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {merkez && (
+          <label className="block">
+            <span className={SINIF_ETIKET}>İl</span>
+            {/* İl değişince ilçe listesi sunucuda yeniden kuruluyor; kutu
+                kendi formunu gönderiyor (bkz. SuzgecOtomatikSecim.tsx). */}
+            <OtomatikSecimKutusu
+              ad="il"
+              deger={ilKodu}
+              bosEtiket="Tüm iller"
+              etiket="İl"
+              sinif={SINIF_SECIM}
+              secenekler={iller.map((il) => ({
+                deger: il.ilKodu,
+                etiket: il.ad,
+              }))}
+            />
+          </label>
+        )}
+        <label className="block">
+          <span className={SINIF_ETIKET}>İlçe</span>
+          <select
+            key={ilKodu ?? "yok"}
+            name="ilce"
+            defaultValue={ilceKodu ?? ""}
+            className={SINIF_SECIM}
+            disabled={ilceler.length === 0}
+          >
+            <option value="">
+              {ilceler.length === 0 ? "Önce il seçin" : "Tüm ilçeler"}
+            </option>
+            {ilceler.map((ilce) => (
+              <option key={ilce.ilceKodu} value={ilce.ilceKodu}>
+                {ilce.ad}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex items-end gap-3">
+          <button type="submit" className={SINIF_IKINCIL_BUTON}>
+            Göster
+          </button>
+          {(ilceKodu || (merkez && ilKodu)) && (
+            <Link
+              href="/panel/genctek-yolculugum"
+              className="py-2 text-sm font-medium text-vurgu-metin"
+            >
+              Temizle
+            </Link>
+          )}
+        </div>
+      </div>
+    </form>
+  );
+}
+
 function OgretmenGorunumu({
   ogrencilerim,
+  suzgec,
+  listeBaglantilari,
+  seciliSeviye,
+  liste,
+  listeyiKapat,
 }: {
   ogrencilerim: OgrencilerimYolculugu;
+  suzgec: ReactNode;
+  listeBaglantilari: Record<string, string>;
+  seciliSeviye: { kod: string; ad: string } | null;
+  liste: ListeOgrencisi[];
+  listeyiKapat: string;
 }) {
   const kaynaklar = PUAN_KAYNAKLARI.filter(
     (kaynak) => kaynak.kimde === "herkes" || kaynak.kimde === "ogrenci",
@@ -113,6 +328,8 @@ function OgretmenGorunumu({
         baslik="Öğrencilerimin GençTek Yolculuğu"
         aciklama={`${ogrencilerim.ogrenciSayisi} öğrenci`}
       />
+
+      {suzgec}
 
       <div className="overflow-hidden rounded-kart border border-cizgi bg-kart shadow-kart">
         <div className="poster poster-vurgu flex flex-wrap items-center justify-between gap-4 px-6 py-6">
@@ -144,8 +361,77 @@ function OgretmenGorunumu({
 
       <Kart>
         <KartBasligi baslik="Öğrencilerimin GençTek Yolculuğu" Ikon={Compass} />
-        <YolculukSeridi dagilim={ogrencilerim.dagilim} />
+        <YolculukSeridi
+          dagilim={ogrencilerim.dagilim}
+          listeBaglantilari={listeBaglantilari}
+          seciliListeKodu={seciliSeviye?.kod ?? null}
+        />
+        <p className="mt-3 text-sm text-metin-yumusak">
+          Bir aşamadaki öğrencileri görmek için öğrenci sayısına tıklayın.
+        </p>
       </Kart>
+
+      {seciliSeviye && (
+        <Kart>
+          <span id="asama-listesi" className="block scroll-mt-24" />
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <KartBasligi
+              baslik={`${seciliSeviye.ad} aşamasındaki öğrenciler (${liste.length})`}
+              Ikon={Users}
+            />
+            <Link
+              href={listeyiKapat}
+              className="text-sm font-medium text-vurgu-metin"
+            >
+              Listeyi kapat
+            </Link>
+          </div>
+          {liste.length === 0 ? (
+            <p className="text-metin-yumusak">Bu aşamada öğrenci yok.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-cizgi text-metin-yumusak">
+                    <th className="px-3 py-2 font-medium">Ad Soyad</th>
+                    <th className="px-3 py-2 font-medium">Sınıf</th>
+                    <th className="px-3 py-2 font-medium">Okul</th>
+                    <th className="px-3 py-2 font-medium">İl / İlçe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liste.map((ogrenci) => (
+                    <tr
+                      key={ogrenci.id}
+                      className="border-b border-cizgi last:border-0"
+                    >
+                      <td className="px-3 py-2 font-medium text-metin">
+                        {/* Hedef sayfa kapsamı yeniden denetliyor. */}
+                        <Link
+                          href={`/panel/ogrenciler/${ogrenci.id}`}
+                          className="hover:text-vurgu-metin hover:underline"
+                        >
+                          {ogrenci.ad} {ogrenci.soyad}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2 text-metin-yumusak">
+                        {ogrenci.sinif ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-metin-yumusak">
+                        {ogrenci.kurum?.ad ?? "—"}
+                      </td>
+                      <td className="px-3 py-2 text-metin-yumusak">
+                        {ogrenci.il?.ad ?? "—"}
+                        {ogrenci.ilce?.ad ? ` / ${ogrenci.ilce.ad}` : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Kart>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/*

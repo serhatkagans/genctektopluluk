@@ -1,6 +1,6 @@
 import { prisma } from "../db";
 import { katilimSayilirMi } from "../kazanim/katilim-kurallar";
-import { ogrenciKapsamFiltresi } from "../yetki/kapsam";
+import { ogrenciListeFiltresi } from "../yetki/kapsam";
 import type { OturumKullanicisi } from "../yetki/tipler";
 import {
   PUAN_KAYNAKLARI,
@@ -61,6 +61,24 @@ export interface OgrencilerimYolculugu {
   dagilim: SeviyeDagilimi[];
   /** Yalnızca sıfırdan büyük satırlar. */
   dokum: TopluDokumSatiri[];
+  /**
+   * Seviye kodu → o basamaktaki öğrencilerin kimlikleri (16 Kasım 2026 ·
+   * istek: "keşifte kim varmış örneğin görmek istiyorum"). Ekran seçilen
+   * basamağın öğrencilerini bu listeden çekiyor; seviye ikinci kez
+   * hesaplanmıyor, yani sayı ile liste ayrışamaz.
+   */
+  seviyeOgrencileri: Record<string, number[]>;
+}
+
+/**
+ * YER SÜZGECİ (16 Kasım 2026 · istek: "koordinatör ilinde seçtiği ilçedeki,
+ * yönetici seçtiği il ve ilçedeki öğrencilerin durumlarını görsün").
+ * Kapsamın YERİNE geçmez, üstüne eklenir (bkz. ogrenciListeFiltresi):
+ * koordinatörün adres çubuğuna başka il yazması boş sonuç verir.
+ */
+export interface YolculukYerSuzgeci {
+  ilKodu?: string | null;
+  ilceKodu?: string | null;
 }
 
 /** `groupBy` sonucunu "kullanıcı → adet" tablosuna çevirir. */
@@ -79,10 +97,14 @@ function sayimTablosu<T extends { _count: { _all: number } }>(
 
 export async function ogrencilerimYolculuguGetir(
   kullanici: OturumKullanicisi,
+  yer: YolculukYerSuzgeci = {},
   simdi: Date = new Date(),
 ): Promise<OgrencilerimYolculugu> {
   const ogrenciler = await prisma.kullanici.findMany({
-    where: ogrenciKapsamFiltresi(kullanici),
+    where: ogrenciListeFiltresi(kullanici, {
+      ilKodu: yer.ilKodu ?? null,
+      ilceKodu: yer.ilceKodu ?? null,
+    }),
     select: { id: true },
   });
   const idler = ogrenciler.map((ogrenci) => ogrenci.id);
@@ -94,6 +116,7 @@ export async function ogrencilerimYolculuguGetir(
       ogrenciSayisi: 0,
     })),
     dokum: [],
+    seviyeOgrencileri: {},
   };
   if (idler.length === 0) return bos;
 
@@ -245,6 +268,7 @@ export async function ogrencilerimYolculuguGetir(
     YOLCULUK_SEVIYELERI.map((seviye) => [seviye.kod, 0]),
   );
   const kalemSayaci = new Map<string, number>();
+  const seviyeOgrencileri: Record<string, number[]> = {};
 
   for (const ogrenciId of idler) {
     const durum = yolculukDurumu({
@@ -266,6 +290,7 @@ export async function ogrencilerimYolculuguGetir(
       durum.seviye.kod,
       (seviyeSayaci.get(durum.seviye.kod) ?? 0) + 1,
     );
+    (seviyeOgrencileri[durum.seviye.kod] ??= []).push(ogrenciId);
     /*
      * Defter ADETLERİ topluyor, puanı değil: "GençTek Vitrin'de ürün
      * sergilediler × 6" altı üründür, altı puan değil. Puanla toplansaydı
@@ -288,5 +313,6 @@ export async function ogrencilerimYolculuguGetir(
       etiket: kaynak.topluEtiketi,
       adet: kalemSayaci.get(kaynak.kod) ?? 0,
     })).filter((satir) => satir.adet > 0),
+    seviyeOgrencileri,
   };
 }

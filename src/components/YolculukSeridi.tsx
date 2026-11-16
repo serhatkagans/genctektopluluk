@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Rozet } from "@/components/ui";
 import { YOLCULUK_SEVIYELERI } from "@/lib/yolculuk/kurallar";
 import type { SeviyeDagilimi } from "@/lib/yolculuk/ogrencilerim";
@@ -42,9 +43,19 @@ import type { SeviyeDagilimi } from "@/lib/yolculuk/ogrencilerim";
 export function YolculukSeridi({
   seviyeKodu,
   dagilim,
+  listeBaglantilari,
+  seciliListeKodu,
 }: {
   seviyeKodu?: string;
   dagilim?: SeviyeDagilimi[];
+  /**
+   * Öğretmen kipinde basamağın sayısını o basamaktaki öğrencilerin listesine
+   * bağlar (16 Kasım 2026 · istek: "keşifte kim varmış görmek istiyorum").
+   * Verilmezse sayı düz metin kalır (panel kartı).
+   */
+  listeBaglantilari?: Record<string, string>;
+  /** Listesi açık olan basamak; kartı vurgulu çizilir. */
+  seciliListeKodu?: string | null;
 }) {
   const seviyeSirasi = YOLCULUK_SEVIYELERI.findIndex(
     (seviye) => seviye.kod === seviyeKodu,
@@ -62,7 +73,9 @@ export function YolculukSeridi({
         const sayi = ogrenciSayisi(seviye.kod);
         // Öğretmen kipinde "ulaşıldı", öğrencisi olan basamak demektir.
         const ulasildi = dagilim ? sayi > 0 : sira <= seviyeSirasi;
-        const suAn = dagilim ? false : sira === seviyeSirasi;
+        const suAn = dagilim
+          ? seciliListeKodu === seviye.kod
+          : sira === seviyeSirasi;
         return (
           <li
             key={seviye.kod}
@@ -101,7 +114,7 @@ export function YolculukSeridi({
             <p className="mt-2 text-sm text-metin-yumusak">
               {dagilim ? seviye.ogretmenAciklamasi : seviye.aciklama}
             </p>
-            {suAn && (
+            {suAn && !dagilim && (
               <span className="mt-3 inline-block">
                 <Rozet cesit="vurgu">Buradasın</Rozet>
               </span>
@@ -112,11 +125,19 @@ export function YolculukSeridi({
               gizlenseydi kart, sayısı olmayanla sayısı yazılmayan arasında
               fark bırakmazdı.
             */}
-            {dagilim && (
-              <p className="mt-3 font-baslik text-lg font-extrabold text-baslik">
-                {sayi} öğrenci
-              </p>
-            )}
+            {dagilim &&
+              (listeBaglantilari?.[seviye.kod] && sayi > 0 ? (
+                <Link
+                  href={listeBaglantilari[seviye.kod]}
+                  className="mt-3 inline-block font-baslik text-lg font-extrabold text-vurgu-metin underline-offset-4 hover:underline"
+                >
+                  {sayi} öğrenci →
+                </Link>
+              ) : (
+                <p className="mt-3 font-baslik text-lg font-extrabold text-baslik">
+                  {sayi} öğrenci
+                </p>
+              ))}
           </li>
         );
       })}
