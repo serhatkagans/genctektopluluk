@@ -108,9 +108,111 @@ async function geriAl(gunlukYolu: string) {
   console.log("Geri alındı.");
 }
 
+/**
+ * Bir okulu ötekine taşır: günlüğe ÖNCE yazar, sonra tek işlemde taşır,
+ * kaynağı pasife alır (silmez). --geri-al bu günlükle tersine çevirir.
+ */
+async function gunlukluBirlestir(
+  kaynak: { kurumKodu: number; ad: string },
+  hedef: { kurumKodu: number; ad: string; ilceKodu: string | null },
+  gunluk: Gunluk,
+  gunlukYolu: string,
+  yapanId: number,
+  neden: string,
+) {
+  const k = { kurumKodu: kaynak.kurumKodu };
+  const [kisiler, roller, gorevler, faaliyetler, ekipler, dis] = await Promise.all([
+    prisma.kullanici.findMany({ where: k, select: { id: true, ilceKodu: true } }),
+    prisma.kullaniciRol.findMany({ where: k, select: { id: true } }),
+    prisma.ogrenciGorevRolu.findMany({ where: k, select: { id: true } }),
+    prisma.faaliyet.findMany({ where: k, select: { id: true } }),
+    prisma.ekip.findMany({ where: k, select: { id: true } }),
+    prisma.disKullaniciBasvurusu.findMany({
+      where: { mezunKurumKodu: kaynak.kurumKodu },
+      select: { id: true },
+    }),
+  ]);
+  gunluk.birlestirmeler.push({
+    kaynak: kaynak.kurumKodu,
+    hedef: hedef.kurumKodu,
+    kaynakAd: kaynak.ad,
+    hedefAd: hedef.ad,
+    kisiler,
+    roller: roller.map((x) => x.id),
+    gorevRolleri: gorevler.map((x) => x.id),
+    faaliyetler: faaliyetler.map((x) => x.id),
+    ekipler: ekipler.map((x) => x.id),
+    disBasvurular: dis.map((x) => x.id),
+  });
+  // Günlük HER işlemden önce diske yazılır: yarıda kesilse de geri alınabilsin.
+  writeFileSync(gunlukYolu, JSON.stringify(gunluk, null, 1));
+  const yeni = { kurumKodu: hedef.kurumKodu };
+  await prisma.$transaction([
+    prisma.kullanici.updateMany({ where: k, data: { ...yeni, ilceKodu: hedef.ilceKodu } }),
+    prisma.kullaniciRol.updateMany({ where: k, data: yeni }),
+    prisma.ogrenciGorevRolu.updateMany({ where: k, data: yeni }),
+    prisma.faaliyet.updateMany({ where: k, data: yeni }),
+    prisma.ekip.updateMany({ where: k, data: yeni }),
+    prisma.disKullaniciBasvurusu.updateMany({
+      where: { mezunKurumKodu: kaynak.kurumKodu },
+      data: { mezunKurumKodu: hedef.kurumKodu },
+    }),
+    prisma.kurum.update({ where: k, data: { aktif: false } }),
+  ]);
+  await erisimLogla({
+    kullaniciId: yapanId,
+    islem: "DEGISIKLIK",
+    hedefTip: "SISTEM_AYARI",
+    hedefId: kaynak.kurumKodu,
+    detay: `Okul birleştirildi (${neden}): ${kaynak.ad} (${kaynak.kurumKodu}) → ${hedef.ad} (${hedef.kurumKodu}); ${kisiler.length} kişi`,
+  });
+  return kisiler.length;
+}
+
+/**
+ * ELLE BİRLEŞTİRME (16 Kasım 2026 · "Rıdvan Binnaz Egeler aynı okul"): kural
+ * yakalamadı ama bir insan "aynı okul" dedi. Kapı yine sıkı: aynı il, ikisi
+ * de aktif, kaynak geçici kodlu. Aynı günlük, aynı --geri-al.
+ *   --elle KAYNAK[,KAYNAK…] HEDEF --yaz GUNLUK.json
+ */
+async function elleBirlestir(kaynaklar: number[], hedefKodu: number, gunlukYolu: string | null) {
+  const yonetici = await prisma.kullaniciRol.findFirst({
+    where: { rolKodu: "PROJE_YONETICISI", bitisTarihi: null },
+    select: { kullaniciId: true },
+  });
+  if (!yonetici) throw new Error("Aktif proje yöneticisi yok.");
+  const secim = { kurumKodu: true, ad: true, ilKodu: true, ilceKodu: true, aktif: true } as const;
+  const hedef = await prisma.kurum.findUnique({ where: { kurumKodu: hedefKodu }, select: secim });
+  if (!hedef?.aktif) throw new Error(`Hedef okul ${hedefKodu} yok ya da pasif.`);
+  const gunluk: Gunluk = { tarih: new Date().toISOString(), adDuzeltmeleri: [], birlestirmeler: [] };
+  if (gunlukYolu) writeFileSync(gunlukYolu, "{}");
+  for (const kod of kaynaklar) {
+    const kaynak = await prisma.kurum.findUnique({ where: { kurumKodu: kod }, select: secim });
+    if (!kaynak?.aktif) throw new Error(`Kaynak okul ${kod} yok ya da pasif.`);
+    if (kaynak.ilKodu !== hedef.ilKodu) throw new Error(`${kaynak.ad} başka ilde.`);
+    if (!geciciKurumKoduMu(kod)) throw new Error(`${kaynak.ad} MEB kodlu; kaynak olamaz.`);
+    if (kod === hedefKodu) throw new Error("Okul kendisiyle birleştirilemez.");
+    console.log(`  ⇒ ${kaynak.ad} (${kod}) → ${hedef.ad} (${hedefKodu})`);
+    if (gunlukYolu) {
+      const n = await gunlukluBirlestir(kaynak, hedef, gunluk, gunlukYolu, yonetici.kullaniciId, "elle onaylandı");
+      console.log(`    ${n} kişi taşındı`);
+    }
+  }
+  console.log(gunlukYolu ? `Uygulandı. Geri alma günlüğü: ${gunlukYolu}` : "Yalnızca rapor; uygulamak için --yaz GUNLUK.json");
+}
+
 async function main() {
   const geriAlIdx = process.argv.indexOf("--geri-al");
   if (geriAlIdx > 0) return geriAl(process.argv[geriAlIdx + 1]);
+  const elleIdx = process.argv.indexOf("--elle");
+  if (elleIdx > 0) {
+    const yazI = process.argv.indexOf("--yaz");
+    return elleBirlestir(
+      process.argv[elleIdx + 1].split(",").map(Number),
+      Number(process.argv[elleIdx + 2]),
+      yazI > 0 ? process.argv[yazI + 1] : null,
+    );
+  }
 
   const csvYolu = process.argv[2];
   const yazIdx = process.argv.indexOf("--yaz");
@@ -211,52 +313,7 @@ async function main() {
           `  ⇒ [${il?.ad}] ${kaynak.ad} (${kaynak._count.kullanicilar} kişi) → ${hedef.ad} (${hedef._count.kullanicilar} kişi)`,
         );
         if (!yaz) continue;
-        const k = { kurumKodu: kaynak.kurumKodu };
-        const [kisiler, roller, gorevler, faaliyetler, ekipler, dis] = await Promise.all([
-          prisma.kullanici.findMany({ where: k, select: { id: true, ilceKodu: true } }),
-          prisma.kullaniciRol.findMany({ where: k, select: { id: true } }),
-          prisma.ogrenciGorevRolu.findMany({ where: k, select: { id: true } }),
-          prisma.faaliyet.findMany({ where: k, select: { id: true } }),
-          prisma.ekip.findMany({ where: k, select: { id: true } }),
-          prisma.disKullaniciBasvurusu.findMany({
-            where: { mezunKurumKodu: kaynak.kurumKodu },
-            select: { id: true },
-          }),
-        ]);
-        gunluk.birlestirmeler.push({
-          kaynak: kaynak.kurumKodu,
-          hedef: hedef.kurumKodu,
-          kaynakAd: kaynak.ad,
-          hedefAd: hedef.ad,
-          kisiler,
-          roller: roller.map((x) => x.id),
-          gorevRolleri: gorevler.map((x) => x.id),
-          faaliyetler: faaliyetler.map((x) => x.id),
-          ekipler: ekipler.map((x) => x.id),
-          disBasvurular: dis.map((x) => x.id),
-        });
-        // Günlük HER işlemden önce diske yazılır: yarıda kesilse de geri alınabilsin.
-        writeFileSync(gunlukYolu!, JSON.stringify(gunluk, null, 1));
-        const yeni = { kurumKodu: hedef.kurumKodu };
-        await prisma.$transaction([
-          prisma.kullanici.updateMany({ where: k, data: { ...yeni, ilceKodu: hedef.ilceKodu } }),
-          prisma.kullaniciRol.updateMany({ where: k, data: yeni }),
-          prisma.ogrenciGorevRolu.updateMany({ where: k, data: yeni }),
-          prisma.faaliyet.updateMany({ where: k, data: yeni }),
-          prisma.ekip.updateMany({ where: k, data: yeni }),
-          prisma.disKullaniciBasvurusu.updateMany({
-            where: { mezunKurumKodu: kaynak.kurumKodu },
-            data: { mezunKurumKodu: hedef.kurumKodu },
-          }),
-          prisma.kurum.update({ where: k, data: { aktif: false } }),
-        ]);
-        await erisimLogla({
-          kullaniciId: yonetici.kullaniciId,
-          islem: "DEGISIKLIK",
-          hedefTip: "SISTEM_AYARI",
-          hedefId: kaynak.kurumKodu,
-          detay: `Okul birleştirildi (aynı tür ve ad): ${kaynak.ad} (${kaynak.kurumKodu}) → ${hedef.ad} (${hedef.kurumKodu}); ${kisiler.length} kişi`,
-        });
+        await gunlukluBirlestir(kaynak, hedef, gunluk, gunlukYolu!, yonetici.kullaniciId, "aynı tür ve ad");
       }
     }
   }
