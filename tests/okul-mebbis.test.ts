@@ -74,6 +74,12 @@ describe("büyük harfli MEBBİS adını başlık biçimine çevirme", () => {
     expect(baslikHarfi("İBN-İ SİNA MESLEKİ VE TEKNİK ANADOLU LİSESİ")).toBe(
       "İbn-i Sina Mesleki ve Teknik Anadolu Lisesi",
     );
+    expect(baslikHarfi("HACI MURAD-I VELİ ANADOLU İMAM HATİP LİSESİ")).toBe(
+      "Hacı Murad-ı Veli Anadolu İmam Hatip Lisesi",
+    );
+    // Baş harf kısaltmasında noktadan sonraki son harf de büyük kalır.
+    expect(baslikHarfi("E.C.A ELGİNKAN ANADOLU LİSESİ")).toBe("E.C.A Elginkan Anadolu Lisesi");
+    expect(baslikHarfi("DR.M. FEYYAZ ETİZ ANADOLU LİSESİ")).toBe("Dr.M. Feyyaz Etiz Anadolu Lisesi");
   });
 
   it("'Meslekî' düz yazılır", () => {

@@ -62,7 +62,13 @@ function kelimeBasHarfi(kelime: string): string {
       // Kelime başı her zaman; nokta/tire sonrası yalnızca ardından harf ya da
       // nokta geliyorsa ("İbn-i Sina" kalır; "Zeynep-Hasan", "Dr.M." olur).
       .replace(/^\p{L}/u, (harf) => harf.toLocaleUpperCase("tr-TR"))
-      .replace(/([.\-/(])(\p{L})(?=\p{L}|\.)/gu, (_, on: string, harf: string) =>
+      // Noktadan ve parantezden sonra her zaman ("E.C.A", "Prof.Dr.").
+      .replace(/([.(])(\p{L})/gu, (_, on: string, harf: string) =>
+        on + harf.toLocaleUpperCase("tr-TR"),
+      )
+      // Tireden sonra yalnızca ardından harf geliyorsa ("Zeynep-Hasan";
+      // "İbn-i Sina" ve "Murad-ı Veli"deki tek harfli ek küçük kalır).
+      .replace(/([-/])(\p{L})(?=\p{L})/gu, (_, on: string, harf: string) =>
         on + harf.toLocaleUpperCase("tr-TR"),
       )
   );
