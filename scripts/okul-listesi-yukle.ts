@@ -2,6 +2,13 @@ import "dotenv/config";
 import { readFileSync } from "node:fs";
 import { prisma } from "@/lib/db";
 import { okulAdiAnahtari } from "@/lib/okul/eslestirme";
+import {
+  adBozukMu,
+  altKume,
+  ayirtEdici,
+  baslikHarfi,
+  mebbisTurunuCevir,
+} from "@/lib/okul/mebbis";
 import { okulEkle } from "@/lib/okul/eslestirme-islem";
 import { erisimLogla } from "@/lib/yetki/log";
 
@@ -31,102 +38,8 @@ import { erisimLogla } from "@/lib/yetki/log";
  * okullar (özel okullar, YEĞİTEK gibi) olduğu gibi kalır.
  */
 
-const TUR_ESLEME: Record<string, string> = {
-  "Anadolu Meslek Programı": "Mesleki ve Teknik Anadolu Lisesi",
-  "Mesleki ve Teknik Anadolu Lisesi": "Mesleki ve Teknik Anadolu Lisesi",
-  "BİLSEM (Üstün veya Özel Yetenekliler)": "Bilim ve Sanat Merkezi",
-  BİLSEM: "Bilim ve Sanat Merkezi",
-  "Mesleki Eğitim Merkezi": "Mesleki ve Teknik Eğitim Merkezi",
-  "Özel Eğitim Meslek Okulu (Zihinsel Engelliler)": "Özel Eğitim Meslek Lisesi",
-  "Özel Eğitim Meslek Okulu": "Özel Eğitim Meslek Lisesi",
-};
-const BIZIM_TURLER = new Set([
-  "Anadolu Lisesi",
-  "Fen Lisesi",
-  "Sosyal Bilimler Lisesi",
-  "Anadolu İmam Hatip Lisesi",
-  "İmam Hatip Lisesi",
-  "Mesleki ve Teknik Anadolu Lisesi",
-  "Çok Programlı Anadolu Lisesi",
-  "Mesleki ve Teknik Eğitim Merkezi",
-  "Özel Eğitim Meslek Lisesi",
-  "Güzel Sanatlar Lisesi",
-  "Spor Lisesi",
-  "Bilim ve Sanat Merkezi",
-]);
-
-/** Eşleştirmede ayırt edici sayılmayan kelimeler (anahtar biçiminde). */
-const GENEL_KELIMELER = new Set(
-  [
-    "anadolu", "lisesi", "mesleki", "meslek", "ve", "teknik", "imam", "hatip",
-    "fen", "kiz", "erkek", "cok", "programli", "sosyal", "bilimler", "guzel",
-    "sanatlar", "spor", "bilim", "sanat", "merkezi", "egitim", "ozel", "sehit",
-    "merkez", "okulu", "lise", "il", "ilce", "turizm", "ticaret", "saglik",
-  ],
-);
-
-/** MEBBİS adları BÜYÜK HARF; bunlar başlık biçimine çevrilirken büyük kalır. */
-const KISALTMA_KELIMELER = new Set([
-  "BTSO", "TOKİ", "TEV", "TOBB", "İMKB", "TED", "TÜBİTAK", "OSB", "THY", "TSK",
-  "TCDD", "PTT", "MÜSİAD", "TÜSİAD", "İTO", "İSO", "ATSO", "KTO", "ETO", "ESO",
-  "GTO", "KSO", "ASO", "TİM", "TMMOB", "TRT", "TEİAŞ", "SGK", "BOTAŞ", "TPAO",
-  "DMO", "MKE", "İSKİ", "ASKİ", "İZSU", "TEMSA", "İDO", "TAV", "THK", "AFAD",
-]);
-
-function kelimeBasHarfi(kelime: string): string {
-  if (KISALTMA_KELIMELER.has(kelime.toLocaleUpperCase("tr-TR"))) {
-    return kelime.toLocaleUpperCase("tr-TR");
-  }
-  // "PROF.DR." → "Prof.Dr.", "ZEYNEP-HASAN" → "Zeynep-Hasan"
-  return kelime
-    .toLocaleLowerCase("tr-TR")
-    // Kelime başı her zaman; nokta/tire sonrası yalnızca ardından harf ya da
-    // nokta geliyorsa ("İbn-i Sina" değil "Zeynep-Hasan", "Dr.M.").
-    .replace(/(^|[.\-/(])(\p{L})(?=\p{L}|\.|$)/gu, (_, on: string, harf: string) =>
-      on + harf.toLocaleUpperCase("tr-TR"),
-    );
-}
-
-function baslikHarfi(ad: string): string {
-  return ad
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((k, i) =>
-      i > 0 && k.toLocaleLowerCase("tr-TR") === "ve" ? "ve" : kelimeBasHarfi(k),
-    )
-    .join(" ")
-    .replace(/Meslekî/g, "Mesleki");
-}
-
-/**
- * Birebir eşleşen okulun mevcut adı gerçekten bozuk mu? Koordinatörün
- * düzgün yazdığı adı ("BTSO …") MEBBİS'in büyük harfinden üretilmiş
- * tahmini biçimle ezmemek için yalnızca bariz bozuklukta ad değişir:
- * küçük harfle başlayan kelime ("Anadolu lisesi") ya da kısaltma (MTAL).
- */
-function adBozukMu(ad: string): boolean {
-  const kelimeler = ad.split(/\s+/).filter(Boolean);
-  if (kelimeler.some((k, i) => i > 0 && k !== "ve" && /^\p{Ll}/u.test(k))) return true;
-  if (/^\p{Ll}/u.test(kelimeler[0] ?? "")) return true;
-  return /\b(MTAL|AİHL|AIHL|İHL|IHL|ÇPAL|CPAL|SBL|MTEM|AL|FL)\b/u.test(ad);
-}
-
 function trKucuk(s: string): string {
   return s.toLocaleLowerCase("tr-TR").trim();
-}
-
-function ayirtEdici(ad: string, yerAdlari: Set<string>): Set<string> {
-  return new Set(
-    okulAdiAnahtari(ad)
-      .split(" ")
-      .filter((k) => k && !GENEL_KELIMELER.has(k) && !yerAdlari.has(k)),
-  );
-}
-
-function altKume(a: Set<string>, b: Set<string>): boolean {
-  if (a.size === 0) return false;
-  for (const k of a) if (!b.has(k)) return false;
-  return true;
 }
 
 interface Satir {
@@ -142,19 +55,8 @@ function csvOku(yol: string): Satir[] {
   for (const satir of satirlar.slice(1)) {
     if (!satir.trim()) continue;
     const [ilKodu, ilce, ad, mebbisTuru] = satir.split(";").map((s) => s.trim());
-    let tur = TUR_ESLEME[mebbisTuru] ?? mebbisTuru;
-    /*
-     * MEBBİS adı "… Anadolu İmam Hatip Lisesi" olan okulların bir kısmını
-     * "İmam Hatip Lisesi" türünde tutuyor. Kayıtta öğrenci türü adından
-     * seçiyor; tür ad ile çelişirse okulunu listede bulamaz.
-     */
-    if (
-      tur === "İmam Hatip Lisesi" &&
-      ad.toLocaleLowerCase("tr-TR").includes("anadolu imam hatip")
-    ) {
-      tur = "Anadolu İmam Hatip Lisesi";
-    }
-    if (!BIZIM_TURLER.has(tur)) continue;
+    const tur = mebbisTurunuCevir(mebbisTuru, ad);
+    if (!tur) continue;
     sonuc.push({ ilKodu: ilKodu.padStart(2, "0"), ilce, ad: baslikHarfi(ad), tur });
   }
   return sonuc;

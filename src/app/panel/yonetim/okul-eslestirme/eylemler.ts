@@ -9,6 +9,7 @@ import {
   kisileriOkulaBagla,
   kisiyiOkuldanAyir,
   okulAdiniDegistir,
+  okulKurumKodunuDegistir,
   okulEkle,
   okullariBirlestir,
 } from "@/lib/okul/eslestirme-islem";
@@ -176,5 +177,35 @@ export async function okulBirlestirEylemi(veri: FormData): Promise<void> {
   if (!sonuc.olurMu) geriDon(okul.ilKodu, { hata: sonuc.neden });
   geriDon(okul.ilKodu, {
     durum: `Okullar birleştirildi; ${sonuc.deger.kisi} kişi taşındı, tekrar eden kayıt listeden kaldırıldı.`,
+  });
+}
+
+/**
+ * Okulun kurum kodunu doğru MEB koduyla değiştirir (16 Kasım 2026 · istek:
+ * "koordinatör kurum kodlarını doğrusu ile değiştirebilsin"). Yetki ve kapsam
+ * diğer eylemlerle aynı: koordinatör yalnızca kendi ilindeki okulda.
+ * Kişiler ve bağlı kayıtlar yeni koda veritabanında kendiliğinden geçer
+ * (bkz. okulKurumKodunuDegistir).
+ */
+export async function okulKurumKoduDegistirEylemi(veri: FormData): Promise<void> {
+  const kurumKodu = Number.parseInt(metin(veri, "kurumKodu"), 10);
+  const okul = Number.isInteger(kurumKodu)
+    ? await prisma.kurum.findUnique({
+        where: { kurumKodu },
+        select: { ilKodu: true },
+      })
+    : null;
+  const kullanici = await yetkiliKullanici(okul?.ilKodu ?? null);
+  if (!okul) throw new YetkiHatasi("Okul bulunamadı.");
+
+  const sonuc = await okulKurumKodunuDegistir(
+    kurumKodu,
+    metin(veri, "yeniKurumKodu"),
+    kullanici.id,
+  );
+  yenile();
+  if (!sonuc.olurMu) geriDon(okul.ilKodu, { hata: sonuc.neden });
+  geriDon(okul.ilKodu, {
+    durum: `Kurum kodu ${sonuc.deger.kurumKodu} olarak kaydedildi.`,
   });
 }

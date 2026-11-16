@@ -38,6 +38,7 @@ import {
   okulAdiDegistirEylemi,
   okulBirlestirEylemi,
   okuldanAyirEylemi,
+  okulKurumKoduDegistirEylemi,
 } from "./eylemler";
 
 export const dynamic = "force-dynamic";
@@ -412,8 +413,8 @@ export default async function OkulEslestirmeSayfasi({
         />
         {geciciOkulVar && (
           <p className="mb-3 text-xs text-metin-yumusak">
-            “Geçici kod” rozetli okullar bu ekrandan eklendi; MEB kurum kodu
-            henüz girilmedi.
+            “Geçici kod” rozetli okulların MEB kurum kodu
+            henüz girilmedi. Okulu açıp doğru MEB kodunu yazabilirsiniz; okuldaki herkes yeni koda kendiliğinden geçer.
           </p>
         )}
         {okullar.length > 0 && (
@@ -455,6 +456,36 @@ export default async function OkulEslestirmeSayfasi({
                           </button>
                         </form>
                       )}
+                      {/*
+                        KURUM KODU (16 Kasım 2026 · istek: "koordinatör kurum
+                        kodlarını doğrusu ile değiştirebilsin"). Okullar MEBBİS
+                        listesinden geçici kodla girildi; doğru MEB kodu
+                        yazılınca okuldaki herkes yeni koda kendiliğinden geçer.
+                        MEB kodlu okulda da açık: yanlış girilmiş kod düzelsin.
+                      */}
+                      <form
+                        action={okulKurumKoduDegistirEylemi}
+                        className="flex flex-wrap items-end gap-2"
+                      >
+                        <input type="hidden" name="kurumKodu" value={okul.kurumKodu} />
+                        <label className="block w-48">
+                          <span className="text-xs font-medium text-metin-yumusak">
+                            MEB kurum kodu
+                          </span>
+                          <input
+                            name="yeniKurumKodu"
+                            inputMode="numeric"
+                            pattern="[0-9]{4,8}"
+                            defaultValue={gecici ? "" : String(okul.kurumKodu)}
+                            placeholder={gecici ? "Ör. 774994" : undefined}
+                            required
+                            className={SINIF_GIRDI}
+                          />
+                        </label>
+                        <button type="submit" className={SINIF_IKINCIL_BUTON}>
+                          Kodu kaydet
+                        </button>
+                      </form>
                       {gecici && okullar.length > 1 && (
                         <form
                           action={okulBirlestirEylemi}

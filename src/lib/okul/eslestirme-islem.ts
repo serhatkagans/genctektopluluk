@@ -16,6 +16,16 @@ import {
   sonrakiGeciciKurumKodu,
 } from "./eslestirme";
 import { kapsamDisiOkulTuruMu } from "./turler";
+import { kurumKoduCoz } from "./mebbis";
+import {
+  type AdSayilari,
+  adOzeti,
+  adSayilariniTopla,
+  adSoyadAnahtari,
+  epostaIpucu,
+} from "../kisi/ad-ozeti";
+
+export { adSoyadAnahtari, epostaIpucu };
 
 /**
  * Eşleştirmeye giren roller: öğrenci, danışman öğretmen ve il koordinatörü
@@ -39,29 +49,7 @@ function rolEtiketi(roller: { rolKodu: RolKodu }[]): string {
   return "Kullanıcı";
 }
 
-/**
- * AYNI AD SOYAD (16 Kasım 2026 · Siirt koordinatörü: "aynı isim olunca işler
- * çok karıştı. 3 tane aynı isim soyisimli öğrenci var … çözene kadar epey
- * zaman geçti"). Kayıtta T.C. kimlik yok (SSO belirsiz), yani aynı adı taşıyan
- * farklı kişileri sistem ayıramaz; yapılabilen, koordinatöre bunu SÖYLEMEK ve
- * ayırt edecek bilgiyi kartın üstüne koymak: sınıf, kayıt zamanı, e-postanın
- * maskeli hâli.
- *
- * Anahtar Türkçe küçük harf ve tek boşluk: "AHMET  Yılmaz" ile "Ahmet yılmaz"
- * aynı kişi adıdır.
- */
-export function adSoyadAnahtari(ad: string, soyad: string): string {
-  return `${ad} ${soyad}`.toLocaleLowerCase("tr-TR").replace(/\s+/g, " ").trim();
-}
-
-/**
- * İldeki aktif kişilerde her ad soyadın kaç kez geçtiği; ayrıca aynı ad
- * soyadın AYNI E-POSTAYLA kaç kez geçtiği. İkincisi "aynı adlı iki kişi"
- * değil "iki kez kayıt olmuş tek kişi" demek (Eskişehir'de bir öğrenci bir
- * dakika arayla iki hesap açmış) — koordinatöre ayrı söylenmeli.
- */
-type AdSayilari = { ad: Map<string, number>; adEposta: Map<string, number> };
-
+/** İldeki aktif kişilerin ad/e-posta sayımı (kural: kisi/ad-ozeti.ts). */
 async function ildekiAdSayilari(ilKodu: string): Promise<AdSayilari> {
   const kisiler = await prisma.kullanici.findMany({
     where: { ilKodu, aktif: true },
@@ -71,48 +59,11 @@ async function ildekiAdSayilari(ilKodu: string): Promise<AdSayilari> {
       ogrenciProfil: { select: { eposta: true } },
     },
   });
-  const ad = new Map<string, number>();
-  const adEposta = new Map<string, number>();
-  for (const kisi of kisiler) {
-    const anahtar = adSoyadAnahtari(kisi.ad, kisi.soyad);
-    ad.set(anahtar, (ad.get(anahtar) ?? 0) + 1);
-    const eposta = kisi.ogrenciProfil?.eposta?.toLocaleLowerCase("tr-TR");
-    if (eposta) {
-      const ikili = `${anahtar}|${eposta}`;
-      adEposta.set(ikili, (adEposta.get(ikili) ?? 0) + 1);
-    }
-  }
-  return { ad, adEposta };
+  return adSayilariniTopla(
+    kisiler.map((k) => ({ ad: k.ad, soyad: k.soyad, eposta: k.ogrenciProfil?.eposta })),
+  );
 }
 
-/** Kişinin ad sayısı ve aynı ad + e-postayla kaç kayıt olduğu. */
-function adOzeti(
-  sayilar: AdSayilari,
-  ad: string,
-  soyad: string,
-  eposta: string | null | undefined,
-): { ayniAdSayisi: number; ciftKayitSayisi: number } {
-  const anahtar = adSoyadAnahtari(ad, soyad);
-  return {
-    ayniAdSayisi: sayilar.ad.get(anahtar) ?? 1,
-    ciftKayitSayisi: eposta
-      ? (sayilar.adEposta.get(
-          `${anahtar}|${eposta.toLocaleLowerCase("tr-TR")}`,
-        ) ?? 1)
-      : 1,
-  };
-}
-
-/**
- * E-postanın ayırt etmeye yetecek kadarı: "ah***@gmail.com". Adresin tamamı
- * eşleştirme ekranına taşınmıyor — işi kişiyi ayırmak, ona yazmak değil.
- */
-export function epostaIpucu(eposta: string | null | undefined): string | null {
-  if (!eposta) return null;
-  const [yerel, alan] = eposta.split("@");
-  if (!yerel || !alan) return null;
-  return `${yerel.slice(0, 2)}***@${alan}`;
-}
 
 const okulsuzKosulu = {
   aktif: true,
@@ -514,4 +465,59 @@ export async function okullariBirlestir(
     detay: `Okul birleştirildi: ${kaynak.ad} (${kaynak.kurumKodu}) → ${hedef.ad} (${hedef.kurumKodu}); ${kisiler.count} kişi taşındı, eski kayıt pasife alındı`,
   });
   return { olurMu: true, deger: { kisi: kisiler.count } };
+}
+
+/**
+ * OKULUN KURUM KODUNU DOĞRUSUYLA DEĞİŞTİRİR (16 Kasım 2026 · istek:
+ * "koordinatör kurum kodlarını doğrusu ile değiştirebilsin").
+ *
+ * MEBBİS listesi kurum kodunu vermediği için okullar geçici kodla girildi.
+ * Kod, kurum tablosunun birincil anahtarı; ona bakan altı sütunun hepsi
+ * (kullanıcı, rol, görev rolü, etkinlik, ekip, mezun başvurusu) veritabanında
+ * ON UPDATE CASCADE ile bağlı — kodu değiştirmek kimseyi okulundan koparmaz,
+ * hepsi yeni koda kendiliğinden geçer.
+ *
+ * Kod başka bir okulda kayıtlıysa DEĞİŞTİRİLMEZ: iki kayıt aynı okulsa yol
+ * birleştirmedir; farklı okulsa kodlardan biri yanlıştır ve sessizce
+ * çakıştırmak iki okulu karıştırırdı.
+ */
+export async function okulKurumKodunuDegistir(
+  eskiKod: number,
+  yeniDeger: string,
+  yapanId: number,
+): Promise<IslemSonucu<{ kurumKodu: number }>> {
+  const cozum = kurumKoduCoz(yeniDeger);
+  if (!cozum.olurMu) return cozum;
+  const yeniKod = cozum.kod;
+  if (yeniKod === eskiKod) return { olurMu: true, deger: { kurumKodu: yeniKod } };
+
+  const [okul, cakisan] = await Promise.all([
+    prisma.kurum.findUnique({ where: { kurumKodu: eskiKod }, select: { ad: true, aktif: true } }),
+    prisma.kurum.findUnique({ where: { kurumKodu: yeniKod }, select: { ad: true, aktif: true } }),
+  ]);
+  if (!okul || !okul.aktif) return { olurMu: false, neden: "Okul bulunamadı." };
+  if (cakisan) {
+    return {
+      olurMu: false,
+      neden: `${yeniKod} kodu "${cakisan.ad}"${cakisan.aktif ? "" : " (pasif)"} okulunda kayıtlı. Aynı okulsa "Birleştir"i kullanın; değilse kodu kontrol edin.`,
+    };
+  }
+
+  try {
+    await prisma.kurum.update({ where: { kurumKodu: eskiKod }, data: { kurumKodu: yeniKod } });
+  } catch (hata) {
+    // Aynı anda iki koordinatör aynı kodu yazdıysa birincil anahtar reddeder.
+    if ((hata as { code?: string }).code === "P2002") {
+      return { olurMu: false, neden: `${yeniKod} kodu az önce başka bir okula verildi.` };
+    }
+    throw hata;
+  }
+  await erisimLogla({
+    kullaniciId: yapanId,
+    islem: "DEGISIKLIK",
+    hedefTip: "SISTEM_AYARI",
+    hedefId: yeniKod,
+    detay: `Okulun kurum kodu değişti: ${okul.ad} ${eskiKod} → ${yeniKod}`,
+  });
+  return { olurMu: true, deger: { kurumKodu: yeniKod } };
 }
