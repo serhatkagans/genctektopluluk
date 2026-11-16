@@ -80,6 +80,37 @@ export async function kayitOl(kayit: KayitKaydi): Promise<KayitSonucu> {
     };
   }
 
+  /*
+   * AYNI AD SOYAD + AYNI E-POSTA = ÇİFT HESAP (16 Kasım 2026). Bir öğrenci
+   * T.C. numarasını ilk seferde yanlış yazmış (yanlış numara da sağlama
+   * algoritmasından geçebiliyor), giremeyince bir dakika sonra yeniden kayıt
+   * olmuş; koordinatörün listesine iki "aynı" kişi düşmüştü. E-posta tek
+   * başına tekil değil — kardeşler bir veli adresini paylaşabilir — ama aynı
+   * adı taşıyan iki kardeş olmaz.
+   */
+  if (kayit.eposta) {
+    const adaylar = await prisma.kullanici.findMany({
+      where: {
+        aktif: true,
+        ad: { equals: kayit.ad, mode: "insensitive" },
+        soyad: { equals: kayit.soyad, mode: "insensitive" },
+        OR: [
+          { ogrenciProfil: { eposta: { equals: kayit.eposta, mode: "insensitive" } } },
+          { ogretmenProfil: { eposta: { equals: kayit.eposta, mode: "insensitive" } } },
+        ],
+      },
+      select: { id: true },
+      take: 1,
+    });
+    if (adaylar.length > 0) {
+      return {
+        durum: "BASARISIZ",
+        mesaj:
+          "Bu ad soyad ve e-postayla açılmış bir hesap zaten var. T.C. kimlik numaranızı ilk kayıtta farklı yazmış olabilirsiniz: giriş ekranındaki \"Şifremi unuttum\" ile hesabınıza dönün.",
+      };
+    }
+  }
+
   // Özet sağlamadan ÖNCE üretilir: scrypt ~100 ms sürer ve kullanıcı satırı
   // açıldıktan sonra başarısız olursa şifresiz bir hesap kalırdı.
   const sifreOzeti = await sifreOzetle(kayit.sifre);
