@@ -65,18 +65,48 @@ const GENEL_KELIMELER = new Set(
   ],
 );
 
+/** MEBBİS adları BÜYÜK HARF; bunlar başlık biçimine çevrilirken büyük kalır. */
+const KISALTMA_KELIMELER = new Set([
+  "BTSO", "TOKİ", "TEV", "TOBB", "İMKB", "TED", "TÜBİTAK", "OSB", "THY", "TSK",
+  "TCDD", "PTT", "MÜSİAD", "TÜSİAD", "İTO", "İSO", "ATSO", "KTO", "ETO", "ESO",
+  "GTO", "KSO", "ASO", "TİM", "TMMOB", "TRT", "TEİAŞ", "SGK", "BOTAŞ", "TPAO",
+  "DMO", "MKE", "İSKİ", "ASKİ", "İZSU", "TEMSA", "İDO", "TAV", "THK", "AFAD",
+]);
+
+function kelimeBasHarfi(kelime: string): string {
+  if (KISALTMA_KELIMELER.has(kelime.toLocaleUpperCase("tr-TR"))) {
+    return kelime.toLocaleUpperCase("tr-TR");
+  }
+  // "PROF.DR." → "Prof.Dr.", "ZEYNEP-HASAN" → "Zeynep-Hasan"
+  return kelime
+    .toLocaleLowerCase("tr-TR")
+    .replace(/(^|[.\-/(])(\p{L})/gu, (_, on: string, harf: string) =>
+      on + harf.toLocaleUpperCase("tr-TR"),
+    );
+}
+
 function baslikHarfi(ad: string): string {
   return ad
-    .toLocaleLowerCase("tr-TR")
     .split(/\s+/)
     .filter(Boolean)
     .map((k, i) =>
-      i > 0 && k === "ve"
-        ? k
-        : k.charAt(0).toLocaleUpperCase("tr-TR") + k.slice(1),
+      i > 0 && k.toLocaleLowerCase("tr-TR") === "ve" ? "ve" : kelimeBasHarfi(k),
     )
     .join(" ")
     .replace(/Meslekî/g, "Mesleki");
+}
+
+/**
+ * Birebir eşleşen okulun mevcut adı gerçekten bozuk mu? Koordinatörün
+ * düzgün yazdığı adı ("BTSO …") MEBBİS'in büyük harfinden üretilmiş
+ * tahmini biçimle ezmemek için yalnızca bariz bozuklukta ad değişir:
+ * küçük harfle başlayan kelime ("Anadolu lisesi") ya da kısaltma (MTAL).
+ */
+function adBozukMu(ad: string): boolean {
+  const kelimeler = ad.split(/\s+/).filter(Boolean);
+  if (kelimeler.some((k, i) => i > 0 && k !== "ve" && /^\p{Ll}/u.test(k))) return true;
+  if (/^\p{Ll}/u.test(kelimeler[0] ?? "")) return true;
+  return /\b(MTAL|AİHL|AIHL|İHL|IHL|ÇPAL|CPAL|SBL|MTEM|AL|FL)\b/u.test(ad);
 }
 
 function trKucuk(s: string): string {
@@ -250,25 +280,28 @@ async function main() {
       }
       if (e.kurumKodu !== null) {
         const mevcut = okullar.find((o) => o.kurumKodu === e.kurumKodu)!;
-        const degisecek = mevcut.ad !== e.satir.ad || mevcut.okulTuru !== e.satir.tur;
+        // Birebir eşleşmede düzgün yazılmış ad korunur (bkz. adBozukMu).
+        const yeniAd =
+          e.yol === "birebir" && !adBozukMu(mevcut.ad) ? mevcut.ad : e.satir.ad;
+        const degisecek = mevcut.ad !== yeniAd || mevcut.okulTuru !== e.satir.tur;
         if (e.yol === "birebir") sayac.var++;
         else sayac.benzer++;
         if (degisecek) {
           sayac.guncellendi++;
           console.log(
-            `  ~ ${mevcut.ad} [${mevcut.okulTuru}] → ${e.satir.ad} [${e.satir.tur}] (${e.yol})`,
+            `  ~ ${mevcut.ad} [${mevcut.okulTuru}] → ${yeniAd} [${e.satir.tur}] (${e.yol})`,
           );
           if (yaz) {
             await prisma.kurum.update({
               where: { kurumKodu: mevcut.kurumKodu },
-              data: { ad: e.satir.ad, okulTuru: e.satir.tur },
+              data: { ad: yeniAd, okulTuru: e.satir.tur },
             });
             await erisimLogla({
               kullaniciId: yonetici.kullaniciId,
               islem: "DEGISIKLIK",
               hedefTip: "SISTEM_AYARI",
               hedefId: mevcut.kurumKodu,
-              detay: `Okul MEBBİS listesine göre düzeltildi: ${mevcut.ad} → ${e.satir.ad} (${e.satir.tur})`,
+              detay: `Okul MEBBİS listesine göre düzeltildi: ${mevcut.ad} [${mevcut.okulTuru}] → ${yeniAd} [${e.satir.tur}]`,
             });
           }
         }
