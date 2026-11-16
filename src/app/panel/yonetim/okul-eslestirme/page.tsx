@@ -272,7 +272,7 @@ export default async function OkulEslestirmeSayfasi({
                           {/* Aynı ad soyad (16 Kasım 2026 · Siirt). */}
                           {kisi.ayniAdSayisi > 1 && (
                             <span className="ml-1.5 inline-block rounded bg-uyari-zemin px-1.5 py-0.5 text-xs text-uyari-metin">
-                              İlde aynı adla {kisi.ayniAdSayisi} kayıt
+                              {kisi.ciftKayitSayisi > 1 ? `Aynı ad ve e-postayla ${kisi.ciftKayitSayisi} kayıt: büyük olasılıkla iki kez kayıt olmuş` : `İlde aynı adla ${kisi.ayniAdSayisi} kayıt`}
                             </span>
                           )}
                           <span className="block text-xs text-metin-yumusak">
@@ -526,7 +526,7 @@ export default async function OkulEslestirmeSayfasi({
                                 </span>
                                 {kisi.ayniAdSayisi > 1 && (
                                   <span className="block text-xs text-uyari-metin">
-                                    İlde aynı adla {kisi.ayniAdSayisi} kayıt
+                                    {kisi.ciftKayitSayisi > 1 ? `Aynı ad ve e-postayla ${kisi.ciftKayitSayisi} kayıt: büyük olasılıkla iki kez kayıt olmuş` : `İlde aynı adla ${kisi.ayniAdSayisi} kayıt`}
                                     {kisi.epostaIpucu ? ` · ${kisi.epostaIpucu}` : ""}
                                   </span>
                                 )}

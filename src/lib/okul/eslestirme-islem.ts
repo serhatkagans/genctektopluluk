@@ -54,18 +54,53 @@ export function adSoyadAnahtari(ad: string, soyad: string): string {
   return `${ad} ${soyad}`.toLocaleLowerCase("tr-TR").replace(/\s+/g, " ").trim();
 }
 
-/** İldeki aktif kişilerde her ad soyadın kaç kez geçtiği. */
-async function ildekiAdSayilari(ilKodu: string): Promise<Map<string, number>> {
+/**
+ * İldeki aktif kişilerde her ad soyadın kaç kez geçtiği; ayrıca aynı ad
+ * soyadın AYNI E-POSTAYLA kaç kez geçtiği. İkincisi "aynı adlı iki kişi"
+ * değil "iki kez kayıt olmuş tek kişi" demek (Eskişehir'de bir öğrenci bir
+ * dakika arayla iki hesap açmış) — koordinatöre ayrı söylenmeli.
+ */
+type AdSayilari = { ad: Map<string, number>; adEposta: Map<string, number> };
+
+async function ildekiAdSayilari(ilKodu: string): Promise<AdSayilari> {
   const kisiler = await prisma.kullanici.findMany({
     where: { ilKodu, aktif: true },
-    select: { ad: true, soyad: true },
+    select: {
+      ad: true,
+      soyad: true,
+      ogrenciProfil: { select: { eposta: true } },
+    },
   });
-  const sayilar = new Map<string, number>();
+  const ad = new Map<string, number>();
+  const adEposta = new Map<string, number>();
   for (const kisi of kisiler) {
     const anahtar = adSoyadAnahtari(kisi.ad, kisi.soyad);
-    sayilar.set(anahtar, (sayilar.get(anahtar) ?? 0) + 1);
+    ad.set(anahtar, (ad.get(anahtar) ?? 0) + 1);
+    const eposta = kisi.ogrenciProfil?.eposta?.toLocaleLowerCase("tr-TR");
+    if (eposta) {
+      const ikili = `${anahtar}|${eposta}`;
+      adEposta.set(ikili, (adEposta.get(ikili) ?? 0) + 1);
+    }
   }
-  return sayilar;
+  return { ad, adEposta };
+}
+
+/** Kişinin ad sayısı ve aynı ad + e-postayla kaç kayıt olduğu. */
+function adOzeti(
+  sayilar: AdSayilari,
+  ad: string,
+  soyad: string,
+  eposta: string | null | undefined,
+): { ayniAdSayisi: number; ciftKayitSayisi: number } {
+  const anahtar = adSoyadAnahtari(ad, soyad);
+  return {
+    ayniAdSayisi: sayilar.ad.get(anahtar) ?? 1,
+    ciftKayitSayisi: eposta
+      ? (sayilar.adEposta.get(
+          `${anahtar}|${eposta.toLocaleLowerCase("tr-TR")}`,
+        ) ?? 1)
+      : 1,
+  };
 }
 
 /**
@@ -101,6 +136,8 @@ export type OkulsuzKisi = {
   epostaIpucu: string | null;
   /** İlde bu ad soyadla kaç aktif kayıt var (kendisi dahil). */
   ayniAdSayisi: number;
+  /** Aynı ad soyad VE aynı e-postayla kaç kayıt: >1 ise çift kayıt. */
+  ciftKayitSayisi: number;
 };
 
 /** İldeki okulsuz kişiler (okulunu elle yazmış olanlar). */
@@ -129,7 +166,7 @@ export async function okulsuzKisiler(ilKodu: string): Promise<OkulsuzKisi[]> {
     beyanOkulAdi: beyanOkulAdi ?? "",
     rol: rolEtiketi(roller),
     epostaIpucu: epostaIpucu(ogrenciProfil?.eposta),
-    ayniAdSayisi: adSayilari.get(adSoyadAnahtari(kisi.ad, kisi.soyad)) ?? 1,
+    ...adOzeti(adSayilari, kisi.ad, kisi.soyad, ogrenciProfil?.eposta),
   }));
 }
 
@@ -186,7 +223,7 @@ export async function ildekiOkullar(ilKodu: string) {
       ...kisi,
       rol: rolEtiketi(roller),
       epostaIpucu: epostaIpucu(ogrenciProfil?.eposta),
-      ayniAdSayisi: adSayilari.get(adSoyadAnahtari(kisi.ad, kisi.soyad)) ?? 1,
+      ...adOzeti(adSayilari, kisi.ad, kisi.soyad, ogrenciProfil?.eposta),
     })),
   }));
 }
