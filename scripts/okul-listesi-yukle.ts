@@ -110,7 +110,18 @@ function csvOku(yol: string): Satir[] {
   for (const satir of satirlar.slice(1)) {
     if (!satir.trim()) continue;
     const [ilKodu, ilce, ad, mebbisTuru] = satir.split(";").map((s) => s.trim());
-    const tur = TUR_ESLEME[mebbisTuru] ?? mebbisTuru;
+    let tur = TUR_ESLEME[mebbisTuru] ?? mebbisTuru;
+    /*
+     * MEBBİS adı "… Anadolu İmam Hatip Lisesi" olan okulların bir kısmını
+     * "İmam Hatip Lisesi" türünde tutuyor. Kayıtta öğrenci türü adından
+     * seçiyor; tür ad ile çelişirse okulunu listede bulamaz.
+     */
+    if (
+      tur === "İmam Hatip Lisesi" &&
+      ad.toLocaleLowerCase("tr-TR").includes("anadolu imam hatip")
+    ) {
+      tur = "Anadolu İmam Hatip Lisesi";
+    }
     if (!BIZIM_TURLER.has(tur)) continue;
     sonuc.push({ ilKodu: ilKodu.padStart(2, "0"), ilce, ad: baslikHarfi(ad), tur });
   }
