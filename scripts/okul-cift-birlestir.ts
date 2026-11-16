@@ -118,6 +118,10 @@ async function main() {
   const gunlukYolu = yaz ? process.argv[yazIdx + 1] : null;
   if (!csvYolu) throw new Error("MEBBİS CSV yolunu verin.");
   if (yaz && !gunlukYolu) throw new Error("--yaz GUNLUK.json biçiminde günlük yolu verin.");
+  // Günlük yazılamıyorsa HİÇBİR değişiklik yapılmadan durulur (16 Kasım 2026:
+  // ilk çalıştırmada günlük klasörü yazılamadığı için ad düzeltmeleri
+  // günlüksüz uygulanmıştı).
+  if (yaz) writeFileSync(gunlukYolu!, "{}");
 
   const yonetici = await prisma.kullaniciRol.findFirst({
     where: { rolKodu: "PROJE_YONETICISI", bitisTarihi: null },
@@ -162,6 +166,8 @@ async function main() {
       console.log(`  ~ [${il?.ad}] ${o.ad} → ${r.ad} [${r.tur}]`);
       gunluk.adDuzeltmeleri.push({ kurumKodu: o.kurumKodu, eskiAd: o.ad, eskiTur: o.okulTuru, yeniAd: r.ad });
       if (yaz) {
+        // Günlük DEĞİŞİKLİKTEN ÖNCE diske: yarıda kesilse de geri alınabilsin.
+        writeFileSync(gunlukYolu!, JSON.stringify(gunluk, null, 1));
         await prisma.kurum.update({ where: { kurumKodu: o.kurumKodu }, data: { ad: r.ad, okulTuru: r.tur } });
         await erisimLogla({
           kullaniciId: yonetici.kullaniciId,
