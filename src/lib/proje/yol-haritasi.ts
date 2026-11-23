@@ -1048,6 +1048,20 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
       "Çıkış menünün en altında, sade bir satır",
       "Yatay kaydırılan rozet şeridi kalktı; kenar boşlukları daraldı",
     ],
+    commitler: ["8b569d6"],
+  },
+  {
+    sira: 52,
+    baslik: "Kayıt formu \"Kaydediliyor\"da takılmıyor",
+    durum: "YAYINDA",
+    ozet:
+      "Eksik alan ya da kısa şifre uyarısından sonra Kayıt ol düğmesi \"Kaydediliyor…\"da kalıyordu; sayfa yenilenince yazılanlar gidiyordu. Düzeltildi.",
+    baslangic: "2026-11-23",
+    yayinTarihi: "2026-11-23",
+    maddeler: [
+      "Kayıt formu çift gönderim kalkanının dışına alındı; bekleme durumunu kendisi tutuyor",
+      "Uyarıdan sonra alan düzeltilip yeniden basılabiliyor, sayfayı yenilemek gerekmiyor",
+    ],
     commitler: [],
   },
 ];

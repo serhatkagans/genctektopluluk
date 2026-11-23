@@ -113,8 +113,30 @@ export function KayitFormu({
     });
   }
 
+  /*
+   * ÇİFT GÖNDERİM KALKANININ DIŞINDA (23 Kasım 2026 · istek: "şifre minimum
+   * 10 karakter giriniz diyor ama Kaydediliyor'da takılı kalıyor, sayfayı
+   * yenileyince bütün bilgiler gidiyor").
+   *
+   * Kalkan (bkz. CiftGonderimKalkani.tsx) submit olayını gördüğü anda formu
+   * 30 saniye kilitleyip düğmeye "Kaydediliyor…" yazdırıyordu. Bu form ise
+   * denetimi kendisi yapıyor (`noValidate` + `gonder`): eksik alanda olayı
+   * durdurup mesajı gösteriyor ama kalkan bunu bilmeden kilidi koyuyordu.
+   * Kişi alanı düzeltip yeniden bastığında gönderim engelleniyordu; çıkış
+   * yolu sayfayı yenilemekti, o da yazılanları siliyordu. Sunucudan hata
+   * dönünce de adres değişmediği için aynı kilit kalıyordu.
+   *
+   * Bekleme durumunu form zaten kendisi tutuyor (`useTransition`; düğme
+   * gönderim sürerken `disabled`), çift gönderime karşı ayrıca kalkan
+   * gerekmiyor.
+   */
   return (
-    <form noValidate onSubmit={gonder} className="mt-6 space-y-8">
+    <form
+      noValidate
+      onSubmit={gonder}
+      data-cift-gonderim="serbest"
+      className="mt-6 space-y-8"
+    >
       {children}
 
       {hata && (

@@ -74,7 +74,14 @@ export function CiftGonderimKalkani() {
       const form = olay.target;
       if (!(form instanceof HTMLFormElement) || serbestMi(form)) return;
       if (form.dataset.gonderiliyor) return;
-      // Tarayıcı doğrulaması geçmediyse submit olayı zaten tetiklenmez.
+      /*
+       * Tarayıcı doğrulaması geçmediyse submit olayı zaten tetiklenmez. AMA
+       * `noValidate` ile denetimi kendisi yapan form (KayitFormu) olayı
+       * alır ve eksik alanda kendisi durdurur — o kilit burada konursa form
+       * 30 saniye takılı kalır. Böyle formlar `serbest` işaretlenmeli.
+       * (`defaultPrevented`a bakılamaz: React sunucu eylemli her formda da
+       * olayı durduruyor.)
+       */
       form.dataset.gonderiliyor = "1";
       form.setAttribute("aria-busy", "true");
       /*
