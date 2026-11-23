@@ -758,6 +758,282 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
     not:
       "Sunucuda çalışıyor: migration 3 Eylül 2026 yayınında uygulandı, üç kopya da o sürümle yeniden başladı ve ortak sayaç tablosuna yazıyor. Madde bir gün TESTTE göründü çünkü yayın bu kaydı güncellemeden yapıldı; durum git'ten türetilmediği için ancak elle düzeltilir. İlk commit (72a4aef) ara çözümdü — sınırları elle üçe bölüyordu, kopya sayısını koda gömdüğü için sayı değiştiği gün sessizce yanlışa düşerdi; ikincisi (bdc86f1) sayacı kopyaların dışına taşıdı.",
   },
+  /*
+   * 38–50: 4 EYLÜL – 14 KASIM 2026 ARASI TOPLU KAYIT (14 Kasım 2026 · istek:
+   * "bunların hepsini yönetim panelinde Proje İlerleme Durumu alanına sürüm
+   * geçmişi gibi ekliyor muydun" → "2 yi yap"). Bu aralıkta liste
+   * güncellenmemişti; 64 commit konularına göre gruplandı.
+   *
+   * YAYIN GÜNÜ: 38–39 GençTek Topluluk kurulumuyla (23 Ekim) yayına girdi.
+   * Diğerlerinde commit günü yazıldı; bu ekip her işi aynı gün
+   * dagitim/topluluk-kur.sh ile yayına alıyordu ama sunucu günlüğüyle tek
+   * tek doğrulanmadı. 14 Kasım yayınları doğrulandı (betiğin sağlık
+   * kontrolü ve tarayıcıda ekran).
+   */
+  {
+    sira: 38,
+    baslik: "Kişisel Verilerim görünürlüğü ve yük testi betiği",
+    durum: "YAYINDA",
+    ozet:
+      "Kişisel Verilerim menüde yalnızca proje yöneticisinde; başvuru formuna herkes için sayfa altından giriş; yük testi betiği depoya girdi.",
+    baslangic: "2026-09-04",
+    yayinTarihi: "2026-10-23",
+    maddeler: [
+      "Kişisel Verilerim satırı yalnızca proje yöneticisinin menüsünde",
+      "KVKK başvuru formuna her panel ekranının altından sessiz bir bağlantı (m.13 erişilebilirliği)",
+      "Yük testi betiği: hedef adres (TEST_URL) zorunlu, yanlış uygulamayı ölçmesin",
+    ],
+    commitler: ["610d222", "897557a", "a6475d9"],
+  },
+  {
+    sira: 39,
+    baslik: "Kayıtla giriş: T.C. kimlik no ve şifre",
+    durum: "YAYINDA",
+    ozet:
+      "EBA girişi gelene kadar öğrenci ve öğretmen kendi hesabını açıyor, T.C. kimlik no ve şifreyle giriyor.",
+    baslangic: "2026-09-17",
+    bitis: "2026-09-26",
+    yayinTarihi: "2026-10-23",
+    maddeler: [
+      "Kayıt ekranı: tür ve il, sonra T.C., ad soyad, okul, sınıf/şube ya da branş, şifre",
+      "Giriş: T.C. + şifre; kilit ve hız sınırı dış kullanıcı girişiyle aynı kurallar",
+      "İlk proje yöneticisi hesabını açan betik; kullanıcı verilerini silme betiği",
+      "Yöneticinin kullanıcı adıyla girişi denendi ve geri alındı",
+      "Pilot tanıtım verisi: Ankara ve İstanbul'da 6 kişi ve vitrin ürünleri",
+    ],
+    commitler: ["44a6114", "7082ca6", "89a63bb", "dd8edc6", "7174156"],
+  },
+  {
+    sira: 40,
+    baslik: "GençTek Topluluk sitesinin kurulumu",
+    durum: "YAYINDA",
+    ozet:
+      "aiotechs.cloud/genctektopluluk ayrı veritabanı ve servisle yayına alındı; kayıt, genel bilgiler ve rol sınırlamaları topluluğa göre ayarlandı.",
+    baslangic: "2026-10-23",
+    yayinTarihi: "2026-10-23",
+    maddeler: [
+      "Kurulum, veri ve Apache betikleri; port ilk kurulumda boş porttan seçiliyor",
+      "Kayıtta okul listede yoksa elle yazılıyor; e-posta ve telefon alınıyor",
+      "Öğrenci, öğretmen ve koordinatörde düzenlenebilir Genel bilgiler",
+      "Danışman atamasını proje yöneticisi yapar; il bazlı toplu danışman ataması",
+      "Danışman rolü okuldan bağımsız; örnek ve test verisi temizlendi",
+    ],
+    commitler: ["da8f53d", "7efd5fd", "4c0440c", "abcdd89", "8d7590b"],
+  },
+  {
+    sira: 41,
+    baslik: "Takvimden etkinlik aktarımı",
+    durum: "YAYINDA",
+    ozet:
+      "GençTek takvimindeki etkinlikler ulusal kapsamla, düzenleyen birimin ilinde sisteme aktarıldı.",
+    baslangic: "2026-10-24",
+    bitis: "2026-10-27",
+    yayinTarihi: "2026-10-24",
+    maddeler: [
+      "Önümüzdeki iki ayın etkinlikleri ve toplantıları (tanışma toplantıları hariç)",
+      "Tüm aktarılan etkinlikler ulusal; herkes görüyor",
+      "Seçilen etkinlikleri numarasıyla ekleyen betik",
+    ],
+    commitler: ["780e136", "7fcae52", "a7e80c5"],
+  },
+  {
+    sira: 42,
+    baslik: "GençTek görevleri ve açılış sayfası",
+    durum: "YAYINDA",
+    ozet:
+      "Başvurulabilir GençTek görevleri sol menüden açılıyor; proje yöneticisi görevleri sürükleyerek sıralıyor.",
+    baslangic: "2026-10-24",
+    bitis: "2026-10-27",
+    yayinTarihi: "2026-10-27",
+    maddeler: [
+      "Pano'daki görev kartı sol menüye taşındı",
+      "Kapatılan görev listede kalıyor, yalnızca başvuruya kapanıyor",
+      "Proje yöneticisi görevleri sürükleyerek sıralıyor",
+      "Açılış sayfasından E-Devlet ile Giriş düğmesi kaldırıldı",
+      "Sol menüde alt sayfada yalnızca en uzun eşleşen satır seçili",
+    ],
+    commitler: ["9ae35a8", "3cb71a2", "1911606", "2f39ce4", "27adbf3"],
+  },
+  {
+    sira: 43,
+    baslik: "Etkinlik, çalışma grubu ve vitrin düzenlemeleri",
+    durum: "YAYINDA",
+    ozet:
+      "Geçmiş tarihli etkinlik girilebiliyor; çalışma gruplarına açıklama geldi; vitrinde ekleyen kişi yazıyor.",
+    baslangic: "2026-10-26",
+    bitis: "2026-10-27",
+    yayinTarihi: "2026-10-27",
+    maddeler: [
+      "Geçmiş tarihli etkinlik eklenebiliyor, başvurusu kapalı açılıyor",
+      "Çalışma gruplarına kısa açıklama; Ayarlar'dan düzenleniyor, seçimde altta görünüyor",
+      "Vitrin rozeti: \"Ekleyen öğretmen/öğrenci\"",
+    ],
+    commitler: ["6786753", "47a1f7f", "daf6778", "b6672fe", "508e9ee"],
+  },
+  {
+    sira: 44,
+    baslik: "Kullanıcı yönetimi ve şifre işlemleri",
+    durum: "YAYINDA",
+    ozet:
+      "Yönetim Paneli'nde Kullanıcı Yönetimi; Şifremi unuttum; il koordinatörü kendi ilinde kayıt düzenleyip şifre yenileyebiliyor.",
+    baslangic: "2026-10-28",
+    bitis: "2026-11-14",
+    yayinTarihi: "2026-11-14",
+    maddeler: [
+      "Arama, geçici şifre, kilit açma, pasife alma ve kayıt silme (KVKK imha akışıyla)",
+      "Şifremi unuttum: yalnızca T.C. soruluyor, bağlantı kayıtlı e-postaya https ile gidiyor",
+      "Proje yöneticisi hesaplarına e-posta; iletişim e-postası zorunlu ve denetleniyor",
+      "Ad soyad düzeltme ve tüm alanları düzenleme sayfası",
+      "Kullanıcı yönetimi il koordinatörüne açıldı (kendi ilindeki öğrenci ve öğretmen)",
+      "İl koordinatörü de geçici şifre verebiliyor; e-posta değiştirme proje yöneticisinde",
+      "Açık öğretim liseleri kapsam dışı",
+    ],
+    commitler: [
+      "f5f773b",
+      "54707d3",
+      "a95aa10",
+      "c226a59",
+      "c9e5971",
+      "b6acd3e",
+      "25f40d3",
+      "5a05a7d",
+    ],
+  },
+  {
+    sira: 45,
+    baslik: "Etkinlik yönetimi, tarih ve ilçe düzeltmeleri",
+    durum: "YAYINDA",
+    ozet:
+      "Etkinlikler herkese görünür, başvuru kendi il/okulla sınırlı; etkinlik silme ve tam düzenleme; Türkiye'nin bütün ilçeleri.",
+    baslangic: "2026-10-31",
+    bitis: "2026-11-10",
+    yayinTarihi: "2026-11-10",
+    maddeler: [
+      "Çift gönderim kalkanı ve sunucuda kopya engeli",
+      "Etkinlik silme, tam düzenleme, tarihe göre sıralama ve il süzgeci",
+      "Form tarihleri Türkiye saatiyle (sunucuda 3 saat kayıyordu)",
+      "Bütün ilçeler, hazırlık sınıfı; kayıtta ilçe seçimi; Bursa'ya Büyükşehir",
+      "Kayıt formu hatada silinmiyor, şube yazımı esnek",
+      "Vitrinde proje yöneticisi ürünü düzenleyip kaldırabiliyor",
+      "Tema geçişi anında",
+    ],
+    commitler: [
+      "b554e68",
+      "b7955a3",
+      "e6a8467",
+      "7227386",
+      "1e50994",
+      "ad5a213",
+      "92b5613",
+      "7ed60dc",
+    ],
+  },
+  {
+    sira: 46,
+    baslik: "Güvenlik sıkılaştırması ve bağımlılık güncellemesi",
+    durum: "YAYINDA",
+    ozet:
+      "Rol kapıları, kapsam ve hız sınırları sıkılaştı; Next.js, React ve diğer bağımlılıklar güncellendi.",
+    baslangic: "2026-11-06",
+    yayinTarihi: "2026-11-06",
+    maddeler: [
+      "Danışman yalnızca kendisine atanmış öğrencileri görüyor",
+      "Şifre sıfırlamada IP sınırı; giriş ve sıfırlamada sabit yanıt süresi",
+      "Dış kullanıcıya etkinlik ekleri yalnızca ulusal ve kendi ilinde",
+      "Kazanım silinince dosyaları da siliniyor; yükleme adedi ve saatlik sınır",
+      "next 16.4.5, React 19.3.1, nodemailer, zod ve sharp güncellendi",
+    ],
+    commitler: ["15e0907", "3286bc8"],
+  },
+  {
+    sira: 47,
+    baslik: "Okul eşleştirme",
+    durum: "YAYINDA",
+    ozet:
+      "Okulunu elle yazan kişiler benzer yazımlara göre gruplanıp gerçek okula bağlanıyor; kimse okula bağlı değildi.",
+    baslangic: "2026-11-09",
+    bitis: "2026-11-14",
+    yayinTarihi: "2026-11-14",
+    maddeler: [
+      "Elle yazılan okul adları il içinde benzerliğe göre gruplanıyor (harf, yazım hatası, kısaltmalar)",
+      "Grup kayıtlı okula bağlanıyor ya da yeni okul ekleniyor; benzer okul önceden seçili",
+      "Koordinatör kendi ilinde, proje yöneticisi tüm illerde",
+      "Tekrar eden okulu birleştirme; ayırarak geri alma",
+      "Öğrenci listesinde okulsuz öğrenciye \"Okula bağla\"",
+      "Kartlarda ilçe, yazılan okul adı ve \"Başlıkla aynı / Farklı yazım\" etiketi",
+    ],
+    commitler: [
+      "d740774",
+      "db7a55b",
+      "97c9aa1",
+      "c2c7893",
+      "3795d08",
+      "31ec048",
+      "297f7db",
+      "ab1bb15",
+    ],
+    not:
+      "Ekrandan eklenen okul 900000001'den başlayan GEÇİCİ kurum kodu alıyor. EBA girişine geçmeden önce bu okullar gerçek MEB kodlarına taşınmalı.",
+  },
+  {
+    sira: 48,
+    baslik: "Danışman atama ve rol envanteri",
+    durum: "YAYINDA",
+    ozet:
+      "İl koordinatörü kendi ilinde danışman atıyor; atama öğretmen sayfasından da yapılabiliyor; rol envanterinde arama.",
+    baslangic: "2026-10-27",
+    bitis: "2026-11-14",
+    yayinTarihi: "2026-11-14",
+    maddeler: [
+      "Rol envanteri: koordinatörsüz illerde aday öğretmen sayısı ve Göster süzgeci",
+      "Danışman ataması il koordinatörüne açıldı (kendi ilinde)",
+      "Atama listesinde aynı okul üstte; yazdıkça daraltan arama",
+      "İlin koordinatörü de danışman seçilebiliyor; toplu atamada \"Beni danışman yap\"",
+      "Öğretmen sayfasından öğrenci atama",
+      "Rol envanterinde koordinatör adı ya da il ile arama",
+    ],
+    commitler: [
+      "3b82e81",
+      "8dd1685",
+      "07c4882",
+      "29cdd04",
+      "fa8d412",
+      "e02ef67",
+    ],
+  },
+  {
+    sira: 49,
+    baslik: "Kayıt ekranında mezun ve mentör; açılış sayfası",
+    durum: "YAYINDA",
+    ozet:
+      "Kayıt ekranına mezun ve mentör geldi; yurt dışı seçeneği; açılış sayfasında Giriş Yap ve Kayıt Ol düğmeleri.",
+    baslangic: "2026-11-10",
+    bitis: "2026-11-12",
+    yayinTarihi: "2026-11-12",
+    maddeler: [
+      "Mezun ve mentör başvurusu; hesap proje yöneticisi onayıyla açılıyor, giriş e-postayla",
+      "\"Şu an ne yapıyorsunuz\": üniversite, şirket çalışanı, şirket sahibi, diğer",
+      "İl listesinde Yurt dışı: ülke ve şehir zorunlu",
+      "Açılışta \"Giriş Yap\" ve \"Kayıt Ol\" düğmeleri",
+      "Rol rozeti: \"İl Koordinatörü\"",
+    ],
+    commitler: ["3a11fac", "7f0ee27", "4638559", "f5a866d", "ebbd8a2"],
+  },
+  {
+    sira: 50,
+    baslik: "Öğretmen listesinde filtreler",
+    durum: "YAYINDA",
+    ozet:
+      "Öğretmenler ekranında bütün filtreler etiketli olarak kartta; okul adı, okul kaydı, öğrenci ve okul sorumlusu filtreleri eklendi.",
+    baslangic: "2026-11-14",
+    yayinTarihi: "2026-11-14",
+    maddeler: [
+      "Ad soyad, branş, okul adı, okul türü, il, ilçe, okul, görev yılı",
+      "Okula bağlı / okulu listede yok; öğrencisi olan / olmayan; YEĞİTEK okul sorumlusu",
+      "İl ve ilçe filtresi kişide boşsa okulun il/ilçesine bakıyor",
+    ],
+    commitler: ["87b5619"],
+  },
 ];
 
 /**
