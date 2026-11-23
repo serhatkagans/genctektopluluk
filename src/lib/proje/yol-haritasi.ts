@@ -1034,6 +1034,22 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
     ],
     commitler: ["87b5619"],
   },
+  {
+    sira: 51,
+    baslik: "Telefonda panel menüsü",
+    durum: "YAYINDA",
+    ozet:
+      "Kullanıcı dönütü üzerine telefonda üst bar tek satıra indi; menü, kimlik, tema ve çıkış \"Menü\" düğmesinin içinde.",
+    baslangic: "2026-11-23",
+    yayinTarihi: "2026-11-23",
+    maddeler: [
+      "Üst bar telefonda tek satır: logo ve Menü düğmesi",
+      "Menü panelinde ad ve roller, sol menünün aynısı, tema seçimi",
+      "Çıkış menünün en altında, sade bir satır",
+      "Yatay kaydırılan rozet şeridi kalktı; kenar boşlukları daraldı",
+    ],
+    commitler: [],
+  },
 ];
 
 /**

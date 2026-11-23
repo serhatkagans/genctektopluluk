@@ -6,6 +6,7 @@ import {
   PanelGezinme,
   type GezinmeBaglantisi,
 } from "@/components/PanelGezinme";
+import { MobilMenu } from "@/components/MobilMenu";
 import { RolEtiketi, RolsuzEtiketi } from "@/components/RolEtiketi";
 import { TemaSecici } from "@/components/TemaSecici";
 import { oturumKullanicisi } from "@/lib/auth/oturum";
@@ -590,6 +591,37 @@ function PanelCercevesi({
   ilAdlari: Map<string, string>;
   children: React.ReactNode;
 }) {
+  /*
+   * Ad + rol rozetleri iki yerde basılıyor: geniş ekranda üst barın sağında
+   * (sağa yaslı), telefonda menü panelinin tepesinde (sola yaslı).
+   */
+  const kimlik = (hizala: "sag" | "sol") => (
+    <div className={hizala === "sag" ? "text-right" : undefined}>
+      <p className="text-sm font-semibold text-ust-bar-metin">
+        {kullanici.ad} {kullanici.soyad}
+      </p>
+      <div
+        className={`mt-1 flex flex-wrap gap-1 ${hizala === "sag" ? "justify-end" : ""}`}
+      >
+        {kullanici.roller.length === 0 ? (
+          <RolsuzEtiketi />
+        ) : (
+          kullanici.roller.map((rol) => (
+            <RolEtiketi
+              key={rol.rolKodu}
+              rolKodu={rol.rolKodu}
+              ekBilgi={
+                rol.ilKodu === null
+                  ? undefined
+                  : (ilAdlari.get(rol.ilKodu) ?? undefined)
+              }
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen">
       {/*
@@ -605,7 +637,11 @@ function PanelCercevesi({
         işaret o kuralın tutunduğu yerler. Yeni bir panel ekranı eklerken
         ayrıca bir şey yapmak gerekmiyor, çatı zaten işaretli.
       */}
-      <div className="yazdirma-disi bg-serit text-serit-metin">
+      {/*
+        Telefonda şerit basılmıyor (23 Kasım 2026): kurum adı logonun
+        üstünde zaten yazıyor, tema seçimi menü panelinin altına indi.
+      */}
+      <div className="yazdirma-disi hidden bg-serit text-serit-metin lg:block">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-6 py-2">
           <p className="text-[11px] font-semibold tracking-widest uppercase">
             T.C. Millî Eğitim Bakanlığı · YEĞİTEK
@@ -619,7 +655,7 @@ function PanelCercevesi({
         aşağı inen kullanıcının kimliğini/çıkışını görecek yeri kalmıyordu.
       */}
       <header className="yazdirma-disi sticky top-0 z-30 border-b border-ust-bar-cizgi bg-ust-bar">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-6 py-3">
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link href="/panel" className="flex items-center gap-3">
             {/*
               Logo artık beyaz kutu İÇİNDE DEĞİL: bar beyaza döndüğü için
@@ -643,13 +679,38 @@ function PanelCercevesi({
               <span className="block font-baslik text-lg leading-tight font-extrabold text-ust-bar-metin">
                 GençTek
               </span>
-              <span className="block text-xs text-ust-bar-metin-yumusak">
+              <span className="hidden text-xs text-ust-bar-metin-yumusak sm:block">
                 Genç Bilişim Ekosistemi
               </span>
             </span>
           </Link>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/*
+            TELEFONDA: ad, roller, tema ve çıkış "Menü" düğmesinin içinde
+            (23 Kasım 2026 · kullanıcı dönütü: "çıkış butonu mobilde göze
+            batıyor"). Çıkış panelin EN ALTINDA, çerçevesiz bir satır —
+            bulunabilir ama başparmağın ilk değdiği yerde değil.
+          */}
+          <MobilMenu
+            baglantilar={baglantilar}
+            kimlik={kimlik("sol")}
+            alt={
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <TemaSecici aktif={tema} />
+                <form action={cikisEylemi}>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 px-1 py-2 text-sm font-medium text-metin-yumusak transition hover:text-vurgu-metin"
+                  >
+                    <LogOut size={15} aria-hidden />
+                    Çıkış yap
+                  </button>
+                </form>
+              </div>
+            }
+          />
+
+          <div className="hidden items-center gap-3 lg:flex">
             {/*
               ROL ADIN ALTINDA (21 Ağustos 2026 · istek: "sol menü üstündeki
               YETKİM / Öğrenci kalksın, öğrenci adının altına öğrenci yazısı
@@ -663,28 +724,7 @@ function PanelCercevesi({
               danışman olabiliyor ve rollerden yalnızca birini yazmak, kişinin
               menüde neden fazladan başlık gördüğünü açıklamazdı.
             */}
-            <div className="text-right">
-              <p className="text-sm font-semibold text-ust-bar-metin">
-                {kullanici.ad} {kullanici.soyad}
-              </p>
-              <div className="mt-1 flex flex-wrap justify-end gap-1">
-                {kullanici.roller.length === 0 ? (
-                  <RolsuzEtiketi />
-                ) : (
-                  kullanici.roller.map((rol) => (
-                    <RolEtiketi
-                      key={rol.rolKodu}
-                      rolKodu={rol.rolKodu}
-                      ekBilgi={
-                        rol.ilKodu === null
-                          ? undefined
-                          : (ilAdlari.get(rol.ilKodu) ?? undefined)
-                      }
-                    />
-                  ))
-                )}
-              </div>
-            </div>
+            {kimlik("sag")}
             <form action={cikisEylemi}>
               <button
                 type="submit"
@@ -701,13 +741,13 @@ function PanelCercevesi({
       {/*
         GÖVDE: kenar çubuğu + içerik.
 
-        Kenar çubuğu dar ekranda GİZLENMİYOR, üste geçiyor: PanelGezinme 1024
-        pikselin altında kendini yatay kaydırılan bir rozet şeridine çeviriyor
-        (bkz. components/PanelGezinme.tsx). Bu yüzden `aside` iki durumda da
-        basılır — `hidden lg:block` verilseydi telefonda menü hiç görünmezdi.
+        Kenar çubuğu 1024 pikselin altında GİZLİ (23 Kasım 2026): aynı liste
+        telefonda üst bardaki "Menü" düğmesinin içinde basılıyor
+        (bkz. components/MobilMenu.tsx). Dar ekranda kenar boşlukları da
+        daraltıldı (px-4), içerik alanı ekranı daha iyi kullansın.
       */}
-      <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-6 py-8 lg:flex-row">
-        <aside className="yazdirma-disi lg:w-56 lg:shrink-0">
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:py-8">
+        <aside className="yazdirma-disi hidden lg:block lg:w-56 lg:shrink-0">
           <div className="lg:sticky lg:top-24">
             {/*
               "YETKİM" KUTUSU KALKTI (21 Ağustos 2026 · istek). Roller üst
@@ -756,7 +796,7 @@ function PanelCercevesi({
       */}
       {!projeYoneticisiMi(kullanici) && (
         <footer className="yazdirma-disi border-t border-cizgi">
-          <div className="mx-auto max-w-[1240px] px-6 py-4">
+          <div className="mx-auto max-w-[1240px] px-4 py-4 sm:px-6">
             <Link
               href="/panel/kisisel-verilerim"
               className="text-xs text-metin-yumusak underline-offset-4 transition hover:text-vurgu-metin hover:underline"

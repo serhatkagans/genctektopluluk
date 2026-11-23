@@ -104,11 +104,12 @@ function aktifMi(
  * büyümeye yer bırakmıyordu. Dikey liste hem gruplanabiliyor hem sınırsız
  * uzayabiliyor.
  *
- * MOBİLDE KENAR ÇUBUĞU YOK: 1024 pikselin altında liste, yatay kaydırılan bir
- * rozet şeridine dönüyor. Dar ekranda sabit bir kenar çubuğu içerik alanının
- * yarısını yerdi; açılır çekmece ise JavaScript ve odak tuzağı gerektirirdi —
- * sayfanın geri kalanı sunucuda basılıyor, gezinme için istemci mantığı
- * eklemek bu ekranda karşılığı olmayan bir maliyet.
+ * MOBİLDE MENÜ DÜĞMESİNİN İÇİNDE (23 Kasım 2026): 1024 pikselin altında
+ * kenar çubuğu gizleniyor ve AYNI dikey liste üst bardaki "Menü" düğmesinin
+ * açtığı panelde basılıyor (bkz. components/MobilMenu.tsx). Eskiden burada
+ * yatay kaydırılan bir rozet şeridi vardı; kullanıcı dönütü mobil yerleşimin
+ * kötü olduğuydu — öğelerin çoğu ekran dışında kalıyor, kaydırılabildiği
+ * anlaşılmıyordu.
  */
 export function PanelGezinme({
   baglantilar,
@@ -133,8 +134,7 @@ export function PanelGezinme({
 
   return (
     <nav aria-label="Panel gezinmesi">
-      {/* --- Geniş ekran: gruplu dikey liste --- */}
-      <ul className="hidden space-y-0.5 lg:block">
+      <ul className="space-y-0.5">
         {gruplar.map((grup) => (
           <li key={grup.ad}>
             {/*
@@ -198,48 +198,6 @@ export function PanelGezinme({
             </ul>
           </li>
         ))}
-      </ul>
-
-      {/*
-        --- Dar ekran: yatay kaydırılan şerit ---
-        Grup başlıkları burada basılmıyor: dar ekranda başlıklar şeridin
-        yarısını yer ve zaten hepsi tek sırada görünüyor.
-      */}
-      <ul className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden">
-        {baglantilar.map((baglanti) => {
-          const secili = aktifMi(yol, baglanti, baglantilar);
-          const Ikon = baglanti.ikon ? IKONLAR[baglanti.ikon] : null;
-          if (baglanti.pasifNedeni) {
-            return (
-              <li key={baglanti.yol} className="shrink-0">
-                <span
-                  aria-disabled="true"
-                  title={baglanti.pasifNedeni}
-                  className="flex cursor-not-allowed items-center gap-1.5 rounded-full bg-kart px-3.5 py-2 text-sm font-medium whitespace-nowrap text-metin-yumusak opacity-50"
-                >
-                  {Ikon && <Ikon size={15} />}
-                  {baglanti.etiket}
-                </span>
-              </li>
-            );
-          }
-          return (
-            <li key={baglanti.yol} className="shrink-0">
-              <Link
-                href={baglanti.yol}
-                aria-current={secili ? "page" : undefined}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap transition ${
-                  secili
-                    ? "bg-ust-bar-secili-zemin text-ust-bar-secili-metin"
-                    : "bg-kart text-metin-yumusak"
-                }`}
-              >
-                {Ikon && <Ikon size={15} />}
-                {baglanti.etiket}
-              </Link>
-            </li>
-          );
-        })}
       </ul>
     </nav>
   );
