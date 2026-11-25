@@ -16,6 +16,7 @@ import {
 import { oturumKullanicisiZorunlu } from "@/lib/auth/oturum";
 import { prisma } from "@/lib/db";
 import { GOREV_DURUM_ETIKETLERI } from "@/lib/gorev/kurallar";
+import { uygulamaYolu } from "@/lib/ortam";
 import { tarihSaatYaz } from "@/lib/tarih";
 import { gencTekGoreviYonetebilirMi } from "@/lib/yetki/izinler";
 import { YetkiHatasi } from "@/lib/yetki/tipler";
@@ -53,17 +54,26 @@ const DURUM_MESAJLARI: Record<string, string> = {
 export default async function GencTekGorevYonetimiSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ durum?: string; hata?: string }>;
+  searchParams: Promise<{ durum?: string; hata?: string; il?: string }>;
 }) {
   const kullanici = await oturumKullanicisiZorunlu();
   if (!gencTekGoreviYonetebilirMi(kullanici)) {
     throw new YetkiHatasi("GençTek görevlerini yönetme yetkiniz yok.");
   }
 
-  const { durum, hata } = await searchParams;
+  const { durum, hata, il } = await searchParams;
+  /*
+   * İL SÜZGECİ (25 Kasım 2026 · istek: "burada hangi ilden görebiliyor muyuz ·
+   * mesela ankara istedi benim ilimden seminer vermek için başvuran çocuk var
+   * mı diye"). Süzgeç başvuranın kayıtlı iline bakıyor; il kodu iki hane,
+   * başka bir değer süzgeçsiz sayılır.
+   */
+  const seciliIl = il && /^\d{2}$/.test(il) ? il : null;
+  const ilSarti = seciliIl ? { kullanici: { ilKodu: seciliIl } } : {};
 
-  const [basvurular, gorevler] = await Promise.all([
+  const [basvurular, gorevler, ilDagilimi] = await Promise.all([
     prisma.gencTekGorevBasvurusu.findMany({
+      where: ilSarti,
       /*
        * Karara bağlananlar da listede: "bu kişiye ne cevap verdik" sorusunun
        * karşılığı burada olmalı. Bekleyenler önce geliyor (BEKLIYOR < ONAYLANDI
@@ -114,7 +124,48 @@ export default async function GencTekGorevYonetimiSayfasi({
         basvurular: { select: { id: true } },
       },
     }),
+    /*
+     * Süzgeçteki iller yalnızca başvurusu olanlar: 81 ilin çoğu boş
+     * dönecekti. Görev başına sayım da buradan çıkıyor.
+     */
+    prisma.gencTekGorevBasvurusu.findMany({
+      select: {
+        gorevId: true,
+        onayDurumu: true,
+        kullanici: { select: { il: { select: { ilKodu: true, ad: true } } } },
+      },
+    }),
   ]);
+
+  const ilSecenekleri = [
+    ...ilDagilimi
+      .reduce((harita, satir) => {
+        const ilBilgisi = satir.kullanici.il;
+        if (!ilBilgisi) return harita;
+        const kayit = harita.get(ilBilgisi.ilKodu) ?? {
+          ilKodu: ilBilgisi.ilKodu,
+          ad: ilBilgisi.ad,
+          sayi: 0,
+        };
+        kayit.sayi += 1;
+        return harita.set(ilBilgisi.ilKodu, kayit);
+      }, new Map<string, { ilKodu: string; ad: string; sayi: number }>())
+      .values(),
+  ].sort((a, b) => a.ad.localeCompare(b.ad, "tr"));
+  const seciliIlAdi =
+    ilSecenekleri.find((secenek) => secenek.ilKodu === seciliIl)?.ad ?? null;
+  /* Seçili ilde görev başına başvuru ve onaylı sayısı. */
+  const ildekiSayim = new Map<number, { basvuru: number; onayli: number }>();
+  if (seciliIl) {
+    for (const satir of ilDagilimi) {
+      if (satir.kullanici.il?.ilKodu !== seciliIl) continue;
+      const sayim = ildekiSayim.get(satir.gorevId) ?? { basvuru: 0, onayli: 0 };
+      sayim.basvuru += 1;
+      if (satir.onayDurumu === "ONAYLANDI") sayim.onayli += 1;
+      ildekiSayim.set(satir.gorevId, sayim);
+    }
+  }
+  const ilSorgusu = seciliIl ? `?il=${seciliIl}` : "";
 
   const bekleyenler = basvurular.filter(
     (basvuru) => basvuru.onayDurumu === "BEKLIYOR",
@@ -148,7 +199,7 @@ export default async function GencTekGorevYonetimiSayfasi({
 
       <SayfaBasligi
         baslik="GençTek Görevleri"
-        aciklama={`${gorevler.filter((gorev) => gorev.aktif).length} açık görev · ${bekleyenler.length} başvuru karar bekliyor`}
+        aciklama={`${gorevler.filter((gorev) => gorev.aktif).length} açık görev · ${bekleyenler.length} başvuru karar bekliyor${seciliIlAdi ? ` (${seciliIlAdi})` : ""}`}
         geri={null}
       />
 
@@ -156,6 +207,55 @@ export default async function GencTekGorevYonetimiSayfasi({
         <BilgiKutusu cesit="olumlu">{DURUM_MESAJLARI[durum]}</BilgiKutusu>
       )}
       {hata && <BilgiKutusu cesit="hata">{hata}</BilgiKutusu>}
+
+      {/*
+        İL SÜZGECİ (25 Kasım 2026). GET formu, eylem adresi yok: form bulunduğu
+        adrese gönderiliyor, yani TEMEL_YOL altında da doğru yere düşüyor.
+        Seçim karar kuyruğunu, görev sayımlarını, karara bağlananları ve
+        Excel'i birlikte daraltıyor.
+      */}
+      <Kart>
+        <form method="get" className="flex flex-wrap items-end gap-2">
+          <label className="block grow sm:max-w-xs">
+            <span className="text-sm font-medium text-metin">
+              Başvuranın ili
+            </span>
+            <select
+              name="il"
+              defaultValue={seciliIl ?? ""}
+              className={SINIF_GIRDI}
+            >
+              <option value="">Bütün iller</option>
+              {ilSecenekleri.map((secenek) => (
+                <option key={secenek.ilKodu} value={secenek.ilKodu}>
+                  {secenek.ad} ({secenek.sayi} başvuru)
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className={SINIF_IKINCIL_BUTON}>
+            Göster
+          </button>
+          {seciliIl && (
+            <a
+              href={uygulamaYolu("/panel/genctek-gorevleri")}
+              className="inline-flex items-center gap-1 px-2 py-2.5 text-sm font-medium text-vurgu-metin"
+            >
+              <X size={14} aria-hidden />
+              Süzgeci kaldır
+            </a>
+          )}
+        </form>
+        {seciliIl && (
+          <p className="mt-3 text-sm text-metin-yumusak">
+            {seciliIlAdi ?? "Bu il"} için{" "}
+            {ildekiSayim.size === 0
+              ? "başvuru yok."
+              : [...ildekiSayim.values()].reduce((t, s) => t + s.basvuru, 0) +
+                " başvuru gösteriliyor."}
+          </p>
+        )}
+      </Kart>
 
       {/*
         KUYRUK ORTAK BİLEŞEN (26 Ağustos 2026): aynı liste ve karar formu
@@ -200,6 +300,14 @@ export default async function GencTekGorevYonetimiSayfasi({
                       {gorev.basvurular.length > gorev._count.basvurular &&
                         ` · ${gorev.basvurular.length} başvuru`}
                     </p>
+                    {seciliIl && (
+                      <p className="mt-0.5 text-sm font-medium text-metin">
+                        {seciliIlAdi ?? "Seçili il"}:{" "}
+                        {ildekiSayim.get(gorev.id)
+                          ? `${ildekiSayim.get(gorev.id)!.basvuru} başvuru · ${ildekiSayim.get(gorev.id)!.onayli} görevde`
+                          : "başvuru yok"}
+                      </p>
+                    )}
                     {/*
                     LİSTE ÇIKTISI İLANIN YANINDA (22 Ağustos 2026 · istek: "her
                     görev için excel listesi alınabilsin — kaç kişi, kimler
@@ -215,8 +323,12 @@ export default async function GencTekGorevYonetimiSayfasi({
                   */}
                     <p className="mt-2">
                       <DisaAktarmaBagi
-                        yol={`/panel/genctek-gorevleri/${gorev.id}/disa-aktar`}
-                        kayitSayisi={gorev.basvurular.length}
+                        yol={`/panel/genctek-gorevleri/${gorev.id}/disa-aktar${ilSorgusu}`}
+                        kayitSayisi={
+                          seciliIl
+                            ? (ildekiSayim.get(gorev.id)?.basvuru ?? 0)
+                            : gorev.basvurular.length
+                        }
                         etiket="Başvuru listesi"
                       />
                     </p>
@@ -362,7 +474,9 @@ export default async function GencTekGorevYonetimiSayfasi({
                   <span className="text-metin">
                     {basvuru.kullanici.ad} {basvuru.kullanici.soyad}
                     <span className="ml-2 text-sm text-metin-yumusak">
-                      {basvuru.gorev.ad}
+                      {[basvuru.gorev.ad, basvuru.kullanici.il?.ad]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   </span>
                   <span className="flex flex-wrap items-center gap-2">

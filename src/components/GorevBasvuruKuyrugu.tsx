@@ -81,7 +81,10 @@ export function GorevBasvuruKuyrugu({
               <p className="mt-0.5 text-sm text-metin-yumusak">
                 {[
                   basvuru.kullanici.sinif ?? basvuru.kullanici.brans,
-                  basvuru.kullanici.kurum?.ad ?? basvuru.kullanici.il?.ad,
+                  basvuru.kullanici.kurum?.ad,
+                  /* İl okul olsa da yazılıyor (25 Kasım 2026 · istek: "hangi
+                     ilden görebiliyor muyuz"); okul adı ili söylemiyor. */
+                  basvuru.kullanici.il?.ad,
                   tarihSaatYaz(basvuru.olusturmaTarihi),
                 ]
                   .filter(Boolean)

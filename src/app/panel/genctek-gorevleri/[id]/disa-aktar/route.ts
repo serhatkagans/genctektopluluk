@@ -71,8 +71,15 @@ export async function GET(
     return new Response("Bulunamadı", { status: 404 });
   }
 
+  /* Ekrandaki il süzgeci dosyaya da geçiyor (25 Kasım 2026). */
+  const il = new URL(istek.url).searchParams.get("il");
+  const seciliIl = il && /^\d{2}$/.test(il) ? il : null;
+
   const basvurular = await prisma.gencTekGorevBasvurusu.findMany({
-    where: { gorevId: gorev.id },
+    where: {
+      gorevId: gorev.id,
+      ...(seciliIl ? { kullanici: { ilKodu: seciliIl } } : {}),
+    },
     // Bekleyenler önce: dosyayı açan kişinin ilk aradığı şey yapılacak iştir.
     orderBy: [{ onayDurumu: "asc" }, { olusturmaTarihi: "asc" }],
     select: {

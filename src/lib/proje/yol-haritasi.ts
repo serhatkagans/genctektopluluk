@@ -1064,6 +1064,22 @@ export const YOL_HARITASI: readonly YolHaritasiMaddesi[] = [
     ],
     commitler: [],
   },
+  {
+    sira: 53,
+    baslik: "GençTek görev başvurularında il süzgeci",
+    durum: "YAYINDA",
+    ozet:
+      "Merkez, GençTek görevlerine hangi ilden başvuru geldiğini tek tek bakmadan görebiliyor; il koordinatörünün \"ilimden başvuran var mı\" sorusu tek seçimle cevaplanıyor.",
+    baslangic: "2026-11-25",
+    yayinTarihi: "2026-11-25",
+    maddeler: [
+      "GençTek Görevleri ekranında başvuranın iline göre süzgeç; listede yalnızca başvurusu olan iller, başvuru sayısıyla",
+      "Süzgeç seçilince her görevde o ilden kaç başvuru ve kaç kişinin görevde olduğu yazıyor",
+      "Görevin Excel/CSV listesi de seçili ile göre iniyor",
+      "Karar bekleyen ve karara bağlanan başvurularda il her zaman görünüyor",
+    ],
+    commitler: [],
+  },
 ];
 
 /**
